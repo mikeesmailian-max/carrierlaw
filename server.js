@@ -550,12 +550,12 @@ setInterval(runFollowupScheduler, 3600000);
 setTimeout(runFollowupScheduler, 30000);
 
 // ── START ─────────────────────────────────────────────────────
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('');
   console.log('╔══════════════════════════════════════════════════╗');
   console.log('║       FreightGuard Defense  —  Server Ready       ║');
   console.log('╚══════════════════════════════════════════════════╝');
-  console.log(`  🌐  URL:            http://localhost:${PORT}`);
+  console.log(`  🌐  URL:            http://0.0.0.0:${PORT}`);
   console.log(`  🤖  Anthropic API:  ${process.env.ANTHROPIC_API_KEY ? '✅ Connected' : '❌ Missing ANTHROPIC_API_KEY'}`);
   console.log(`  💳  Stripe:         ${process.env.STRIPE_SECRET_KEY ? '✅ Connected' : '⚠️  Not set — dev mode (free access)'}`);
   console.log(`  📧  Email (SMTP):   ${process.env.SMTP_USER        ? '✅ Connected' : '⚠️  Not set — email disabled'}`);
