@@ -1,0 +1,23 @@
+{
+  "name": "freightguard-defense",
+  "version": "1.0.0",
+  "description": "FreightGuard Defense — Carrier Federal Demand Letter Generator",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.7",
+    "stripe": "^14.21.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": ["trucking", "freight", "carrier", "demand-letter", "legal"],
+  "license": "UNLICENSED",
+  "private": true
+}

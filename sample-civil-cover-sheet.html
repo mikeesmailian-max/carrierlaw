@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>JS-44 Civil Cover Sheet — Sample</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 8.5pt;
+    color: #000;
+    background: #fff;
+  }
+  .page {
+    max-width: 8.5in;
+    margin: 0 auto;
+    padding: 0.45in 0.5in 0.45in 0.5in;
+    background: #fff;
+  }
+
+  /* Top header */
+  .top-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 4px;
+    gap: 12px;
+  }
+  .js44-label {
+    font-size: 11pt;
+    font-weight: bold;
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .js44-sub {
+    font-size: 7pt;
+    color: #333;
+    margin-top: 2px;
+  }
+  .court-title {
+    text-align: center;
+    flex: 1;
+  }
+  .court-title .district {
+    font-size: 13pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .court-title .form-title {
+    font-size: 9pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-top: 4px;
+    border-top: 2px solid #000;
+    border-bottom: 2px solid #000;
+    padding: 3px 0;
+  }
+  .rev-note {
+    font-size: 7pt;
+    text-align: right;
+    white-space: nowrap;
+    color: #333;
+  }
+
+  /* Main border table */
+  .main-box {
+    border: 2px solid #000;
+    width: 100%;
+  }
+
+  /* Section headers */
+  .section-bar {
+    background: #000;
+    color: #fff;
+    font-weight: bold;
+    font-size: 8.5pt;
+    padding: 3px 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* Two-column party row */
+  .party-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid #000;
+  }
+  .party-cell {
+    padding: 6px 8px;
+    min-height: 70px;
+    vertical-align: top;
+  }
+  .party-cell:first-child { border-right: 1px solid #000; }
+  .cell-label {
+    font-weight: bold;
+    font-size: 8pt;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: flex;
+    gap: 4px;
+  }
+  .cell-label .num { font-size: 8pt; }
+  .cell-content { font-size: 9pt; line-height: 1.65; padding-left: 4px; }
+  .underline-value {
+    border-bottom: 1px solid #000;
+    display: inline-block;
+    min-width: 200px;
+    font-size: 9pt;
+    line-height: 1.4;
+  }
+
+  .county-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid #000;
+    font-size: 8pt;
+  }
+  .county-cell {
+    padding: 4px 8px;
+    font-size: 8pt;
+  }
+  .county-cell:first-child { border-right: 1px solid #000; }
+
+  .attorneys-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 2px solid #000;
+  }
+  .att-cell { padding: 6px 8px; font-size: 8.5pt; line-height: 1.65; }
+  .att-cell:first-child { border-right: 1px solid #000; }
+
+  /* Three-column section */
+  .three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-bottom: 1px solid #000;
+  }
+  .col-cell {
+    padding: 5px 7px;
+    font-size: 8pt;
+    border-right: 1px solid #000;
+    vertical-align: top;
+  }
+  .col-cell:last-child { border-right: none; }
+  .col-head { font-weight: bold; margin-bottom: 5px; font-size: 8pt; }
+  .radio-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+    margin-bottom: 3px;
+    font-size: 8pt;
+    line-height: 1.4;
+  }
+  .radio-box {
+    width: 11px; height: 11px;
+    border: 1.5px solid #000;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .radio-box.checked::after {
+    content: '';
+    width: 6px; height: 6px;
+    background: #000;
+    border-radius: 50%;
+    display: block;
+  }
+  .check-box {
+    width: 11px; height: 11px;
+    border: 1.5px solid #000;
+    flex-shrink: 0;
+    margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9pt; font-weight: bold;
+  }
+
+  /* Nature of suit — big grid */
+  .nos-section { border-bottom: 1px solid #000; }
+  .nos-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    font-size: 7.5pt;
+  }
+  .nos-col {
+    border-right: 1px solid #000;
+    padding: 4px 5px;
+  }
+  .nos-col:last-child { border-right: none; }
+  .nos-col-head {
+    font-weight: bold;
+    font-size: 8pt;
+    text-transform: uppercase;
+    border-bottom: 1px solid #000;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+    text-align: center;
+  }
+  .nos-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+    margin-bottom: 3px;
+    cursor: default;
+    line-height: 1.4;
+  }
+  .nos-item .code { font-weight: bold; min-width: 26px; }
+  .nos-item.selected { font-weight: bold; }
+  .nos-item.selected .nos-box { background: #000; }
+  .nos-box {
+    width: 9px; height: 9px;
+    border: 1.5px solid #000;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  /* Origin, Removal etc */
+  .four-col {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    border-bottom: 1px solid #000;
+  }
+  .four-col .col-cell { border-right: 1px solid #000; }
+  .four-col .col-cell:last-child { border-right: none; }
+
+  /* Cause of action */
+  .cause-row {
+    border-bottom: 1px solid #000;
+    padding: 5px 8px;
+    font-size: 8.5pt;
+    line-height: 1.6;
+  }
+  .cause-label { font-weight: bold; margin-right: 6px; }
+
+  /* Requested in complaint row */
+  .requested-row {
+    border-bottom: 1px solid #000;
+    padding: 5px 8px;
+    font-size: 8.5pt;
+  }
+  .req-items {
+    display: flex;
+    gap: 28px;
+    margin-top: 4px;
+    flex-wrap: wrap;
+  }
+  .req-item { display: flex; align-items: center; gap: 6px; }
+
+  /* Related cases */
+  .related-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    padding: 5px 8px;
+    font-size: 8.5pt;
+    min-height: 36px;
+  }
+
+  /* Signature block */
+  .sig-section {
+    border-top: 2px solid #000;
+    padding: 8px;
+    font-size: 8.5pt;
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr;
+    gap: 12px;
+    align-items: end;
+  }
+  .sig-line {
+    border-bottom: 1.5px solid #000;
+    padding-top: 22px;
+    font-size: 8pt;
+  }
+
+  /* Instructions box */
+  .instructions {
+    margin-top: 10px;
+    font-size: 7.5pt;
+    line-height: 1.55;
+    color: #222;
+    border: 1px solid #888;
+    padding: 6px 8px;
+  }
+  .instructions strong { font-size: 8pt; }
+
+  @media print {
+    body { background: #fff; }
+    .no-print { display: none !important; }
+    .page { padding: 0.4in 0.45in; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Print bar -->
+<div class="no-print" style="background:#1e3a5f;padding:12px 24px;display:flex;align-items:center;justify-content:space-between;font-family:sans-serif;">
+  <span style="color:#fff;font-size:13px;font-weight:600;">📋 JS-44 Federal Civil Cover Sheet — Eagle Transport LLC v. Gulf Coast Freight Brokers</span>
+  <button onclick="window.print()" style="background:#c0392b;color:#fff;border:none;padding:8px 22px;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;">🖨️ Print / Save as PDF</button>
+</div>
+
+<div class="page">
+
+  <!-- TOP HEADER -->
+  <div class="top-header">
+    <div>
+      <div class="js44-label">JS 44 (Rev. 10/20)</div>
+      <div class="js44-sub">The JS 44 civil cover sheet and the information contained herein neither replace nor supplement the filing and service of<br>pleadings or other papers as required by law, except as provided by local rules of court.</div>
+    </div>
+    <div class="court-title">
+      <div class="district">United States District Court</div>
+      <div style="font-size:10pt;font-weight:bold;">Southern District of Mississippi</div>
+      <div class="form-title">Civil Cover Sheet</div>
+    </div>
+    <div class="rev-note">
+      For Use of Clerk of Court Only<br>
+      <span style="font-size:8pt;">Do Not Send to Court</span>
+    </div>
+  </div>
+
+  <div class="main-box">
+
+    <!-- SECTION I HEADER -->
+    <div class="section-bar">I. (a) PARTIES</div>
+
+    <!-- Plaintiff / Defendant names -->
+    <div class="party-row">
+      <div class="party-cell">
+        <div class="cell-label"><span class="num">(a)</span> <span>PLAINTIFF(S)</span></div>
+        <div class="cell-content">
+          <strong>Eagle Transport LLC</strong><br>
+          a Tennessee limited liability company<br>
+          MC# 1847392 &nbsp;·&nbsp; DOT# 3921045
+        </div>
+      </div>
+      <div class="party-cell">
+        <div class="cell-label"><span class="num">(a)</span> <span>DEFENDANT(S)</span></div>
+        <div class="cell-content">
+          <strong>Gulf Coast Freight Brokers, LLC</strong><br>
+          a Mississippi limited liability company<br>
+          MC# 7263019
+        </div>
+      </div>
+    </div>
+
+    <!-- County of residence -->
+    <div class="county-row">
+      <div class="county-cell">
+        <strong>(b) County of Residence of First Listed Plaintiff:</strong> &nbsp;
+        <span style="border-bottom:1px solid #000;padding:0 40px 0 4px;">Shelby County, Tennessee</span>
+      </div>
+      <div class="county-cell">
+        <strong>(b) County of Residence of First Listed Defendant:</strong> &nbsp;
+        <span style="border-bottom:1px solid #000;padding:0 40px 0 4px;">Hinds County, Mississippi</span>
+      </div>
+    </div>
+
+    <!-- Attorneys -->
+    <div class="attorneys-row">
+      <div class="att-cell">
+        <strong>(c) Attorneys (Firm Name, Address, and Telephone Number)</strong><br>
+        Jonathan R. Calloway, Esq.<br>
+        Calloway &amp; Sterling, P.C.<br>
+        One Commerce Square, Suite 2800, Memphis, TN 38103<br>
+        Tel: (901) 555-0192 &nbsp;·&nbsp; jcalloway@callowaysterling.com<br>
+        MS Bar No. 103847
+      </div>
+      <div class="att-cell">
+        <strong>(c) Attorneys (If Known)</strong><br>
+        <span style="color:#555;font-style:italic;">Unknown at time of filing</span>
+      </div>
+    </div>
+
+    <!-- SECTION II -->
+    <div class="section-bar">II. BASIS OF JURISDICTION (Place an "X" in One Box Only)</div>
+
+    <div class="three-col" style="grid-template-columns:repeat(4,1fr);">
+      <div class="col-cell">
+        <div class="radio-item"><div class="radio-box"></div> 1 &nbsp;U.S. Government Plaintiff</div>
+      </div>
+      <div class="col-cell">
+        <div class="radio-item"><div class="radio-box"></div> 2 &nbsp;U.S. Government Defendant</div>
+      </div>
+      <div class="col-cell">
+        <div class="radio-item"><div class="radio-box checked"></div> <strong>3 &nbsp;Federal Question</strong><br>
+        <span style="font-size:7.5pt;padding-left:16px;">(U.S. Government Not a Party)</span></div>
+      </div>
+      <div class="col-cell">
+        <div class="radio-item"><div class="radio-box"></div> 4 &nbsp;Diversity of Citizenship</div>
+      </div>
+    </div>
+
+    <!-- SECTION III -->
+    <div class="section-bar">III. CITIZENSHIP OF PRINCIPAL PARTIES (Place an "X" in One Box for Plaintiff and One Box for Defendant) — Diversity Cases Only</div>
+
+    <div style="display:grid;grid-template-columns:1fr 4fr;border-bottom:1px solid #000;font-size:8pt;">
+      <div style="padding:4px 8px;border-right:1px solid #000;font-style:italic;color:#666;">N/A — Federal Question Jurisdiction</div>
+      <div style="padding:4px 8px;display:grid;grid-template-columns:repeat(6,1fr);gap:4px;font-size:7.5pt;">
+        <div>PTF &nbsp; DEF</div><div>Citizen of This State &nbsp; □1 &nbsp; □1</div>
+        <div>PTF &nbsp; DEF</div><div>Incorporated or Principal Place &nbsp; □4 &nbsp; □4</div>
+        <div>PTF &nbsp; DEF</div><div>Foreign Nation &nbsp; □6 &nbsp; □6</div>
+      </div>
+    </div>
+
+    <!-- SECTION IV — NATURE OF SUIT -->
+    <div class="section-bar">IV. NATURE OF SUIT (Place an "X" in One Box Only)</div>
+
+    <div class="nos-section">
+      <div class="nos-grid">
+
+        <!-- CONTRACT -->
+        <div class="nos-col">
+          <div class="nos-col-head">Contract</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">110</span> Insurance</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">120</span> Marine</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">130</span> Miller Act</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">140</span> Negotiable Instrument</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">150</span> Recovery of Overpayment</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">151</span> Medicare Act</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">152</span> Recovery — Defaulted Student Loan</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">153</span> Recovery of Overpayment of Vet's Benefits</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">160</span> Stockholders' Suits</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">190</span> Other Contract</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">195</span> Contract Product Liability</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">196</span> Franchise</span></div>
+        </div>
+
+        <!-- TORTS / PERSONAL INJURY -->
+        <div class="nos-col">
+          <div class="nos-col-head">Torts — Personal Injury</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">310</span> Airplane</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">315</span> Airplane Product Liability</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">320</span> Assault, Libel &amp; Slander</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">330</span> Federal Employers' Liability</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">340</span> Marine</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">345</span> Marine Product Liability</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">350</span> Motor Vehicle</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">355</span> Motor Vehicle Product Liability</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">360</span> Other Personal Injury</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">362</span> Personal Injury — Medical Malpractice</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">365</span> Personal Injury — Product Liability</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">367</span> Health Care/Pharmaceutical PI</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">368</span> Asbestos Personal Injury</span></div>
+        </div>
+
+        <!-- TORTS / PROPERTY -->
+        <div class="nos-col">
+          <div class="nos-col-head">Torts — Property</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">370</span> Other Fraud</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">371</span> Truth in Lending</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">380</span> Other Personal Property Damage</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">385</span> Property Damage Product Liability</span></div>
+          <br>
+          <div class="nos-col-head" style="margin-top:6px;">Bankruptcy</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">422</span> Appeal 28 USC 158</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">423</span> Withdrawal 28 USC 157</span></div>
+          <br>
+          <div class="nos-col-head" style="margin-top:6px;">Real Property</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">210</span> Land Condemnation</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">220</span> Foreclosure</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">230</span> Rent Lease &amp; Ejectment</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">240</span> Torts to Land</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">245</span> Tort Product Liability</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">290</span> All Other Real Property</span></div>
+        </div>
+
+        <!-- CIVIL RIGHTS / IMMIGRATION -->
+        <div class="nos-col">
+          <div class="nos-col-head">Civil Rights</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">440</span> Other Civil Rights</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">441</span> Voting</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">442</span> Employment</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">443</span> Housing/Accommodations</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">445</span> Amer. w/Disabilities — Employment</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">446</span> Amer. w/Disabilities — Other</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">448</span> Education</span></div>
+          <br>
+          <div class="nos-col-head" style="margin-top:6px;">Prisoner Petitions</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">463</span> Alien Detainee</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">510</span> Motions to Vacate Sentence</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">530</span> General</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">535</span> Death Penalty</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">540</span> Mandamus &amp; Other</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">550</span> Civil Rights</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">555</span> Prison Condition</span></div>
+        </div>
+
+        <!-- FORFEITURE / LABOR / SOCIAL SECURITY -->
+        <div class="nos-col">
+          <div class="nos-col-head">Labor</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">710</span> Fair Labor Standards Act</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">720</span> Labor/Management Relations</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">740</span> Railway Labor Act</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">751</span> Family &amp; Medical Leave Act</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">790</span> Other Labor Litigation</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">791</span> Employee Ret. Income Security Act</span></div>
+          <br>
+          <div class="nos-col-head" style="margin-top:6px;">Social Security</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">861</span> HIA (1395ff)</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">862</span> Black Lung (923)</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">863</span> DIWC/DIWW (405(g))</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">864</span> SSID Title XVI</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">865</span> RSI (405(g))</span></div>
+        </div>
+
+        <!-- FEDERAL TAX / OTHER STATUTES -->
+        <div class="nos-col">
+          <div class="nos-col-head">Other Statutes</div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">375</span> False Claims Act</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">376</span> Qui Tam (31 USC 3729(a))</span></div>
+          <div class="nos-item selected"><div class="nos-box" style="background:#000;"></div><span><span class="code">820</span> <strong>Copyrights / Libel / Slander ★</strong></span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">840</span> Trademark</span></div>
+          <div class="nos-item selected"><div class="nos-box" style="background:#000;"></div><span><span class="code">880</span> <strong>Defend Trade Secrets Act ★</strong></span></div>
+          <div class="nos-item selected"><div class="nos-box" style="background:#000;"></div><span><span class="code">890</span> <strong>Other Statutory Actions ★</strong></span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">891</span> Agricultural Acts</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">893</span> Environmental Matters</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">895</span> Freedom of Information Act</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">896</span> Arbitration</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">899</span> Admin. Procedure Act/Review</span></div>
+          <div class="nos-item"><div class="nos-box"></div><span><span class="code">950</span> Constitutionality of State Statutes</span></div>
+          <br>
+          <div style="font-size:7pt;color:#444;font-style:italic;">★ Selected for this action</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SECTION V — ORIGIN -->
+    <div class="section-bar">V. ORIGIN (Place an "X" in One Box Only)</div>
+
+    <div style="display:grid;grid-template-columns:repeat(6,1fr);border-bottom:1px solid #000;font-size:8pt;padding:5px 6px;gap:6px;">
+      <div class="radio-item"><div class="radio-box checked"></div><strong>1 Original Proceeding</strong></div>
+      <div class="radio-item"><div class="radio-box"></div>2 Removed from State Court</div>
+      <div class="radio-item"><div class="radio-box"></div>3 Remanded from Appellate Court</div>
+      <div class="radio-item"><div class="radio-box"></div>4 Reinstated or Reopened</div>
+      <div class="radio-item"><div class="radio-box"></div>5 Transferred from Another District</div>
+      <div class="radio-item"><div class="radio-box"></div>6 Multidistrict Litigation</div>
+    </div>
+
+    <!-- SECTION VI — CAUSE OF ACTION -->
+    <div class="section-bar">VI. CAUSE OF ACTION</div>
+    <div class="cause-row">
+      <span class="cause-label">Cite the U.S. Civil Statute under which you are filing:</span>
+      <span>49 U.S.C. § 14915; 15 U.S.C. § 1125(a) (Lanham Act § 43(a)); Mississippi common law defamation and tortious interference</span><br>
+      <span class="cause-label" style="margin-top:6px;display:block;">Brief description of cause:</span>
+      <span>Defendant, a federally licensed freight broker (MC# 7263019), submitted a materially false and defamatory report to FreightGuard, a commercial carrier reporting database, falsely characterizing Plaintiff motor carrier as having caused cargo damage, abandoned a load, and altered a Bill of Lading. The report is entirely false, directly contradicted by signed delivery documentation, and has proximately caused Plaintiff to lose commercial freight contracts and suffer substantial lost revenue. Plaintiff seeks compensatory damages, punitive damages, injunctive relief requiring retraction, and attorneys' fees pursuant to applicable fee-shifting statutes.</span>
+    </div>
+
+    <!-- SECTION VII — REQUESTED IN COMPLAINT -->
+    <div class="section-bar">VII. REQUESTED IN COMPLAINT</div>
+    <div class="requested-row">
+      <div class="req-items">
+        <div class="req-item">
+          <div class="check-box">✓</div>
+          <span><strong>CHECK IF THIS IS A CLASS ACTION</strong> under Rule 23, F.R.Cv.P. &nbsp; No</span>
+        </div>
+        <div class="req-item" style="margin-left:20px;">
+          <strong>DEMAND $</strong> &nbsp;
+          <span style="border-bottom:1px solid #000;padding:0 8px;font-weight:bold;">247,000.00</span>
+          &nbsp; (compensatory) + punitive damages (to be determined by jury)
+        </div>
+        <div class="req-item" style="margin-left:20px;">
+          <div class="check-box">✓</div>
+          <strong>JURY DEMAND:</strong> &nbsp;
+          <span style="border-bottom:1px solid #000;padding:0 16px;">Yes</span> &nbsp; No
+        </div>
+      </div>
+    </div>
+
+    <!-- SECTION VIII — RELATED CASES -->
+    <div class="section-bar">VIII. RELATED CASE(S) IF ANY</div>
+    <div class="related-row">
+      <div>
+        <strong>JUDGE:</strong> &nbsp;
+        <span style="border-bottom:1px solid #000;padding:0 80px 0 4px;font-size:8.5pt;">N/A</span>
+      </div>
+      <div>
+        <strong>DOCKET NUMBER:</strong> &nbsp;
+        <span style="border-bottom:1px solid #000;padding:0 80px 0 4px;font-size:8.5pt;">N/A</span>
+      </div>
+    </div>
+
+    <!-- SIGNATURE -->
+    <div class="sig-section">
+      <div>
+        <div style="font-size:8pt;margin-bottom:4px;"><strong>DATE</strong></div>
+        <div class="sig-line" style="padding-top:16px;">[DATE]</div>
+      </div>
+      <div>
+        <div style="font-size:8pt;margin-bottom:4px;"><strong>SIGNATURE OF ATTORNEY OF RECORD</strong></div>
+        <div class="sig-line" style="padding-top:16px;font-style:italic;font-size:9pt;">Jonathan R. Calloway</div>
+      </div>
+      <div>
+        <div style="font-size:7.5pt;color:#333;line-height:1.5;">
+          FOR OFFICE USE ONLY<br>
+          Receipt #: ____________<br>
+          Amount: ____________<br>
+          IFP: ____________<br>
+          Judge: ____________<br>
+          Mag. Judge: ____________
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end main-box -->
+
+  <!-- Filing instructions -->
+  <div class="instructions">
+    <strong>FILING INSTRUCTIONS:</strong> &nbsp;
+    This completed JS-44 Civil Cover Sheet must accompany your Civil Complaint and be filed with the <strong>Clerk of Court, United States District Court, Southern District of Mississippi, 501 East Court Street, Suite 2.500, Jackson, Mississippi 39201 · (601) 608-4000.</strong>
+    &nbsp; Filing fee: $402.00 (payable by check, money order, or credit card to "Clerk, U.S. District Court").
+    Electronic filing available via CM/ECF at <strong>ecf.mssd.uscourts.gov</strong>. Pro se filers: report to the Civil Clerk's Office, Suite 2.500, during business hours (Mon–Fri, 8:30 a.m. – 4:30 p.m. CT).
+  </div>
+
+</div><!-- end page -->
+
+</body>
+</html>
