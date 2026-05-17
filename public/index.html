@@ -747,7 +747,17 @@ async function generateLetter() {
     }
     if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
 
-    document.getElementById('letterText').textContent = data.letter;
+    // Strip any HTML artifacts the AI might have included
+    const cleanLetter = (data.letter || '')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '');
+    document.getElementById('letterText').textContent = cleanLetter;
     document.getElementById('letterOutput').style.display = 'block';
     window._caseRef = data.caseRef || '';
 
@@ -824,9 +834,62 @@ function printLetter() {
   const text = document.getElementById('letterText').textContent;
   const el   = document.getElementById('printArea');
   el.style.display = 'block';
-  el.innerHTML = `<div style="font-family:'Times New Roman',Times,serif;padding:72px;font-size:13pt;line-height:2;color:#000;white-space:pre-wrap;">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+
+  // Escape text safely for HTML
+  const safeText = text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Build court info line if available
+  const courtEl = document.getElementById('courtBoxText');
+  const courtLine = courtEl ? courtEl.innerText.replace(/\n/g,' · ') : '';
+
+  el.innerHTML = `
+<style>
+  @page { margin: 0.9in 1in; size: letter; }
+  @media print {
+    body { margin: 0; }
+    #printArea * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+  .pl-page { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.9; color: #000; background: #fff; }
+  .pl-header { border-bottom: 3px double #1a1a4e; padding-bottom: 18px; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; }
+  .pl-logo-block { flex: 1; }
+  .pl-firm-name { font-size: 20pt; font-weight: 900; letter-spacing: 1px; color: #1a1a4e; font-family: 'Times New Roman', serif; }
+  .pl-firm-tagline { font-size: 8.5pt; color: #555; letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; }
+  .pl-contact-block { text-align: right; font-size: 8.5pt; color: #444; line-height: 1.7; }
+  .pl-seal { width: 64px; height: 64px; border-radius: 50%; border: 3px solid #1a1a4e; display: flex; align-items: center; justify-content: center; margin-left: 20px; flex-shrink: 0; }
+  .pl-seal-inner { font-size: 28px; }
+  .pl-body { white-space: pre-wrap; word-wrap: break-word; font-size: 12pt; line-height: 1.9; }
+  .pl-footer { margin-top: 36px; border-top: 1px solid #999; padding-top: 12px; font-size: 8pt; color: #666; line-height: 1.5; }
+  .pl-court-notice { background: #f5f5f0; border: 1px solid #ccc; border-left: 4px solid #1a1a4e; padding: 10px 14px; margin: 20px 0; font-size: 9pt; color: #333; }
+</style>
+<div class="pl-page">
+  <div class="pl-header">
+    <div class="pl-logo-block">
+      <div class="pl-firm-name">FREIGHTGUARD DEFENSE</div>
+      <div class="pl-firm-tagline">Legal Network &nbsp;·&nbsp; Transportation Law &nbsp;·&nbsp; Carrier Rights</div>
+    </div>
+    <div class="pl-contact-block">
+      legal@brokermc.com<br>
+      www.freightguarddefense.com<br>
+      Confidential Legal Communication<br>
+      ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
+    </div>
+    <div class="pl-seal"><div class="pl-seal-inner">⚖</div></div>
+  </div>
+
+  ${courtLine ? `<div class="pl-court-notice">📍 <strong>Designated Filing Venue:</strong> ${courtLine.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
+
+  <div class="pl-body">${safeText}</div>
+
+  <div class="pl-footer">
+    This communication is from a legal network acting on behalf of a licensed carrier. It contains information that is confidential and legally privileged.
+    If you are not the intended recipient, any disclosure, copying, distribution, or use of this communication is strictly prohibited and may be unlawful.
+    FreightGuard Defense · legal@brokermc.com · www.freightguarddefense.com
+  </div>
+</div>`;
+
   window.print();
-  setTimeout(() => { el.style.display = 'none'; }, 1000);
+  setTimeout(() => { el.style.display = 'none'; }, 2000);
 }
 
 // ── EMAIL ─────────────────────────────────────────────────────
@@ -968,6 +1031,7 @@ updateCourtPreview = async function() {
 checkPaymentReturn();
 loadAttorneys();
 loadCoverage();
+loadGooglePlaces();
 
 // ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────
 let _placesLoaded = false;

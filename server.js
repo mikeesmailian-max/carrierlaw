@@ -423,6 +423,8 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
 
     const prompt = `You are a senior transportation law attorney drafting a formal federal court demand letter. Write this letter exactly as a real law firm would send it — authoritative, legally precise, and intimidating to the recipient.
 
+CRITICAL FORMATTING RULES: Output ONLY plain text. Do NOT use any HTML tags, HTML entities (&nbsp;, &amp;, &lt;, &gt;, <br>, etc.), markdown formatting, asterisks, or special characters. Use plain spaces and newlines only. This letter will be printed directly on paper.
+
 TODAY'S DATE: ${today}
 RESPONSE DEADLINE: ${deadlineStr}
 
