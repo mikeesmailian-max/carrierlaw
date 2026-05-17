@@ -269,14 +269,17 @@ async function findCourthouseViaGoogleMaps(address) {
 }
 
 // ── DAMAGES — FIXED $15,000/TRUCK/MONTH ──────────────────────
-function calcDamages(numTrucks) {
+function calcDamages(numTrucks, unpaidInvoices = 0) {
   const monthlyPerTruck    = 15000;
   const annualPerTruck     = monthlyPerTruck * 12;       // $180,000
   const totalAnnualRevenue = annualPerTruck * numTrucks;
   const reRegisterCosts    = 5000;
   const legalFees          = 15000;
-  const totalDamages       = totalAnnualRevenue + reRegisterCosts + legalFees;
-  return { monthlyPerTruck, annualPerTruck, numTrucks, totalAnnualRevenue, reRegisterCosts, legalFees, totalDamages };
+  const invoiceSubtotal    = Number(unpaidInvoices) || 0;
+  const invoiceAttyFees    = Math.round(invoiceSubtotal * 0.50);   // 50% attorney fees on invoices
+  const totalDamages       = totalAnnualRevenue + reRegisterCosts + legalFees + invoiceSubtotal + invoiceAttyFees;
+  return { monthlyPerTruck, annualPerTruck, numTrucks, totalAnnualRevenue, reRegisterCosts, legalFees,
+           invoiceSubtotal, invoiceAttyFees, totalDamages };
 }
 
 // ── EMAIL HELPERS ─────────────────────────────────────────────
@@ -369,11 +372,11 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
       carrierName, carrierMC, carrierDOT, carrierEmail,
       numTrucks, carrierNarrative, evidenceDescription,
       brokerName, brokerMC, brokerAddress, brokerPOC,
-      reporterName, reportContent, assignedAttorneyId,
+      reporterName, reportContent, assignedAttorneyId, unpaidInvoices,
     } = req.body;
 
     const caseRef  = generateCaseRef();
-    const damages  = calcDamages(Number(numTrucks));
+    const damages  = calcDamages(Number(numTrucks), Number(unpaidInvoices) || 0);
 
     // Use Google Maps first, fall back to state-based
     const court    = (await findCourthouseViaGoogleMaps(brokerAddress)) || getCourtByState(brokerAddress);
@@ -433,7 +436,9 @@ COMPUTED DAMAGES (industry-standard rate of $15,000/truck/month):
 - Number of trucks affected: ${damages.numTrucks}
 - Total annual fleet revenue lost: $${damages.totalAnnualRevenue.toLocaleString()}
 - Re-registration / restructuring costs: $${damages.reRegisterCosts.toLocaleString()}
-- Estimated legal fees and costs: $${damages.legalFees.toLocaleString()}
+- Estimated legal fees and costs: $${damages.legalFees.toLocaleString()}${damages.invoiceSubtotal > 0 ? `
+- Unpaid invoices owed to carrier: $${damages.invoiceSubtotal.toLocaleString()}
+- Attorney fees on unpaid invoices (50%): $${damages.invoiceAttyFees.toLocaleString()}` : ''}
 - TOTAL DAMAGES CLAIMED: $${damages.totalDamages.toLocaleString()}
 
 VENUE COURT (where this will be filed):
@@ -458,7 +463,7 @@ LETTER REQUIREMENTS:
 6. "THE FREIGHTGUARD REPORT" section — quote the report and explain why it is false
 7. "LEGAL AUTHORITY" section — cite all statutes above with brief explanations
 8. "DAMAGES" section — present the full damages table line by line with the $15,000/month/truck rate prominently stated
-9. "DEMANDS" section — numbered list: (1) immediate retraction of the FreightGuard report, (2) written apology to carrier, (3) payment of $${damages.totalDamages.toLocaleString()} in damages, (4) cease all further disparaging communications
+9. "DEMANDS" section — numbered list: (1) immediate retraction of the FreightGuard report, (2) written apology to carrier, (3) payment of $${damages.totalDamages.toLocaleString()} in total damages${damages.invoiceSubtotal > 0 ? ` (including $${damages.invoiceSubtotal.toLocaleString()} in unpaid invoices plus 50% attorney fees of $${damages.invoiceAttyFees.toLocaleString()})` : ''}, (4) cease all further disparaging communications
 10. State that failure to comply within 14 days (by ${deadlineStr}) will result in filing in ${court.name}, ${court.dept}
 11. Include court address and phone number in the filing threat${court.distanceMiles ? `\n12. Mention that the court is ${court.distanceMiles} miles from the defendant's place of business` : ''}
 12. Professional closing
@@ -482,7 +487,7 @@ ${attorneyBlock}`;
       caseRef,
       carrierName, carrierEmail, carrierMC,
       brokerName, brokerMC, brokerAddress,
-      numTrucks, totalDamages: damages.totalDamages,
+      numTrucks, totalDamages: damages.totalDamages, unpaidInvoices: damages.invoiceSubtotal,
       court: `${court.name}, ${court.city}, ${court.state}`,
       letterText,
       ts: new Date().toISOString(),
@@ -608,6 +613,13 @@ app.get('/api/attorneys/coverage', (req, res) => {
   });
 
   res.json(result);
+});
+
+
+// ── GOOGLE MAPS PUBLIC KEY (safe to expose — restrict in GCP console) ──
+app.get('/api/maps-key', (req, res) => {
+  const key = cfg('GOOGLE_MAPS_API_KEY');
+  res.json({ key: key || '' });
 });
 
 // ── ADMIN AUTH ────────────────────────────────────────────────

@@ -388,7 +388,7 @@
       <div>
         <div class="card">
           <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
-          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="e.g. Swift Eagle Transport LLC" /></div>
+          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="e.g. Swift Eagle Transport LLC" autocomplete="off" /></div>
           <div class="field-row">
             <div class="field"><label>MC Number *</label><input id="carrierMC" placeholder="1234567" /></div>
             <div class="field"><label>DOT Number *</label><input id="carrierDOT" placeholder="9876543" /></div>
@@ -402,6 +402,20 @@
             <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Damages calculated at industry standard of <strong style="color:var(--gold);">$15,000/truck/month</strong></div>
           </div>
 
+          <!-- UNPAID INVOICES -->
+          <div class="field" style="margin-top:4px;">
+            <label>Unpaid Invoices Owed by Broker <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
+            <div style="position:relative;">
+              <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gold);font-weight:700;font-size:15px;">$</span>
+              <input id="unpaidInvoices" type="number" min="0" step="100" placeholder="0.00"
+                style="padding-left:26px;" oninput="recalcDamages()" />
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">
+              Enter the total dollar amount the broker owes you in unpaid freight invoices.
+              <strong style="color:var(--gold);">50% attorney fees</strong> will be added on top and included in the demand letter.
+            </div>
+          </div>
+
           <!-- LIVE DAMAGE PREVIEW -->
           <div class="damage-preview" id="damagePreview" style="display:none;">
             <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);margin-bottom:10px;">⚡ Live Damages Calculation</div>
@@ -410,7 +424,11 @@
             <div class="damage-row"><span>Fleet annual revenue (<span id="dp-trucks">0</span> trucks)</span><span id="dp-fleet">—</span></div>
             <div class="damage-row"><span>Re-registration / restructuring</span><span>$5,000</span></div>
             <div class="damage-row"><span>Estimated legal costs</span><span>$15,000</span></div>
-            <div class="damage-row"><span><strong>TOTAL WE ARE SUING FOR</strong></span><span id="dp-total">—</span></div>
+            <div id="dp-invoice-rows" style="display:none;">
+              <div class="damage-row" style="color:#e8b84b;"><span>Unpaid invoices owed by broker</span><span id="dp-invoice-amt">—</span></div>
+              <div class="damage-row" style="color:#e8b84b;"><span>Attorney fees on invoices (50%)</span><span id="dp-invoice-fees">—</span></div>
+            </div>
+            <div class="damage-row" style="font-size:15px;font-weight:700;border-top:1px solid rgba(255,255,255,.15);margin-top:6px;padding-top:10px;"><span><strong>TOTAL WE ARE SUING FOR</strong></span><span id="dp-total">—</span></div>
           </div>
 
           <div class="field" style="margin-top:16px;">
@@ -423,7 +441,7 @@
 
         <div class="card">
           <div class="card-title"><span class="dot"></span>Broker Who Filed the Report</div>
-          <div class="field"><label>Broker Company Name *</label><input id="brokerName" placeholder="e.g. Apex Freight Solutions Inc." /></div>
+          <div class="field"><label>Broker Company Name *</label><input id="brokerName" placeholder="e.g. Apex Freight Solutions Inc." autocomplete="off" /></div>
           <div class="field-row">
             <div class="field">
               <label>Broker MC Number *</label>
@@ -438,7 +456,7 @@
           <!-- Broker address + map embed -->
           <div class="field">
             <label>Broker Full Address (Street, City, State ZIP) *</label>
-            <input id="brokerAddress" placeholder="4500 Commerce Blvd, Dallas, TX 75201" oninput="updateCourtPreview()" />
+            <input id="brokerAddress" placeholder="4500 Commerce Blvd, Dallas, TX 75201" autocomplete="off" oninput="updateCourtPreview()" />
           </div>
 
           <!-- Google Maps embed — broker location -->
@@ -596,15 +614,25 @@ async function checkPaymentReturn() {
 function fmt(n) { return '$' + Math.round(n).toLocaleString(); }
 
 function recalcDamages() {
-  const trucks  = parseInt(document.getElementById('numTrucks').value) || 0;
-  const preview = document.getElementById('damagePreview');
-  if (!trucks) { preview.style.display = 'none'; return; }
+  const trucks   = parseInt(document.getElementById('numTrucks').value) || 0;
+  const invoices = parseFloat(document.getElementById('unpaidInvoices').value) || 0;
+  const preview  = document.getElementById('damagePreview');
+  if (!trucks && !invoices) { preview.style.display = 'none'; return; }
   preview.style.display = 'block';
-  const fleet = 180000 * trucks;           // $15k/month × 12 × trucks
-  const total = fleet + 5000 + 15000;
+  const fleet      = 180000 * trucks;
+  const attyFees   = Math.round(invoices * 0.50);
+  const total      = fleet + 5000 + 15000 + invoices + attyFees;
   document.getElementById('dp-trucks').textContent = trucks;
   document.getElementById('dp-fleet').textContent  = fmt(fleet);
   document.getElementById('dp-total').textContent  = fmt(total);
+  const invRows = document.getElementById('dp-invoice-rows');
+  if (invoices > 0) {
+    invRows.style.display = 'block';
+    document.getElementById('dp-invoice-amt').textContent  = fmt(invoices);
+    document.getElementById('dp-invoice-fees').textContent = fmt(attyFees);
+  } else {
+    invRows.style.display = 'none';
+  }
 }
 
 // ── COURT PREVIEW + BROKER MAP ────────────────────────────────
@@ -653,6 +681,7 @@ async function generateLetter() {
     carrierDOT:        v('carrierDOT'),
     carrierEmail:      v('carrierEmail'),
     numTrucks:         v('numTrucks'),
+    unpaidInvoices:    v('unpaidInvoices'),
     brokerName:        v('brokerName'),
     brokerMC:          v('brokerMC'),
     brokerAddress:     v('brokerAddress'),
@@ -916,6 +945,67 @@ updateCourtPreview = async function() {
 checkPaymentReturn();
 loadAttorneys();
 loadCoverage();
+
+// ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────
+let _placesLoaded = false;
+async function loadGooglePlaces() {
+  if (_placesLoaded || window.google) { initPlacesAutocomplete(); return; }
+  try {
+    const r = await fetch('/api/maps-key');
+    const { key } = await r.json();
+    if (!key) return; // no key configured — skip silently
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&callback=initPlacesAutocomplete`;
+    script.async = true;
+    script.defer = true;
+    document.head.appendChild(script);
+    _placesLoaded = true;
+  } catch(e) { /* Places not available — manual entry works fine */ }
+}
+
+window.initPlacesAutocomplete = function() {
+  // ── Broker company name → establishment search, auto-fills address ──
+  const brokerInput = document.getElementById('brokerName');
+  if (brokerInput) {
+    const brokerAC = new google.maps.places.Autocomplete(brokerInput, {
+      types: ['establishment'],
+      fields: ['name','formatted_address','address_components','formatted_phone_number','website']
+    });
+    brokerAC.addListener('place_changed', () => {
+      const place = brokerAC.getPlace();
+      if (place.formatted_address) {
+        document.getElementById('brokerAddress').value = place.formatted_address;
+        updateCourtPreview(); // trigger court lookup
+      }
+    });
+  }
+
+  // ── Broker address field ──
+  const addrInput = document.getElementById('brokerAddress');
+  if (addrInput) {
+    const addrAC = new google.maps.places.Autocomplete(addrInput, {
+      types: ['address'],
+      fields: ['formatted_address','address_components']
+    });
+    addrAC.addListener('place_changed', () => {
+      const place = addrAC.getPlace();
+      if (place.formatted_address) {
+        addrInput.value = place.formatted_address;
+        updateCourtPreview();
+      }
+    });
+  }
+
+  // ── Carrier company name ──
+  const carrierInput = document.getElementById('carrierName');
+  if (carrierInput) {
+    new google.maps.places.Autocomplete(carrierInput, {
+      types: ['establishment'],
+      fields: ['name']
+    });
+  }
+};
+
 </script>
 </body>
 </html>
