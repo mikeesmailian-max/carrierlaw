@@ -431,6 +431,28 @@
             <div class="damage-row" style="font-size:15px;font-weight:700;border-top:1px solid rgba(255,255,255,.15);margin-top:6px;padding-top:10px;"><span><strong>TOTAL WE ARE SUING FOR</strong></span><span id="dp-total">—</span></div>
           </div>
 
+          <!-- SUPPORTING DOCUMENTS UPLOAD -->
+          <div class="field" style="margin-top:4px;">
+            <label>Supporting Documents <span style="color:var(--text-muted);font-weight:400;">(optional — attached to demand letter email)</span></label>
+            <div id="dropZone" onclick="document.getElementById('docFileInput').click()"
+              style="border:2px dashed var(--border);border-radius:8px;padding:20px 16px;text-align:center;cursor:pointer;transition:border-color .2s;background:rgba(255,255,255,.02);"
+              ondragover="event.preventDefault();this.style.borderColor='var(--gold)'"
+              ondragleave="this.style.borderColor='var(--border)'"
+              ondrop="handleDocDrop(event)">
+              <div style="font-size:22px;margin-bottom:6px;">📎</div>
+              <div style="font-size:13px;font-weight:600;color:var(--gold);">Click to attach files or drag &amp; drop</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">PDF, Word, Excel, images — up to 10 files, 20MB each</div>
+              <div style="font-size:11px;color:var(--text-muted);">e.g. Bill of Lading, Signed POD, Invoice, Email chain, Dashcam footage</div>
+            </div>
+            <input id="docFileInput" type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt,.csv"
+              style="display:none" onchange="handleDocSelect(this.files)" />
+            <div id="docFileList" style="margin-top:10px;display:none;">
+              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--text-muted);margin-bottom:8px;">Files to attach:</div>
+              <div id="docItems"></div>
+            </div>
+            <div id="docUploadStatus" style="font-size:12px;margin-top:8px;display:none;"></div>
+          </div>
+
           <div class="field" style="margin-top:16px;">
             <label>Assign Attorney (optional)</label>
             <select id="assignedAttorney">
@@ -682,6 +704,7 @@ async function generateLetter() {
     carrierEmail:      v('carrierEmail'),
     numTrucks:         v('numTrucks'),
     unpaidInvoices:    v('unpaidInvoices'),
+    uploadedDocs:      window._uploadedDocs || [],
     brokerName:        v('brokerName'),
     brokerMC:          v('brokerMC'),
     brokerAddress:     v('brokerAddress'),
@@ -1005,6 +1028,85 @@ window.initPlacesAutocomplete = function() {
     });
   }
 };
+
+
+// ── DOCUMENT UPLOAD ───────────────────────────────────────────
+window._uploadedDocs = [];
+
+function handleDocSelect(files) { uploadDocs([...files]); }
+
+function handleDocDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropZone').style.borderColor = 'var(--border)';
+  uploadDocs([...e.dataTransfer.files]);
+}
+
+async function uploadDocs(files) {
+  if (!files.length) return;
+  const status = document.getElementById('docUploadStatus');
+  status.style.display = 'block';
+  status.style.color = 'var(--gold)';
+  status.textContent = `⏳ Uploading ${files.length} file(s)...`;
+
+  const fd = new FormData();
+  files.forEach(f => fd.append('files', f));
+
+  try {
+    const res  = await fetch('/api/upload-docs', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+
+    data.files.forEach(f => {
+      if (!window._uploadedDocs.find(d => d.id === f.id)) window._uploadedDocs.push(f);
+    });
+    renderDocList();
+    status.style.color = 'var(--green, #3fb950)';
+    status.textContent = `✅ ${data.files.length} file(s) uploaded successfully`;
+    setTimeout(() => status.style.display = 'none', 3000);
+  } catch(e) {
+    status.style.color = '#f85149';
+    status.textContent = '❌ Upload failed: ' + e.message;
+  }
+}
+
+function removeDoc(id) {
+  window._uploadedDocs = window._uploadedDocs.filter(d => d.id !== id);
+  renderDocList();
+}
+
+function renderDocList() {
+  const wrap  = document.getElementById('docFileList');
+  const items = document.getElementById('docItems');
+  if (!window._uploadedDocs.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = 'block';
+  items.innerHTML = window._uploadedDocs.map(d => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 12px;background:rgba(255,255,255,.04);border-radius:6px;margin-bottom:5px;">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span style="font-size:16px;">${docIcon(d.name)}</span>
+        <div>
+          <div style="font-size:13px;font-weight:600;">${esc(d.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${fmtFileSize(d.size)}</div>
+        </div>
+      </div>
+      <button onclick="removeDoc('${d.id}')" style="background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.3);color:#f85149;border-radius:5px;padding:3px 10px;cursor:pointer;font-size:12px;">✕ Remove</button>
+    </div>`).join('');
+}
+
+function docIcon(name) {
+  const ext = name.split('.').pop().toLowerCase();
+  if (ext === 'pdf') return '📄';
+  if (['doc','docx'].includes(ext)) return '📝';
+  if (['xls','xlsx'].includes(ext)) return '📊';
+  if (['png','jpg','jpeg','gif'].includes(ext)) return '🖼️';
+  return '📎';
+}
+function fmtFileSize(bytes) {
+  if (!bytes) return '';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/(1024*1024)).toFixed(1) + ' MB';
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
 </script>
 </body>

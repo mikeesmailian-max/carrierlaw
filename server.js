@@ -104,6 +104,22 @@ const DATA_DIR = process.env.NODE_ENV === 'production'
   ? '/tmp/freightguard-data'
   : path.join(__dirname, 'data');
 
+
+// ── FILE UPLOADS ──────────────────────────────────────────────
+const multer = require('multer');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+try { if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch(e) {}
+const upload = multer({
+  dest: UPLOADS_DIR,
+  limits: { fileSize: 20 * 1024 * 1024, files: 10 }, // 20MB per file, 10 files max
+  fileFilter: (req, file, cb) => {
+    const ok = /pdf|jpeg|jpg|png|gif|doc|docx|xls|xlsx|txt|csv/.test(
+      file.mimetype + ' ' + file.originalname.toLowerCase()
+    );
+    cb(null, ok);
+  }
+});
+
 const ATTORNEYS_FILE = path.join(DATA_DIR, 'attorneys.json');
 const REPORTS_FILE   = path.join(DATA_DIR, 'broker-reports.json');
 const FOLLOWUPS_FILE = path.join(DATA_DIR, 'followups.json');
@@ -293,17 +309,21 @@ function buildEmailHtml(letterText) {
 </div>`;
 }
 
-async function dispatchEmail({ to, cc, subject, text, html }) {
+async function dispatchEmail({ to, cc, subject, text, html, attachments = [] }) {
   const fromName = cfg('FIRM_NAME') || 'FreightGuard Defense Legal Network';
 
   // Try Resend first
   if (resendClient) {
     const fromEmail = cfg('RESEND_FROM_EMAIL') || 'legal@freightguarddefense.com';
     const { data, error } = await resendClient.emails.send({
-      from:    `${fromName} <${fromEmail}>`,
-      to:      Array.isArray(to) ? to : [to],
-      cc:      cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
+      from:        `${fromName} <${fromEmail}>`,
+      to:          Array.isArray(to) ? to : [to],
+      cc:          cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
       subject, html, text,
+      attachments: attachments.map(a => ({
+        filename: a.name,
+        content:  fs.readFileSync(a.path).toString('base64'),
+      })),
     });
     if (error) throw new Error(error.message || 'Resend send failed');
     return data;
@@ -372,7 +392,7 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
       carrierName, carrierMC, carrierDOT, carrierEmail,
       numTrucks, carrierNarrative, evidenceDescription,
       brokerName, brokerMC, brokerAddress, brokerPOC,
-      reporterName, reportContent, assignedAttorneyId, unpaidInvoices,
+      reporterName, reportContent, assignedAttorneyId, unpaidInvoices, uploadedDocs,
     } = req.body;
 
     const caseRef  = generateCaseRef();
@@ -470,6 +490,13 @@ LETTER REQUIREMENTS:
 
 Write the complete letter. Use [DATE] as the date placeholder. Make every word feel like it was written by a $500/hour attorney.
 
+${uploadedDocs && uploadedDocs.length ? `
+
+SUPPORTING DOCUMENTS ENCLOSED (${uploadedDocs.length}):
+${uploadedDocs.map((d,i) => `${i+1}. ${d.name}`).join('\n')}
+
+Reference these documents in the letter body where relevant (e.g., "As evidenced by the attached Bill of Lading..."). List all attached documents in an "ENCLOSURES" section at the end of the letter.` : ''}
+
 ${attorneyBlock}`;
 
     const message = await anthropic.messages.create({
@@ -490,6 +517,7 @@ ${attorneyBlock}`;
       numTrucks, totalDamages: damages.totalDamages, unpaidInvoices: damages.invoiceSubtotal,
       court: `${court.name}, ${court.city}, ${court.state}`,
       letterText,
+      uploadedDocs: uploadedDocs || [],
       ts: new Date().toISOString(),
     });
     saveLetters(letters);
@@ -497,7 +525,11 @@ ${attorneyBlock}`;
     res.json({ letter: letterText, damages, court, attorney: attorney || null, caseRef });
   } catch(err) {
     console.error('Letter generation error:', err);
-    res.status(500).json({ error: 'Letter generation failed: ' + err.message });
+    let msg = err.message;
+    if (msg.includes('401') || msg.includes('authentication_error') || msg.includes('invalid x-api-key')) {
+      msg = 'Anthropic API key is missing or invalid. Go to Admin Panel → API Keys and enter your key from console.anthropic.com';
+    }
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -615,6 +647,26 @@ app.get('/api/attorneys/coverage', (req, res) => {
   res.json(result);
 });
 
+
+
+// ── DOCUMENT UPLOAD ───────────────────────────────────────────
+app.post('/api/upload-docs', upload.array('files', 10), (req, res) => {
+  if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files uploaded' });
+  const saved = req.files.map(f => ({
+    id:       f.filename,
+    name:     f.originalname,
+    size:     f.size,
+    mimetype: f.mimetype,
+    path:     f.path,
+  }));
+  res.json({ files: saved });
+});
+
+app.get('/api/docs/:id', (req, res) => {
+  const filePath = path.join(UPLOADS_DIR, req.params.id);
+  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
+  res.sendFile(filePath);
+});
 
 // ── GOOGLE MAPS PUBLIC KEY (safe to expose — restrict in GCP console) ──
 app.get('/api/maps-key', (req, res) => {
