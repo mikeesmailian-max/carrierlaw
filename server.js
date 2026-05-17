@@ -309,8 +309,13 @@ app.get('/api/check-broker', (req, res) => {
 app.get('/api/court', async (req, res) => {
   const { address } = req.query;
   if (!address) return res.status(400).json({ error: 'Address required' });
-  const googleResult = await findCourthouseViaGoogleMaps(address);
-  res.json(googleResult || getCourtByState(address));
+  try {
+    const googleResult = await findCourthouseViaGoogleMaps(address);
+    res.json(googleResult || getCourtByState(address));
+  } catch(err) {
+    console.error('Court lookup error:', err.message);
+    res.json(getCourtByState(address)); // always fall back gracefully
+  }
 });
 
 // ── LETTER GENERATION ─────────────────────────────────────────
@@ -733,5 +738,4 @@ function shutdown(signal) {
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT',  () => shutdown('SIGINT'));
-process.on('uncaughtException',  err => console.error('Uncaught exception:', err.message));
-process.on('unhandledRejection', (err) => console.error('Unhandled rejection:', err));
+process.on('uncaught
