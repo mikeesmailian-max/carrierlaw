@@ -233,6 +233,9 @@
       <a href="#" data-tab="users" onclick="switchTab('users',this)">
         <span class="nav-icon">👤</span> Users
       </a>
+      <a href="#" data-tab="client-users" onclick="switchTab('client-users',this)">
+        <span class="nav-icon">🔐</span> Portal Clients
+      </a>
       <a href="#" data-tab="letters" onclick="switchTab('letters',this)">
         <span class="nav-icon">📄</span> Letters
       </a>
@@ -245,8 +248,8 @@
       <a href="#" data-tab="attorneys" onclick="switchTab('attorneys',this)">
         <span class="nav-icon">👔</span> Attorneys
       </a>
-      <a href="#" data-tab="apikeys" onclick="switchTab('apikeys',this)">
-        <span class="nav-icon">🔑</span> API Keys
+      <a href="#" data-tab="config" onclick="switchTab('config',this)">
+        <span class="nav-icon">⚙️</span> API Keys
       </a>
     </nav>
     <div class="sidebar-footer">
@@ -394,10 +397,6 @@
             <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Specialty / Notes</label>
             <input id="aa-specialty" placeholder="Transportation law, FMCSA disputes" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
           </div>
-          <div style="grid-column:1/-1;">
-            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Website <span style="color:var(--muted);font-weight:400">(optional — shown on demand letters)</span></label>
-            <input id="aa-website" type="url" placeholder="https://www.harringtonlaw.com" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
-          </div>
         </div>
         <button onclick="adminAddAttorney()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:10px 24px;font-weight:700;font-size:13px;cursor:pointer;">+ Save Attorney</button>
       </div>
@@ -414,166 +413,37 @@
       </div>
     </div>
 
-  
-    <!-- ── API KEYS ── -->
-    <div id="tab-apikeys" class="tab-section">
-      <div class="page-title">🔑 API Configuration</div>
-      <p style="color:var(--muted);margin-bottom:24px;font-size:13px">Keys saved here override Railway environment variables instantly — no redeploy needed.</p>
-
-      <div id="apiAlert" style="display:none;padding:12px 16px;border-radius:var(--radius);margin-bottom:20px;font-size:13px"></div>
-
-      <!-- Claude AI -->
-      <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:22px">🤖</span>
-            <div>
-              <div style="font-weight:600">Claude AI (Anthropic)</div>
-              <div style="font-size:12px;color:var(--muted)">Required for AI demand letter generation</div>
-            </div>
-          </div>
-          <span id="status-anthropic" style="font-size:12px;padding:3px 10px;border-radius:20px;background:#1a1a1a">—</span>
+    <!-- ── PORTAL CLIENTS ── -->
+    <div id="tab-client-users" class="tab-section">
+      <div class="page-title">Portal Client Accounts</div>
+      <div class="page-sub">Manage clients who have registered via the client portal (login.html)</div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>Registered Clients</h3>
+          <span class="count-badge" id="clientUsersCount">—</span>
+          <button class="btn btn-reload" onclick="loadClientUsers()">↻ Refresh</button>
         </div>
-        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">API Key</label>
-        <input type="password" id="key-ANTHROPIC_API_KEY" placeholder="sk-ant-api03-..." style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:monospace">
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">Get your key at <a href="https://console.anthropic.com" target="_blank" style="color:var(--accent)">console.anthropic.com</a></div>
-      </div>
-
-      <!-- Resend Email -->
-      <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:22px">📧</span>
-            <div>
-              <div style="font-weight:600">Resend Email</div>
-              <div style="font-size:12px;color:var(--muted)">Sends demand letters and follow-ups to brokers</div>
-            </div>
-          </div>
-          <span id="status-resend" style="font-size:12px;padding:3px 10px;border-radius:20px;background:#1a1a1a">—</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">API Key</label>
-            <input type="password" id="key-RESEND_API_KEY" placeholder="re_..." style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:monospace">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">From Email</label>
-            <input type="text" id="key-RESEND_FROM_EMAIL" placeholder="legal@yourdomain.com" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px">
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">Get your key at <a href="https://resend.com" target="_blank" style="color:var(--accent)">resend.com</a> — must verify your sending domain first</div>
-      </div>
-
-      <!-- Stripe -->
-      <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:22px">💳</span>
-            <div>
-              <div style="font-weight:600">Stripe Payments</div>
-              <div style="font-size:12px;color:var(--muted)">Collect $250/case payment before generating letters</div>
-            </div>
-          </div>
-          <span id="status-stripe" style="font-size:12px;padding:3px 10px;border-radius:20px;background:#1a1a1a">—</span>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">Secret Key</label>
-            <input type="password" id="key-STRIPE_SECRET_KEY" placeholder="sk_live_..." style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:monospace">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">Publishable Key</label>
-            <input type="text" id="key-STRIPE_PUBLISHABLE_KEY" placeholder="pk_live_..." style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:monospace">
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px">
-            <input type="checkbox" id="key-STRIPE_DISABLED-cb" onchange="document.getElementById('key-STRIPE_DISABLED').value=this.checked?'true':''">
-            Free Access Mode (disable payments — everyone gets letters free)
-          </label>
-          <input type="hidden" id="key-STRIPE_DISABLED" value="">
-        </div>
-        <div style="font-size:11px;color:var(--muted);margin-top:8px">Get keys at <a href="https://dashboard.stripe.com/apikeys" target="_blank" style="color:var(--accent)">dashboard.stripe.com/apikeys</a></div>
-      </div>
-
-      <!-- Google Maps -->
-      <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:22px">🗺️</span>
-            <div>
-              <div style="font-weight:600">Google Maps</div>
-              <div style="font-size:12px;color:var(--muted)">Shows attorney coverage map (optional — falls back to state list)</div>
-            </div>
-          </div>
-          <span id="status-maps" style="font-size:12px;padding:3px 10px;border-radius:20px;background:#1a1a1a">—</span>
-        </div>
-        <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">API Key</label>
-        <input type="password" id="key-GOOGLE_MAPS_API_KEY" placeholder="AIza..." style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px;font-family:monospace">
-        <div style="font-size:11px;color:var(--muted);margin-top:6px">Get key at <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">console.cloud.google.com</a> — enable Maps JavaScript API</div>
-      </div>
-
-      <!-- SMTP Fallback -->
-      <div class="card" style="margin-bottom:16px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:22px">📮</span>
-            <div>
-              <div style="font-weight:600">SMTP Fallback</div>
-              <div style="font-size:12px;color:var(--muted)">Used only if Resend is not configured (e.g. Gmail SMTP)</div>
-            </div>
-          </div>
-          <span id="status-smtp" style="font-size:12px;padding:3px 10px;border-radius:20px;background:#1a1a1a">—</span>
-        </div>
-        <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:12px">
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">SMTP Host</label>
-            <input type="text" id="key-SMTP_HOST" placeholder="smtp.gmail.com" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">Port</label>
-            <input type="text" id="key-SMTP_PORT" placeholder="587" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px">
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">Username / Email</label>
-            <input type="text" id="key-SMTP_USER" placeholder="you@gmail.com" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">Password / App Password</label>
-            <input type="password" id="key-SMTP_PASS" placeholder="••••••••" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px">
-          </div>
+        <div id="clientUsersTableWrap">
+          <div class="section-loading"><span class="spin"></span></div>
         </div>
       </div>
-
-      <!-- General Settings -->
-      <div class="card" style="margin-bottom:24px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-          <span style="font-size:22px">⚙️</span>
-          <div>
-            <div style="font-weight:600">General Settings</div>
-            <div style="font-size:12px;color:var(--muted)">Firm branding and site URL</div>
-          </div>
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">Firm Name</label>
-            <input type="text" id="key-FIRM_NAME" placeholder="FreightGuard Defense Legal Network" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px">
-          </div>
-          <div>
-            <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:6px">Site Base URL</label>
-            <input type="text" id="key-BASE_URL" placeholder="https://web-production-e99fa.up.railway.app" style="width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:13px">
-          </div>
-        </div>
-      </div>
-
-      <button onclick="saveApiKeys()" style="padding:12px 32px;background:var(--accent);color:#000;border:none;border-radius:var(--radius);font-weight:700;font-size:14px;cursor:pointer;transition:background .2s" onmouseover="this.style.background='var(--accent2)'" onmouseout="this.style.background='var(--accent)'">
-        💾 Save &amp; Apply Keys
-      </button>
-      <span style="font-size:12px;color:var(--muted);margin-left:12px">Changes apply instantly — no restart needed</span>
     </div>
 
+    <!-- ── API KEYS / CONFIG ── -->
+    <div id="tab-config" class="tab-section">
+      <div class="page-title">API Keys &amp; Configuration</div>
+      <div class="page-sub">Keys are saved to the server's config file. Railway users: also set them as env vars for persistence across deploys.</div>
+      <div id="configAlert"></div>
+      <div class="table-wrap" style="padding:24px;">
+        <div style="display:grid;gap:18px;" id="configForm">
+          <div class="section-loading"><span class="spin"></span></div>
+        </div>
+        <div style="margin-top:24px;display:flex;gap:12px;align-items:center;">
+          <button onclick="saveConfig()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:11px 28px;font-weight:700;font-size:14px;cursor:pointer;">Save Configuration</button>
+          <span id="configSaving" style="display:none;color:var(--muted);font-size:13px;">Saving...</span>
+        </div>
+      </div>
+    </div>
 
   </main>
 </div>
@@ -586,7 +456,13 @@
       <button class="modal-close" onclick="closeModal()">✕</button>
     </div>
     <div class="modal-body">
+      <div class="detail-grid" id="modalMeta" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;"></div>
       <pre class="letter-text" id="modalText"></pre>
+    </div>
+    <div class="modal-actions" style="padding:14px 20px;border-top:1px solid var(--border);display:flex;gap:10px;align-items:center;">
+      <button onclick="printAdminLetter()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:9px 20px;font-size:13px;font-weight:700;cursor:pointer;">🖨 Print / Save PDF</button>
+      <button onclick="downloadAdminLetter()" style="background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:9px 20px;font-size:13px;font-weight:600;cursor:pointer;">⬇ Download .txt</button>
+      <button onclick="closeModal()" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:9px 16px;font-size:13px;cursor:pointer;">Close</button>
     </div>
   </div>
 </div>
@@ -650,16 +526,19 @@ if (adminToken) {
     .catch(() => {});
 }
 
-// ── API HELPER ───────────────────────────────
+// ── API HELPERS ──────────────────────────────
 async function adminFetch(path, opts = {}) {
   const headers = { 'x-admin-token': adminToken };
   if (opts.body) headers['Content-Type'] = 'application/json';
   const res = await fetch(path, { ...opts, headers });
   if (res.status === 401) { doLogout(); throw new Error('Unauthorized'); }
-  if (!res.ok) { const e = await res.json().catch(()=>({})); throw new Error(e.error || res.statusText); }
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    throw new Error(e.error || res.statusText);
+  }
   return res.json();
 }
-
+// Alias for GET-only calls
 async function apiFetch(path) { return adminFetch(path); }
 
 // ── TAB SWITCHING ────────────────────────────
@@ -670,12 +549,13 @@ function switchTab(tab, el) {
   document.getElementById('tab-' + tab).classList.add('visible');
   el.classList.add('active');
 
-  if (tab === 'users')    loadUsers();
-  if (tab === 'letters')  loadLetters();
-  if (tab === 'reports')  loadReports();
-  if (tab === 'followups') loadFollowups();
-  if (tab === 'attorneys') loadAdminAttorneys();
-  if (tab === 'apikeys') loadApiKeys();
+  if (tab === 'users')        loadUsers();
+  if (tab === 'client-users') loadClientUsers();
+  if (tab === 'letters')      loadLetters();
+  if (tab === 'reports')      loadReports();
+  if (tab === 'followups')    loadFollowups();
+  if (tab === 'attorneys')    loadAdminAttorneys();
+  if (tab === 'config')       loadConfig();
 }
 
 // ── FORMAT HELPERS ───────────────────────────
@@ -886,271 +766,105 @@ async function loadLetters() {
   }
 }
 
+let _currentLetter = null;
+
 async function viewLetter(caseRef) {
+  _currentLetter = null;
   document.getElementById('modalTitle').textContent = 'Case: ' + caseRef;
   document.getElementById('modalText').textContent  = 'Loading…';
+  document.getElementById('modalMeta').innerHTML    = '';
   document.getElementById('letterModal').classList.add('open');
   try {
     const data = await apiFetch('/api/admin/letters/' + encodeURIComponent(caseRef));
-    document.getElementById('modalText').textContent = data.letterText || '(no text available)';
+    _currentLetter = data;
+
+    // Clean the letter text (strip any stray HTML entities / tags)
+    const raw = data.letterText || data.letter || '(no text available)';
+    const clean = raw
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+      .replace(/&#160;/g, ' ').replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<[^>]+>/g, '');
+    document.getElementById('modalText').textContent = clean;
+    _currentLetter._cleanText = clean;
+
+    // Meta strip  (court is stored as a plain string)
+    const meta = [
+      ['Case Ref',  data.caseRef  || caseRef],
+      ['Carrier',   data.carrierName],
+      ['Broker',    data.brokerName],
+      ['Amount',    data.totalDamages || data.amountDue
+                      ? '$' + Number(data.totalDamages || data.amountDue).toLocaleString() : null],
+      ['Court',     typeof data.court === 'string' ? data.court : data.court?.name],
+      ['Generated', data.ts || data.created_at || data.timestamp
+                      ? new Date(data.ts || data.created_at || data.timestamp).toLocaleString() : null],
+    ].filter(([,v]) => v);
+
+    document.getElementById('modalMeta').innerHTML = meta.map(([label, val]) => `
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${esc(label)}</div>
+        <div style="font-size:13px">${esc(String(val))}</div>
+      </div>`).join('');
+
+    document.getElementById('modalTitle').textContent = 'Demand Letter — ' + (data.caseRef || caseRef);
   } catch(e) {
-    document.getElementById('modalText').textContent = 'Error loading letter.';
+    document.getElementById('modalText').textContent = 'Error loading letter: ' + e.message;
   }
 }
 
 function closeModal() {
   document.getElementById('letterModal').classList.remove('open');
-}
-document.getElementById('letterModal').addEventListener('click', e => {
-  if (e.target === document.getElementById('letterModal')) closeModal();
-});
-
-// ── REPORTS ──────────────────────────────────
-async function loadReports() {
-  document.getElementById('reportsTableWrap').innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
-  try {
-    const data = await apiFetch('/api/admin/reports');
-    const reports = data.reports || [];
-    document.getElementById('reportsCount').textContent = reports.length;
-    if (!reports.length) {
-      document.getElementById('reportsTableWrap').innerHTML =
-        '<div class="empty"><div class="e-icon">🔍</div><p>No broker reports yet.</p></div>';
-      return;
-    }
-    document.getElementById('reportsTableWrap').innerHTML = `
-      <table id="reportTable">
-        <thead><tr>
-          <th>Broker Name</th><th>MC #</th><th>Address</th><th>Carrier</th><th>Amount</th><th>Category</th><th>Submitted</th>
-        </tr></thead>
-        <tbody>
-          ${reports.map(r => `<tr>
-            <td><strong>${esc(r.brokerName)}</strong></td>
-            <td class="mono">${esc(r.brokerMC || '—')}</td>
-            <td style="font-size:12px;color:var(--muted)">${esc(r.brokerAddress || '—')}</td>
-            <td>${esc(r.carrierName || '—')}</td>
-            <td>${r.amount ? fmt(r.amount) : '—'}</td>
-            <td><span class="badge ${r.category === 'fraud' ? 'badge-red' : 'badge-yellow'}">${esc(r.category || 'general')}</span></td>
-            <td style="color:var(--muted)">${fmtDate(r.createdAt)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>`;
-  } catch(e) {
-    document.getElementById('reportsTableWrap').innerHTML = '<div class="empty"><p>Error loading reports.</p></div>';
-  }
+  _currentLetter = null;
 }
 
-// ── FOLLOW-UPS ────────────────────────────────
-async function loadFollowups() {
-  document.getElementById('followupsTableWrap').innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
-  try {
-    const data = await apiFetch('/api/admin/followups');
-    const followups = data.followups || [];
-    document.getElementById('followupsCount').textContent = followups.length;
-    if (!followups.length) {
-      document.getElementById('followupsTableWrap').innerHTML =
-        '<div class="empty"><div class="e-icon">📬</div><p>No follow-up records yet.</p></div>';
-      return;
-    }
-    document.getElementById('followupsTableWrap').innerHTML = `
-      <table id="followupTable">
-        <thead><tr>
-          <th>Case Ref</th><th>Email</th><th>Day</th><th>Status</th><th>Sent At</th>
-        </tr></thead>
-        <tbody>
-          ${followups.map(f => `<tr>
-            <td class="mono">${esc(f.caseRef)}</td>
-            <td style="color:var(--blue)">${esc(f.email)}</td>
-            <td style="text-align:center">Day ${f.day || '?'}</td>
-            <td><span class="badge ${f.status === 'sent' ? 'badge-green' : f.status === 'failed' ? 'badge-red' : 'badge-blue'}">${esc(f.status || 'pending')}</span></td>
-            <td style="color:var(--muted)">${fmtDate(f.sentAt || f.scheduledAt)}</td>
-          </tr>`).join('')}
-        </tbody>
-      </table>`;
-  } catch(e) {
-    document.getElementById('followupsTableWrap').innerHTML = '<div class="empty"><p>Error loading follow-ups.</p></div>';
-  }
-}
+function printAdminLetter() {
+  if (!_currentLetter) return;
+  // attorney is not stored in the letter record — use generic header
+  const clean = _currentLetter._cleanText || '';
+  // court is stored as a plain string
+  const courtStr = typeof _currentLetter.court === 'string'
+    ? _currentLetter.court
+    : (_currentLetter.court?.name || '');
 
-// ── ATTORNEYS (ADMIN) ────────────────────────
-async function loadAdminAttorneys() {
-  try {
-    const res  = await fetch('/api/attorneys');
-    const atty = await res.json();
-    const count = document.getElementById('attyAdminCount');
-    if (count) count.textContent = atty.length;
-    const wrap = document.getElementById('attyAdminTableWrap');
-    if (!wrap) return;
-    if (!atty.length) {
-      wrap.innerHTML = '<div class="empty"><div class="e-icon">👔</div><p>No attorneys yet. Add one above.</p></div>';
-      return;
-    }
-    wrap.innerHTML = `<table>
-      <thead><tr>
-        <th>Name / Firm</th><th>Bar #</th><th>States</th><th>Contact</th><th>Specialty</th><th></th>
-      </tr></thead>
-      <tbody>
-        ${atty.map(a => `<tr>
-          <td><div style="font-weight:600">${esc(a.name)}</div><div style="font-size:12px;color:var(--muted)">${esc(a.firmName||'Independent')}</div></td>
-          <td class="mono" style="color:var(--accent)">${esc(a.barNumber)}<br><span style="color:var(--muted);font-size:11px">${esc(a.barState||'')}</span></td>
-          <td style="font-size:12px">${esc(a.licenseStates||'—')}</td>
-          <td><div style="color:var(--blue);font-size:12px">${esc(a.email)}</div><div style="font-size:12px;color:var(--muted)">${esc(a.phone||'')}</div></td>
-          <td style="font-size:12px;color:var(--muted)">${esc(a.specialty||'—')}</td>
-          <td style="font-size:12px">${a.website ? '<a href="'+esc(a.website)+'" target="_blank" style="color:var(--accent);text-decoration:none;">'+esc(a.website.replace(/^https?:\/\//,''))+'</a>' : '—'}</td>
-          <td><button onclick="adminDeleteAttorney('${a.id}')" style="background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.3);color:var(--red);border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:600">Remove</button></td>
-        </tr>`).join('')}
-      </tbody>
-    </table>`;
-  } catch(e) {
-    document.getElementById('attyAdminTableWrap').innerHTML = '<div class="empty"><p>Error loading attorneys.</p></div>';
-  }
-}
+  const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-async function adminAddAttorney() {
-  const v = id => (document.getElementById(id)?.value || '').trim();
-  const data = {
-    name:          v('aa-name'),
-    firmName:      v('aa-firm'),
-    barNumber:     v('aa-bar'),
-    barState:      v('aa-barstate').toUpperCase(),
-    email:         v('aa-email'),
-    phone:         v('aa-phone'),
-    licenseStates: v('aa-states'),
-    specialty:     v('aa-specialty'),
-    website:       v('aa-website'),
-  };
-  if (!data.name || !data.barNumber || !data.email) {
-    showAttyAlert('Name, bar number, and email are required.', 'red'); return;
-  }
-  try {
-    const res = await fetch('/api/attorneys', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
-      body: JSON.stringify(data),
-    });
-    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
-    ['aa-name','aa-firm','aa-bar','aa-barstate','aa-email','aa-phone','aa-states','aa-specialty','aa-website']
-      .forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-    showAttyAlert('✅ Attorney added.', 'green');
-    loadAdminAttorneys();
-  } catch(e) { showAttyAlert('❌ ' + e.message, 'red'); }
-}
+  const letterDate = _currentLetter.ts || _currentLetter.created_at || _currentLetter.timestamp;
+  const generatedStr = letterDate
+    ? new Date(letterDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : todayStr;
 
-async function adminDeleteAttorney(id) {
-  if (!confirm('Remove this attorney from the network?')) return;
-  await fetch('/api/attorneys/' + id, {
-    method: 'DELETE',
-    headers: { 'x-admin-token': adminToken },
-  });
-  loadAdminAttorneys();
-}
+  const courtBlock = courtStr ? `
+    <table style="width:100%;border-collapse:collapse;margin:20px 0 24px">
+      <tr>
+        <td style="width:48%;border:1px solid #444;padding:10px 12px;font-size:10pt;vertical-align:top">
+          <strong>Venue / Filing Court</strong><br>${esc(courtStr)}
+        </td>
+        <td style="width:4%"></td>
+        <td style="width:48%;border:1px solid #444;padding:10px 12px;font-size:10pt;vertical-align:top">
+          <strong>Date of Letter</strong><br>${generatedStr}
+        </td>
+      </tr>
+    </table>` : `<div style="text-align:right;margin:16px 0 24px;font-size:10pt">${generatedStr}</div>`;
 
-function showAttyAlert(msg, type) {
-  const el = document.getElementById('attyAdminAlert');
-  if (!el) return;
-  const colors = { red:'rgba(248,81,73,.15)', green:'rgba(63,185,80,.15)' };
-  const borders = { red:'rgba(248,81,73,.4)', green:'rgba(63,185,80,.4)' };
-  const texts   = { red:'var(--red)', green:'var(--green)' };
-  el.innerHTML = `<div style="background:${colors[type]};border:1px solid ${borders[type]};color:${texts[type]};padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;">${msg}</div>`;
-  setTimeout(() => { el.innerHTML = ''; }, 5000);
-}
+  const brokerLine  = _currentLetter.brokerName  ? `<strong>To:</strong> ${esc(_currentLetter.brokerName)}` : '';
+  const carrierLine = _currentLetter.carrierName ? `<strong>Re:</strong> ${esc(_currentLetter.carrierName)}` : '';
+  const amtLine     = _currentLetter.totalDamages
+    ? `<strong>Claim Amount:</strong> $${Number(_currentLetter.totalDamages).toLocaleString()}` : '';
 
-// ── KEYBOARD SHORTCUTS ────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') closeModal();
-});
-
-// ── API KEYS MANAGEMENT ──────────────────────────────────────
-async function loadApiKeys() {
-  try {
-    const data = await adminFetch('/api/admin/config');
-    const c = data.config;
-
-    // Update status badges
-    function badge(id, ok) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.textContent = ok ? '✅ Configured' : '❌ Not set';
-      el.style.background = ok ? 'rgba(63,185,80,.15)' : 'rgba(248,81,73,.15)';
-      el.style.color = ok ? 'var(--green)' : 'var(--red)';
-    }
-    badge('status-anthropic', c.ANTHROPIC_API_KEY && c.ANTHROPIC_API_KEY !== '');
-    badge('status-resend',    c.RESEND_API_KEY    && c.RESEND_API_KEY    !== '');
-    badge('status-stripe',    c.STRIPE_SECRET_KEY && c.STRIPE_SECRET_KEY !== '');
-    badge('status-maps',      c.GOOGLE_MAPS_API_KEY && c.GOOGLE_MAPS_API_KEY !== '');
-    badge('status-smtp',      c.SMTP_USER         && c.SMTP_USER         !== '');
-
-    // Prefill non-secret fields with current values
-    const plain = ['RESEND_FROM_EMAIL','SMTP_HOST','SMTP_PORT','SMTP_USER',
-                   'STRIPE_PUBLISHABLE_KEY','FIRM_NAME','BASE_URL'];
-    for (const k of plain) {
-      const el = document.getElementById('key-' + k);
-      if (el && c[k]) el.value = c[k];
-    }
-    // Stripe disabled checkbox
-    const sdCb = document.getElementById('key-STRIPE_DISABLED-cb');
-    const sdHid = document.getElementById('key-STRIPE_DISABLED');
-    if (sdCb && c.STRIPE_DISABLED === 'true') {
-      sdCb.checked = true;
-      sdHid.value = 'true';
-    }
-    // Show masked value as placeholder for secret fields
-    const secrets = ['ANTHROPIC_API_KEY','RESEND_API_KEY','STRIPE_SECRET_KEY',
-                     'GOOGLE_MAPS_API_KEY','SMTP_PASS'];
-    for (const k of secrets) {
-      const el = document.getElementById('key-' + k);
-      if (el && c[k] && c[k].startsWith('••••')) el.placeholder = c[k];
-    }
-  } catch(e) {
-    console.error('loadApiKeys error:', e);
-  }
-}
-
-async function saveApiKeys() {
-  const keys = ['ANTHROPIC_API_KEY','RESEND_API_KEY','RESEND_FROM_EMAIL',
-                 'STRIPE_SECRET_KEY','STRIPE_PUBLISHABLE_KEY','STRIPE_DISABLED',
-                 'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASS',
-                 'GOOGLE_MAPS_API_KEY','FIRM_NAME','BASE_URL'];
-  const payload = {};
-  for (const k of keys) {
-    const el = document.getElementById('key-' + k);
-    if (!el) continue;
-    const v = el.value.trim();
-    // Skip if empty or still showing masked placeholder (user didn't change it)
-    if (v === '' || v.startsWith('••••')) continue;
-    payload[k] = v;
-  }
-  // Always send Stripe disabled state
-  const sdHid = document.getElementById('key-STRIPE_DISABLED');
-  if (sdHid) payload['STRIPE_DISABLED'] = sdHid.value || '';
-
-  if (Object.keys(payload).length === 0) {
-    showApiAlert('No changes to save — fields were empty or unchanged.', 'info');
-    return;
-  }
-  try {
-    const res = await adminFetch('/api/admin/config', { method:'POST', body: JSON.stringify(payload) });
-    showApiAlert('✅ ' + res.message, 'success');
-    // Clear the inputs and reload fresh status
-    for (const k of Object.keys(payload)) {
-      const el = document.getElementById('key-' + k);
-      if (el && el.type === 'password') el.value = '';
-    }
-    setTimeout(loadApiKeys, 800);
-  } catch(e) {
-    showApiAlert('❌ Save failed: ' + e.message, 'error');
-  }
-}
-
-function showApiAlert(msg, type) {
-  const el = document.getElementById('apiAlert');
-  el.style.display = 'block';
-  el.style.background = type === 'success' ? 'rgba(63,185,80,.15)' : type === 'error' ? 'rgba(248,81,73,.15)' : 'rgba(88,166,255,.15)';
-  el.style.color = type === 'success' ? 'var(--green)' : type === 'error' ? 'var(--red)' : 'var(--blue)';
-  el.style.border = '1px solid ' + (type === 'success' ? 'rgba(63,185,80,.3)' : type === 'error' ? 'rgba(248,81,73,.3)' : 'rgba(88,166,255,.3)');
-  el.textContent = msg;
-  setTimeout(() => el.style.display = 'none', 5000);
-}
-
-</script>
-</body>
-</html>
+  const html = `<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<title>Demand Letter — ${esc(_currentLetter.caseRef || '')}</title>
+<style>
+  body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; margin: 0; padding: 0; background: #fff; }
+  .letterhead { border-bottom: 3px solid #b8860b; padding-bottom: 12px; margin-bottom: 4px; }
+  .firm-name  { font-size: 20pt; font-weight: 700; color: #b8860b; letter-spacing: 1px; }
+  .case-meta  { font-size: 9pt; color: #444; margin-top: 6px; line-height: 1.8; }
+  .letter-body{ white-space: pre-wrap; line-height: 1.75; font-size: 11pt; }
+  .footer     { margin-top: 36px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9pt; color: #666; text-align: center; }
+  @page { margin: 1in; }
+</style>
+</head><body>
+<div class="letterhead">
+  <div class="firm-name">FreightGuard Defense</div>
+  <div class="case-meta">
+    <strong>Case:</stron

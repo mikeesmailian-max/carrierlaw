@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FreightGuard Defense — Client Login</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --surface2:#21262d;
+      --border:  #30363d;
+      --fg:      #e6edf3;
+      --muted:   #7d8590;
+      --accent:  #f0b429;
+      --blue:    #3a82f6;
+      --red:     #f85149;
+      --green:   #3fb950;
+    }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .logo-area {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .logo-area .shield { font-size: 48px; margin-bottom: 10px; }
+    .logo-area h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--fg);
+      letter-spacing: -.3px;
+    }
+    .logo-area h1 span { color: var(--accent); }
+    .logo-area p {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 100%;
+      max-width: 420px;
+    }
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 4px;
+      margin-bottom: 24px;
+    }
+    .tabs button {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all .15s;
+    }
+    .tabs button.active {
+      background: var(--surface);
+      color: var(--fg);
+      box-shadow: 0 1px 4px rgba(0,0,0,.4);
+    }
+    .form-group { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 6px;
+    }
+    input[type=text], input[type=email], input[type=password] {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color .15s;
+    }
+    input:focus { border-color: var(--accent); }
+    .btn-primary {
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity .15s;
+    }
+    .btn-primary:hover { opacity: .9; }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .btn-google {
+      width: 100%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 8px;
+      padding: 11px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: border-color .15s;
+    }
+    .btn-google:hover { border-color: var(--accent); }
+    .btn-google:disabled { opacity: .5; cursor: not-allowed; }
+    .alert {
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .alert-error  { background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.35); color: var(--red); }
+    .alert-success{ background: rgba(63,185,80,.12);  border: 1px solid rgba(63,185,80,.35);  color: var(--green); }
+    #alert { display: none; }
+    .footer-link {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 20px;
+    }
+    .footer-link a { color: var(--blue); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+<div class="logo-area">
+  <div class="shield">⚖️</div>
+  <h1>FreightGuard <span>Defense</span></h1>
+  <p>Client Portal — Access Your Letters &amp; History</p>
+</div>
+
+<div class="card">
+  <div class="tabs">
+    <button id="tab-login-btn" class="active" onclick="showTab('login')">Sign In</button>
+    <button id="tab-register-btn" onclick="showTab('register')">Create Account</button>
+  </div>
+
+  <div id="alert"></div>
+
+  <!-- LOGIN FORM -->
+  <div id="form-login">
+    <div class="form-group">
+      <label>Email</label>
+      <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+    <button class="btn-primary" id="btn-login" onclick="doLogin()">Sign In</button>
+    <div class="divider">or</div>
+    <button class="btn-google" id="btn-google-login" onclick="doGoogleSignIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+      Continue with Google
+    </button>
+  </div>
+
+  <!-- REGISTER FORM -->
+  <div id="form-register" style="display:none">
+    <div class="form-group">
+      <label>Full Name</label>
+      <input id="reg-name" type="text" placeholder="Jane Smith" autocomplete="name" />
+    </div>
+    <div class="form-group">
+      <label>Email</label>
+      <input id="reg-email" type="email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <div class="form-group">
+      <label>Password</label>
+      <input id="reg-password" type="password" placeholder="Min 8 characters" autocomplete="new-password" />
+    </div>
+    <button class="btn-primary" id="btn-register" onclick="doRegister()">Create Account</button>
+    <div class="divider">or</div>
+    <button class="btn-google" id="btn-google-reg" onclick="doGoogleSignIn()">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+      Sign up with Google
+    </button>
+  </div>
+</div>
+
+<div class="footer-link">
+  <a href="/">← Back to FreightGuard Defense</a>
+</div>
+
+<!-- Google Identity Services (for Sign-In) -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+let googleClientId = '';
+
+async function init() {
+  // Check if already logged in
+  const token = localStorage.getItem('fgd_client_token');
+  if (token) {
+    try {
+      const res = await fetch('/api/auth/me', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      if (res.ok) {
+        window.location.href = '/portal.html';
+        return;
+      } else {
+        localStorage.removeItem('fgd_client_token');
+      }
+    } catch {}
+  }
+
+  // Load Google Client ID
+  try {
+    const res = await fetch('/api/auth/google-client-id');
+    const data = await res.json();
+    googleClientId = data.clientId || '';
+  } catch {}
+}
+
+function showTab(tab) {
+  document.getElementById('form-login').style.display    = tab === 'login'    ? '' : 'none';
+  document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
+  document.getElementById('tab-login-btn').classList.toggle('active',    tab === 'login');
+  document.getElementById('tab-register-btn').classList.toggle('active', tab === 'register');
+  hideAlert();
+}
+
+function showAlert(msg, type = 'error') {
+  const el = document.getElementById('alert');
+  el.className = 'alert alert-' + type;
+  el.textContent = msg;
+  el.style.display = '';
+}
+function hideAlert() {
+  const el = document.getElementById('alert');
+  el.style.display = 'none';
+}
+
+function setLoading(ids, loading) {
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.disabled = loading;
+  });
+}
+
+async function doLogin() {
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) { showAlert('Please enter email and password.'); return; }
+  setLoading(['btn-login', 'btn-google-login'], true);
+  hideAlert();
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Login failed');
+    localStorage.setItem('fgd_client_token', data.token);
+    showAlert('Welcome back! Redirecting…', 'success');
+    setTimeout(() => { window.location.href = '/portal.html'; }, 800);
+  } catch(e) {
+    showAlert(e.message);
+    setLoading(['btn-login', 'btn-google-login'], false);
+  }
+}
+
+async function doRegister() {
+  const name     = document.getElementById('reg-name').value.trim();
+  const email    = document.getElementById('reg-email').value.trim();
+  const password = document.getElementById('reg-password').value;
+  if (!name || !email || !password) { showAlert('All fields are required.'); return; }
+  if (password.length < 8) { showAlert('Password must be at least 8 characters.'); return; }
+  setLoading(['btn-register', 'btn-google-reg'], true);
+  hideAlert();
+  try {
+    const res = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    localStorage.setItem('fgd_client_token', data.token);
+    showAlert('Account created! Redirecting…', 'success');
+    setTimeout(() => { window.location.href = '/portal.html'; }, 800);
+  } catch(e) {
+    showAlert(e.message);
+    setLoading(['btn-register', 'btn-google-reg'], false);
+  }
+}
+
+async function doGoogleSignIn() {
+  if (!googleClientId) {
+    showAlert('Google Sign-In is not configured. Please use email/password.');
+    return;
+  }
+  // Use Google Identity Services one-tap / popup flow
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: googleClientId,
+    scope: 'openid email profile',
+    callback: async (tokenResponse) => {
+      if (tokenResponse.error) { showAlert('Google sign-in failed: ' + tokenResponse.error); return; }
+      // Exchange access token for user info, then send to backend
+      try {
+        const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: 'Bearer ' + tokenResponse.access_token }
+        });
+        const userInfo = await userRes.json();
+        // Send ID token to backend — use the sub as credential
+        const res = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: tokenResponse.access_token, userInfo }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Google sign-in failed');
+        localStorage.setItem('fgd_client_token', data.token);
+        showAlert('Signed in with Google! Redirecting…', 'success');
+        setTimeout(() => { window.location.href = '/portal.html'; }, 800);
+      } catch(e) {
+        showAlert(e.message);
+      }
+    },
+  });
+  client.requestAccessToken();
+}
+
+// Allow Enter key to submit
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const loginVisible = document.getElementById('form-login').style.display !== 'none';
+    if (loginVisible) doLogin();
+    else doRegister();
+  }
+});
+
+init();
+</script>
+</body>
+</html>

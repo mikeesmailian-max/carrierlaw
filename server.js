@@ -6,58 +6,68 @@ const nodemailer = require('nodemailer');
 const Anthropic  = require('@anthropic-ai/sdk');
 const Stripe     = require('stripe');
 
-// ── RUNTIME CONFIG ────────────────────────────────────────────
-// Keys saved via admin panel are persisted to config.json and take priority
-// over environment variables, so you never need to touch Railway dashboard.
-const CONFIG_FILE = '/tmp/freightguard-data/config.json';
-let runtimeConfig = {};
-try {
-  if (fs.existsSync(CONFIG_FILE)) runtimeConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-} catch(e) { runtimeConfig = {}; }
+// ── OPTIONAL DEPS (installed via package.json) ───────────────
+let bcrypt = null, jwt = null, pgPool = null;
+try { bcrypt = require('bcryptjs'); } catch {}
+try { jwt    = require('jsonwebtoken'); } catch {}
 
-function cfg(key) { return runtimeConfig[key] || process.env[key] || ''; }
-function saveConfig() {
+// ── POSTGRESQL INIT ──────────────────────────────────────────
+if (process.env.DATABASE_URL) {
   try {
-    const dir = path.dirname(CONFIG_FILE);
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(runtimeConfig, null, 2));
-  } catch(e) { console.error('Failed to save config:', e.message); }
+    const { Pool } = require('pg');
+    pgPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
+    });
+    pgPool.query(`
+      CREATE TABLE IF NOT EXISTS attorneys (
+        id TEXT PRIMARY KEY, name TEXT, firm_name TEXT, bar_number TEXT, bar_state TEXT,
+        email TEXT, phone TEXT, license_states TEXT, specialty TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS letters (
+        id TEXT PRIMARY KEY, case_ref TEXT UNIQUE, carrier_name TEXT, carrier_email TEXT,
+        carrier_mc TEXT, broker_name TEXT, broker_mc TEXT, broker_address TEXT,
+        num_trucks INT, total_damages NUMERIC, court TEXT, letter_text TEXT,
+        ts TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS broker_reports (
+        id SERIAL PRIMARY KEY, broker_mc TEXT, broker_name TEXT, carrier_name TEXT,
+        case_ref TEXT, ts TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS client_users (
+        id SERIAL PRIMARY KEY, email TEXT UNIQUE NOT NULL, name TEXT,
+        password_hash TEXT, google_id TEXT, google_picture TEXT,
+        suspended BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW(), last_login TIMESTAMPTZ
+      );
+      CREATE TABLE IF NOT EXISTS app_config (
+        key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `).then(() => console.log('  🗄️  PostgreSQL connected and tables ready'))
+      .catch(e => { console.error('PG schema error:', e.message); pgPool = null; });
+  } catch(e) {
+    console.warn('  ⚠️  pg package not found; using file storage. Run: npm install pg');
+  }
 }
 
 // ── RESEND CLIENT ─────────────────────────────────────────────
 let resendClient = null;
-function initResend() {
-  resendClient = null;
-  try {
-    if (cfg('RESEND_API_KEY')) {
-      const { Resend } = require('resend');
-      resendClient = new Resend(cfg('RESEND_API_KEY'));
-    }
-  } catch(e) { /* resend package not installed */ }
-}
-initResend();
+try {
+  if (process.env.RESEND_API_KEY) {
+    const { Resend } = require('resend');
+    resendClient = new Resend(process.env.RESEND_API_KEY);
+  }
+} catch(e) { /* resend package not installed */ }
 
-// ── ANTHROPIC CLIENT ──────────────────────────────────────────
-let anthropic = null;
-function initAnthropic() {
-  try {
-    anthropic = new Anthropic({ apiKey: cfg('ANTHROPIC_API_KEY') || 'placeholder' });
-  } catch(e) { anthropic = null; }
-}
-initAnthropic();
-
-// ── STRIPE CLIENT ─────────────────────────────────────────────
-let stripe = null;
-function initStripe() {
-  stripe = cfg('STRIPE_SECRET_KEY') ? Stripe(cfg('STRIPE_SECRET_KEY')) : null;
-}
-initStripe();
-
-const app  = express();
-const PORT = process.env.PORT || 3000;
+const app    = express();
+const PORT   = process.env.PORT || 3000;
+const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
+
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // ── SECURITY HEADERS ──────────────────────────────────────────
 app.use((req, res, next) => {
@@ -89,138 +99,148 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     uptime: Math.floor(process.uptime()),
-    anthropic:  !!cfg('ANTHROPIC_API_KEY'),
-    stripe:     !!cfg('STRIPE_SECRET_KEY'),
+    anthropic:  !!process.env.ANTHROPIC_API_KEY,
+    stripe:     !!process.env.STRIPE_SECRET_KEY,
     resend:     !!resendClient,
-    smtp:       !!cfg('SMTP_USER'),
-    googleMaps: !!cfg('GOOGLE_MAPS_API_KEY'),
+    smtp:       !!process.env.SMTP_USER,
+    googleMaps: !!process.env.GOOGLE_MAPS_API_KEY,
     ts: new Date().toISOString(),
   });
 });
 
-// ── DATA STORAGE — PostgreSQL (production) + JSON fallback (local dev) ─────
-const DATA_DIR    = process.env.NODE_ENV === 'production' ? '/tmp/freightguard-data' : path.join(__dirname, 'data');
-const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
-try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch(e) {}
+// ── DATA FILES (JSON fallback) ────────────────────────────────
+const DATA_DIR = process.env.NODE_ENV === 'production'
+  ? '/tmp/freightguard-data'
+  : path.join(__dirname, 'data');
 
-// ── FILE UPLOADS ──────────────────────────────────────────────
-const multer = require('multer');
-const upload = multer({
-  dest: UPLOADS_DIR,
-  limits: { fileSize: 20 * 1024 * 1024, files: 10 },
-  fileFilter: (req, file, cb) => {
-    const ok = /pdf|jpeg|jpg|png|gif|doc|docx|xls|xlsx|txt|csv/.test(
-      file.mimetype + ' ' + file.originalname.toLowerCase()
-    );
-    cb(null, ok);
-  }
-});
+const ATTORNEYS_FILE    = path.join(DATA_DIR, 'attorneys.json');
+const REPORTS_FILE      = path.join(DATA_DIR, 'broker-reports.json');
+const FOLLOWUPS_FILE    = path.join(DATA_DIR, 'followups.json');
+const USERS_FILE        = path.join(DATA_DIR, 'users.json');
+const LETTERS_FILE      = path.join(DATA_DIR, 'letters.json');
+const CLIENT_USERS_FILE = path.join(DATA_DIR, 'client-users.json');
+const CONFIG_FILE       = path.join(DATA_DIR, 'config.json');
 
-// ── POSTGRES CLIENT ───────────────────────────────────────────
-let pgPool = null;
-if (process.env.DATABASE_URL) {
-  const { Pool } = require('pg');
-  pgPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
-  });
-  pgPool.query(`
-    CREATE TABLE IF NOT EXISTS attorneys (
-      id TEXT PRIMARY KEY,
-      data JSONB NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS letters (
-      id TEXT PRIMARY KEY,
-      data JSONB NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS broker_reports (
-      id SERIAL PRIMARY KEY,
-      broker_mc TEXT, broker_name TEXT, carrier_name TEXT, case_ref TEXT,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    );
-    CREATE TABLE IF NOT EXISTS app_config (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL,
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    );
-  `).then(() => console.log('PostgreSQL tables ready')).catch(e => console.error('PG init error:', e.message));
+try {
+  if (!fs.existsSync(DATA_DIR))          fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(ATTORNEYS_FILE))    fs.writeFileSync(ATTORNEYS_FILE,    '[]');
+  if (!fs.existsSync(REPORTS_FILE))      fs.writeFileSync(REPORTS_FILE,      '[]');
+  if (!fs.existsSync(FOLLOWUPS_FILE))    fs.writeFileSync(FOLLOWUPS_FILE,    '[]');
+  if (!fs.existsSync(USERS_FILE))        fs.writeFileSync(USERS_FILE,        '[]');
+  if (!fs.existsSync(LETTERS_FILE))      fs.writeFileSync(LETTERS_FILE,      '[]');
+  if (!fs.existsSync(CLIENT_USERS_FILE)) fs.writeFileSync(CLIENT_USERS_FILE, '[]');
+  if (!fs.existsSync(CONFIG_FILE))       fs.writeFileSync(CONFIG_FILE,       '{}');
+} catch(e) {
+  console.error('Warning: could not initialize data directory:', e.message);
 }
 
-// ── JSON FILE FALLBACK (local / no DB) ───────────────────────
-const ATTORNEYS_FILE = path.join(DATA_DIR, 'attorneys.json');
-const REPORTS_FILE   = path.join(DATA_DIR, 'broker-reports.json');
-const FOLLOWUPS_FILE = path.join(DATA_DIR, 'followups.json');
-const USERS_FILE     = path.join(DATA_DIR, 'users.json');
-const LETTERS_FILE   = path.join(DATA_DIR, 'letters.json');
-try {
-  if (!fs.existsSync(ATTORNEYS_FILE)) fs.writeFileSync(ATTORNEYS_FILE, '[]');
-  if (!fs.existsSync(REPORTS_FILE))   fs.writeFileSync(REPORTS_FILE,   '[]');
-  if (!fs.existsSync(FOLLOWUPS_FILE)) fs.writeFileSync(FOLLOWUPS_FILE, '[]');
-  if (!fs.existsSync(USERS_FILE))     fs.writeFileSync(USERS_FILE,     '[]');
-  if (!fs.existsSync(LETTERS_FILE))   fs.writeFileSync(LETTERS_FILE,   '[]');
-} catch(e) {}
-
 function loadJSON(file)       { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return []; } }
-function saveJSON(file, data) { try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch(e) {} }
+function saveJSON(file, data) { try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch {} }
 
-// ── ASYNC DATA HELPERS — use PG when available ───────────────
+// ── RUNTIME CONFIG (env > DB config > JSON config file) ──────
+function cfg(key) {
+  // Environment variable takes priority
+  if (process.env[key]) return process.env[key];
+  // Fall back to JSON config file
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    return config[key] || '';
+  } catch { return ''; }
+}
+
+async function saveConfig(updates) {
+  try {
+    const config = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    Object.assign(config, updates);
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(config, null, 2));
+  } catch {}
+  // Also persist to PG if available
+  if (pgPool) {
+    for (const [key, value] of Object.entries(updates)) {
+      await pgPool.query(
+        'INSERT INTO app_config(key, value, updated_at) VALUES($1,$2,NOW()) ON CONFLICT(key) DO UPDATE SET value=$2, updated_at=NOW()',
+        [key, String(value)]
+      ).catch(() => {});
+    }
+  }
+}
+
+// ── DATA ACCESS (PG primary, JSON fallback) ───────────────────
 async function loadAttorneys() {
   if (pgPool) {
-    const r = await pgPool.query('SELECT data FROM attorneys ORDER BY created_at ASC');
-    return r.rows.map(row => row.data);
+    const r = await pgPool.query('SELECT * FROM attorneys ORDER BY created_at DESC').catch(() => null);
+    if (r) return r.rows.map(row => ({
+      id: row.id, name: row.name, firmName: row.firm_name, barNumber: row.bar_number,
+      barState: row.bar_state, email: row.email, phone: row.phone,
+      licenseStates: row.license_states, specialty: row.specialty,
+      createdAt: row.created_at,
+    }));
   }
   return loadJSON(ATTORNEYS_FILE);
 }
-async function saveAttorneys(list) {
+
+async function addAttorneyDB(a) {
   if (pgPool) {
-    await pgPool.query('DELETE FROM attorneys');
-    for (const a of list) {
-      await pgPool.query('INSERT INTO attorneys(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=$2', [a.id, a]);
-    }
-    return;
-  }
-  saveJSON(ATTORNEYS_FILE, list);
-}
-async function addAttorney(a) {
-  if (pgPool) {
-    await pgPool.query('INSERT INTO attorneys(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=$2', [a.id, a]);
+    await pgPool.query(
+      'INSERT INTO attorneys(id,name,firm_name,bar_number,bar_state,email,phone,license_states,specialty) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)',
+      [a.id, a.name, a.firmName||'', a.barNumber||'', a.barState||'', a.email||'', a.phone||'', a.licenseStates||'', a.specialty||'']
+    );
     return;
   }
   const list = loadJSON(ATTORNEYS_FILE); list.push(a); saveJSON(ATTORNEYS_FILE, list);
 }
-async function deleteAttorney(id) {
+
+async function deleteAttorneyDB(id) {
   if (pgPool) { await pgPool.query('DELETE FROM attorneys WHERE id=$1', [id]); return; }
   saveJSON(ATTORNEYS_FILE, loadJSON(ATTORNEYS_FILE).filter(a => a.id !== id));
 }
 
 async function loadLetters() {
   if (pgPool) {
-    const r = await pgPool.query('SELECT data FROM letters ORDER BY created_at DESC');
-    return r.rows.map(row => row.data);
+    const r = await pgPool.query('SELECT * FROM letters ORDER BY ts DESC').catch(() => null);
+    if (r) return r.rows.map(row => ({
+      id: row.id, caseRef: row.case_ref, carrierName: row.carrier_name,
+      carrierEmail: row.carrier_email, carrierMC: row.carrier_mc,
+      brokerName: row.broker_name, brokerMC: row.broker_mc,
+      brokerAddress: row.broker_address, numTrucks: row.num_trucks,
+      totalDamages: row.total_damages, court: row.court,
+      letterText: row.letter_text, ts: row.ts,
+    }));
   }
   return loadJSON(LETTERS_FILE);
 }
-async function addLetter(letter) {
+
+async function addLetterDB(l) {
   if (pgPool) {
-    await pgPool.query('INSERT INTO letters(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=$2', [letter.caseRef || letter.id, letter]);
+    await pgPool.query(
+      'INSERT INTO letters(id,case_ref,carrier_name,carrier_email,carrier_mc,broker_name,broker_mc,broker_address,num_trucks,total_damages,court,letter_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      [l.caseRef, l.caseRef, l.carrierName, l.carrierEmail, l.carrierMC, l.brokerName, l.brokerMC, l.brokerAddress, l.numTrucks, l.totalDamages, l.court, l.letterText]
+    ).catch(async () => {
+      // Duplicate — update instead
+      await pgPool.query('UPDATE letters SET letter_text=$1 WHERE case_ref=$2', [l.letterText, l.caseRef]);
+    });
     return;
   }
-  const list = loadJSON(LETTERS_FILE); list.push(letter); saveJSON(LETTERS_FILE, list);
+  const list = loadJSON(LETTERS_FILE); list.push(l); saveJSON(LETTERS_FILE, list);
 }
 
 async function loadReports() {
   if (pgPool) {
-    const r = await pgPool.query('SELECT broker_mc as "brokerMC", broker_name as "brokerName", carrier_name as "carrierName", case_ref as "caseRef", created_at as ts FROM broker_reports ORDER BY created_at DESC');
-    return r.rows;
+    const r = await pgPool.query('SELECT * FROM broker_reports ORDER BY ts DESC').catch(() => null);
+    if (r) return r.rows.map(row => ({
+      id: row.id, brokerMC: row.broker_mc, brokerName: row.broker_name,
+      carrierName: row.carrier_name, caseRef: row.case_ref, ts: row.ts,
+    }));
   }
   return loadJSON(REPORTS_FILE);
 }
-async function recordBrokerReport(brokerMC, brokerName, carrierName, caseRef) {
+
+async function recordBrokerReportDB(brokerMC, brokerName, carrierName, caseRef) {
   if (pgPool) {
-    await pgPool.query('INSERT INTO broker_reports(broker_mc,broker_name,carrier_name,case_ref) VALUES($1,$2,$3,$4)',
-      [String(brokerMC).trim(), brokerName, carrierName, caseRef]);
+    await pgPool.query(
+      'INSERT INTO broker_reports(broker_mc,broker_name,carrier_name,case_ref) VALUES($1,$2,$3,$4)',
+      [String(brokerMC).trim(), brokerName, carrierName, caseRef]
+    ).catch(() => {});
     return;
   }
   const reports = loadJSON(REPORTS_FILE);
@@ -228,10 +248,89 @@ async function recordBrokerReport(brokerMC, brokerName, carrierName, caseRef) {
   saveJSON(REPORTS_FILE, reports);
 }
 
-function loadFollowups()  { return loadJSON(FOLLOWUPS_FILE); }
-function saveFollowups(d) { saveJSON(FOLLOWUPS_FILE, d); }
-function loadUsers()      { return loadJSON(USERS_FILE); }
-function saveUsers(d)     { saveJSON(USERS_FILE, d); }
+// ── CLIENT USER DB HELPERS ────────────────────────────────────
+async function dbGetUserByEmail(email) {
+  if (pgPool) {
+    const r = await pgPool.query('SELECT * FROM client_users WHERE email=$1', [email]).catch(() => null);
+    return r?.rows[0] || null;
+  }
+  return loadJSON(CLIENT_USERS_FILE).find(u => u.email === email) || null;
+}
+
+async function dbGetUserById(id) {
+  if (pgPool) {
+    const r = await pgPool.query('SELECT * FROM client_users WHERE id=$1', [id]).catch(() => null);
+    return r?.rows[0] || null;
+  }
+  return loadJSON(CLIENT_USERS_FILE).find(u => String(u.id) === String(id)) || null;
+}
+
+async function dbCreateUser({ email, name, passwordHash, googleId, googlePicture }) {
+  if (pgPool) {
+    const r = await pgPool.query(
+      'INSERT INTO client_users(email,name,password_hash,google_id,google_picture) VALUES($1,$2,$3,$4,$5) RETURNING *',
+      [email, name||'', passwordHash||null, googleId||null, googlePicture||null]
+    );
+    return r.rows[0];
+  }
+  const users = loadJSON(CLIENT_USERS_FILE);
+  const user  = { id: Date.now(), email, name: name||'', passwordHash: passwordHash||null, googleId: googleId||null, googlePicture: googlePicture||null, suspended: false, createdAt: new Date().toISOString() };
+  users.push(user);
+  saveJSON(CLIENT_USERS_FILE, users);
+  return user;
+}
+
+async function dbUpdateUserLogin(id) {
+  if (pgPool) {
+    await pgPool.query('UPDATE client_users SET last_login=NOW() WHERE id=$1', [id]).catch(() => {});
+    return;
+  }
+  const users = loadJSON(CLIENT_USERS_FILE);
+  const u = users.find(u => String(u.id) === String(id));
+  if (u) { u.lastLogin = new Date().toISOString(); saveJSON(CLIENT_USERS_FILE, users); }
+}
+
+async function dbListClientUsers() {
+  if (pgPool) {
+    const r = await pgPool.query('SELECT id,email,name,google_id,suspended,created_at,last_login FROM client_users ORDER BY created_at DESC').catch(() => null);
+    if (r) return r.rows;
+  }
+  return loadJSON(CLIENT_USERS_FILE).map(u => ({ ...u, password_hash: undefined }));
+}
+
+async function dbSuspendUser(id, suspended) {
+  if (pgPool) {
+    await pgPool.query('UPDATE client_users SET suspended=$1 WHERE id=$2', [suspended, id]).catch(() => {});
+    return;
+  }
+  const users = loadJSON(CLIENT_USERS_FILE);
+  const u = users.find(u => String(u.id) === String(id));
+  if (u) { u.suspended = suspended; saveJSON(CLIENT_USERS_FILE, users); }
+}
+
+async function dbDeleteClientUser(id) {
+  if (pgPool) {
+    await pgPool.query('DELETE FROM client_users WHERE id=$1', [id]).catch(() => {});
+    return;
+  }
+  saveJSON(CLIENT_USERS_FILE, loadJSON(CLIENT_USERS_FILE).filter(u => String(u.id) !== String(id)));
+}
+
+async function dbResetPassword(id, newHash) {
+  if (pgPool) {
+    await pgPool.query('UPDATE client_users SET password_hash=$1 WHERE id=$2', [newHash, id]).catch(() => {});
+    return;
+  }
+  const users = loadJSON(CLIENT_USERS_FILE);
+  const u = users.find(u => String(u.id) === String(id));
+  if (u) { u.passwordHash = newHash; saveJSON(CLIENT_USERS_FILE, users); }
+}
+
+// ── JSON-only helpers still used in some routes ───────────────
+function loadFollowups()    { return loadJSON(FOLLOWUPS_FILE); }
+function saveFollowups(d)   { saveJSON(FOLLOWUPS_FILE, d); }
+function loadUsers()        { return loadJSON(USERS_FILE); }
+function saveUsers(d)       { saveJSON(USERS_FILE, d); }
 
 // ── CASE REFERENCE ────────────────────────────────────────────
 function generateCaseRef() {
@@ -313,7 +412,7 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
 }
 
 async function findCourthouseViaGoogleMaps(address) {
-  const key = cfg('GOOGLE_MAPS_API_KEY');
+  const key = process.env.GOOGLE_MAPS_API_KEY;
   if (!key) return null;
   try {
     // Step 1 — geocode the broker's address
@@ -361,17 +460,14 @@ async function findCourthouseViaGoogleMaps(address) {
 }
 
 // ── DAMAGES — FIXED $15,000/TRUCK/MONTH ──────────────────────
-function calcDamages(numTrucks, unpaidInvoices = 0) {
+function calcDamages(numTrucks) {
   const monthlyPerTruck    = 15000;
   const annualPerTruck     = monthlyPerTruck * 12;       // $180,000
   const totalAnnualRevenue = annualPerTruck * numTrucks;
   const reRegisterCosts    = 5000;
   const legalFees          = 15000;
-  const invoiceSubtotal    = Number(unpaidInvoices) || 0;
-  const invoiceAttyFees    = Math.round(invoiceSubtotal * 0.50);   // 50% attorney fees on invoices
-  const totalDamages       = totalAnnualRevenue + reRegisterCosts + legalFees + invoiceSubtotal + invoiceAttyFees;
-  return { monthlyPerTruck, annualPerTruck, numTrucks, totalAnnualRevenue, reRegisterCosts, legalFees,
-           invoiceSubtotal, invoiceAttyFees, totalDamages };
+  const totalDamages       = totalAnnualRevenue + reRegisterCosts + legalFees;
+  return { monthlyPerTruck, annualPerTruck, numTrucks, totalAnnualRevenue, reRegisterCosts, legalFees, totalDamages };
 }
 
 // ── EMAIL HELPERS ─────────────────────────────────────────────
@@ -385,56 +481,57 @@ function buildEmailHtml(letterText) {
 </div>`;
 }
 
-async function dispatchEmail({ to, cc, subject, text, html, attachments = [] }) {
-  const fromName = cfg('FIRM_NAME') || 'FreightGuard Defense Legal Network';
+async function dispatchEmail({ to, cc, subject, text, html }) {
+  const fromName = process.env.FIRM_NAME || 'FreightGuard Defense Legal Network';
 
   // Try Resend first
   if (resendClient) {
-    const fromEmail = cfg('RESEND_FROM_EMAIL') || 'legal@brokermc.com';
+    const fromEmail = cfg('RESEND_FROM_EMAIL') || process.env.RESEND_FROM_EMAIL || 'legal@brokermc.com';
     const { data, error } = await resendClient.emails.send({
-      from:        `${fromName} <${fromEmail}>`,
-      to:          Array.isArray(to) ? to : [to],
-      cc:          cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
+      from:    `${fromName} <${fromEmail}>`,
+      to:      Array.isArray(to) ? to : [to],
+      cc:      cc ? (Array.isArray(cc) ? cc : [cc]) : undefined,
       subject, html, text,
-      attachments: attachments.map(a => ({
-        filename: a.name,
-        content:  fs.readFileSync(a.path).toString('base64'),
-      })),
     });
     if (error) throw new Error(error.message || 'Resend send failed');
     return data;
   }
 
   // Fall back to SMTP / nodemailer
-  if (!cfg('SMTP_USER') || !cfg('SMTP_PASS')) {
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
     throw new Error('Email not configured. Add RESEND_API_KEY or SMTP_USER + SMTP_PASS to your .env file.');
   }
   const transporter = nodemailer.createTransport({
-    host:   cfg('SMTP_HOST') || 'smtp.gmail.com',
-    port:   Number(cfg('SMTP_PORT')) || 587,
+    host:   process.env.SMTP_HOST || 'smtp.gmail.com',
+    port:   Number(process.env.SMTP_PORT) || 587,
     secure: false,
-    auth:   { user: cfg('SMTP_USER'), pass: cfg('SMTP_PASS') },
+    auth:   { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   });
   await transporter.sendMail({
-    from: `"${fromName}" <${cfg('SMTP_USER')}>`,
+    from: `"${fromName}" <${process.env.SMTP_USER}>`,
     to, cc, subject, html, text,
   });
 }
 
 // ── ATTORNEY ROUTES ───────────────────────────────────────────
-app.get('/api/attorneys', async (req, res) => { try { res.json(await loadAttorneys()); } catch(e) { res.status(500).json({error:e.message}); } });
+app.get('/api/attorneys', async (req, res) => res.json(await loadAttorneys()));
 
 app.post('/api/attorneys', requireAdmin, async (req, res) => {
-  const { name, barNumber, barState, email, phone, licenseStates, specialty, firmName, website } = req.body;
+  const { name, barNumber, barState, email, phone, licenseStates, specialty, firmName } = req.body;
   if (!name || !barNumber || !email) return res.status(400).json({ error: 'Name, bar number, and email required' });
-  const attorney = { id: Date.now().toString(), name, barNumber, barState, email, phone, licenseStates, specialty, firmName, website, createdAt: new Date().toISOString() };
-  await addAttorney(attorney);
+  const attorney = { id: Date.now().toString(), name, barNumber, barState: barState||'', email, phone: phone||'', licenseStates: licenseStates||'', specialty: specialty||'', firmName: firmName||'', createdAt: new Date().toISOString() };
+  await addAttorneyDB(attorney);
   res.json(attorney);
 });
 
 app.delete('/api/attorneys/:id', requireAdmin, async (req, res) => {
-  await deleteAttorney(req.params.id);
+  await deleteAttorneyDB(req.params.id);
   res.json({ success: true });
+});
+
+// ── PUBLIC CONFIG — maps key for client-side Places API ───────
+app.get('/api/maps-key', (req, res) => {
+  res.json({ key: cfg('GOOGLE_MAPS_API_KEY') || '' });
 });
 
 // ── BROKER REPEAT-OFFENDER CHECK ─────────────────────────────
@@ -442,8 +539,7 @@ app.get('/api/check-broker', async (req, res) => {
   const { mc } = req.query;
   if (!mc) return res.json({ count: 0, reports: [] });
   const mc_clean = String(mc).trim().replace(/^MC-?/i, '');
-  const allReports = await loadReports();
-  const reports  = allReports.filter(r => String(r.brokerMC).replace(/^MC-?/i, '') === mc_clean);
+  const reports  = (await loadReports()).filter(r => String(r.brokerMC).replace(/^MC-?/i, '') === mc_clean);
   res.json({ count: reports.length, reports });
 });
 
@@ -467,18 +563,18 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
       carrierName, carrierMC, carrierDOT, carrierEmail,
       numTrucks, carrierNarrative, evidenceDescription,
       brokerName, brokerMC, brokerAddress, brokerPOC,
-      reporterName, reportContent, assignedAttorneyId, unpaidInvoices, uploadedDocs,
+      reporterName, reportContent, assignedAttorneyId,
     } = req.body;
 
     const caseRef  = generateCaseRef();
-    const damages  = calcDamages(Number(numTrucks), Number(unpaidInvoices) || 0);
+    const damages  = calcDamages(Number(numTrucks));
 
     // Use Google Maps first, fall back to state-based
     const court    = (await findCourthouseViaGoogleMaps(brokerAddress)) || getCourtByState(brokerAddress);
     const attorneys = await loadAttorneys();
     const attorney  = assignedAttorneyId ? attorneys.find(a => a.id === assignedAttorneyId) : null;
 
-    await recordBrokerReport(brokerMC, brokerName, carrierName, caseRef);
+    await recordBrokerReportDB(brokerMC, brokerName, carrierName, caseRef);
 
     const today    = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const deadline = new Date();
@@ -489,16 +585,16 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
       ? `${attorney.firmName || attorney.name + ', Attorney at Law'}`
       : '[LAW FIRM NAME — TBD]';
     const attorneyBlock = attorney
-      ? `\n\nRespectfully submitted,\n\n${attorney.name}\n${attorney.firmName || 'Attorney at Law'}\nBar No. ${attorney.barNumber} (${attorney.barState})\n${attorney.phone || ''}\n${attorney.email}${attorney.website ? '\n' + attorney.website : ''}`
+      ? `\n\nRespectfully submitted,\n\n${attorney.name}\n${attorney.firmName || 'Attorney at Law'}\nBar No. ${attorney.barNumber} (${attorney.barState})\n${attorney.phone || ''}\n${attorney.email}`
       : '\n\nRespectfully submitted,\n\n_________________________________\nAuthorized Representative\nLegal Department';
 
     const distanceLine = court.distanceMiles
       ? `\nNote: This courthouse is approximately ${court.distanceMiles} miles from the defendant's registered business address.`
       : '';
 
-    const prompt = `You are a senior transportation law attorney drafting a formal federal court demand letter. Write this letter exactly as a real law firm would send it — authoritative, legally precise, and intimidating to the recipient.
+    const prompt = `CRITICAL FORMATTING RULES: Output ONLY plain text. Do NOT use any HTML tags, HTML entities (&amp;, &nbsp;, &lt;, &gt;, &#xxx;), markdown, bold (**), bullet symbols, or any special formatting. Use only standard ASCII characters. Line breaks are fine. Numbers, dollar signs, hyphens, and parentheses are fine.
 
-CRITICAL FORMATTING RULES: Output ONLY plain text. Do NOT use any HTML tags, HTML entities (&nbsp;, &amp;, &lt;, &gt;, <br>, etc.), markdown formatting, asterisks, or special characters. Use plain spaces and newlines only. This letter will be printed directly on paper.
+You are a senior transportation law attorney drafting a formal federal court demand letter. Write this letter exactly as a real law firm would send it — authoritative, legally precise, and intimidating to the recipient.
 
 TODAY'S DATE: ${today}
 RESPONSE DEADLINE: ${deadlineStr}
@@ -533,9 +629,7 @@ COMPUTED DAMAGES (industry-standard rate of $15,000/truck/month):
 - Number of trucks affected: ${damages.numTrucks}
 - Total annual fleet revenue lost: $${damages.totalAnnualRevenue.toLocaleString()}
 - Re-registration / restructuring costs: $${damages.reRegisterCosts.toLocaleString()}
-- Estimated legal fees and costs: $${damages.legalFees.toLocaleString()}${damages.invoiceSubtotal > 0 ? `
-- Unpaid invoices owed to carrier: $${damages.invoiceSubtotal.toLocaleString()}
-- Attorney fees on unpaid invoices (50%): $${damages.invoiceAttyFees.toLocaleString()}` : ''}
+- Estimated legal fees and costs: $${damages.legalFees.toLocaleString()}
 - TOTAL DAMAGES CLAIMED: $${damages.totalDamages.toLocaleString()}
 
 VENUE COURT (where this will be filed):
@@ -560,19 +654,12 @@ LETTER REQUIREMENTS:
 6. "THE FREIGHTGUARD REPORT" section — quote the report and explain why it is false
 7. "LEGAL AUTHORITY" section — cite all statutes above with brief explanations
 8. "DAMAGES" section — present the full damages table line by line with the $15,000/month/truck rate prominently stated
-9. "DEMANDS" section — numbered list: (1) immediate retraction of the FreightGuard report, (2) written apology to carrier, (3) payment of $${damages.totalDamages.toLocaleString()} in total damages${damages.invoiceSubtotal > 0 ? ` (including $${damages.invoiceSubtotal.toLocaleString()} in unpaid invoices plus 50% attorney fees of $${damages.invoiceAttyFees.toLocaleString()})` : ''}, (4) cease all further disparaging communications
+9. "DEMANDS" section — numbered list: (1) immediate retraction of the FreightGuard report, (2) written apology to carrier, (3) payment of $${damages.totalDamages.toLocaleString()} in damages, (4) cease all further disparaging communications
 10. State that failure to comply within 14 days (by ${deadlineStr}) will result in filing in ${court.name}, ${court.dept}
 11. Include court address and phone number in the filing threat${court.distanceMiles ? `\n12. Mention that the court is ${court.distanceMiles} miles from the defendant's place of business` : ''}
 12. Professional closing
 
 Write the complete letter. Use [DATE] as the date placeholder. Make every word feel like it was written by a $500/hour attorney.
-
-${uploadedDocs && uploadedDocs.length ? `
-
-SUPPORTING DOCUMENTS ENCLOSED (${uploadedDocs.length}):
-${uploadedDocs.map((d,i) => `${i+1}. ${d.name}`).join('\n')}
-
-Reference these documents in the letter body where relevant (e.g., "As evidenced by the attached Bill of Lading..."). List all attached documents in an "ENCLOSURES" section at the end of the letter.` : ''}
 
 ${attorneyBlock}`;
 
@@ -584,27 +671,21 @@ ${attorneyBlock}`;
 
     const letterText = message.content[0].type === 'text' ? message.content[0].text : '';
 
-    // Save letter to database
-    await addLetter({
-      id: caseRef,
-      caseRef,
+    // Save letter
+    await addLetterDB({
+      id: caseRef, caseRef,
       carrierName, carrierEmail, carrierMC,
       brokerName, brokerMC, brokerAddress,
-      numTrucks, totalDamages: damages.totalDamages, unpaidInvoices: damages.invoiceSubtotal,
+      numTrucks, totalDamages: damages.totalDamages,
       court: `${court.name}, ${court.city}, ${court.state}`,
       letterText,
-      uploadedDocs: uploadedDocs || [],
       ts: new Date().toISOString(),
     });
 
     res.json({ letter: letterText, damages, court, attorney: attorney || null, caseRef });
   } catch(err) {
     console.error('Letter generation error:', err);
-    let msg = err.message;
-    if (msg.includes('401') || msg.includes('authentication_error') || msg.includes('invalid x-api-key')) {
-      msg = 'Anthropic API key is missing or invalid. Go to Admin Panel → API Keys and enter your key from console.anthropic.com';
-    }
-    res.status(500).json({ error: msg });
+    res.status(500).json({ error: 'Letter generation failed: ' + err.message });
   }
 });
 
@@ -651,11 +732,11 @@ app.post('/api/send-email', rateLimit(60000, 10), async (req, res) => {
 // Stripe is DISABLED (devMode) until re-enabled by admin
 app.post('/api/create-checkout', rateLimit(60000, 10), async (req, res) => {
   // Payment bypassed — return devMode so client skips Stripe
-  if (!stripe || cfg('STRIPE_DISABLED') === 'true') {
+  if (!stripe || process.env.STRIPE_DISABLED === 'true') {
     return res.json({ devMode: true });
   }
   try {
-    const baseUrl = cfg('BASE_URL') || `http://localhost:${PORT}`;
+    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
@@ -665,7 +746,7 @@ app.post('/api/create-checkout', rateLimit(60000, 10), async (req, res) => {
             name:        'FreightGuard Defense — Demand Letter',
             description: 'AI-drafted federal demand letter with damages calculation, court locator, and direct email delivery.',
           },
-          unit_amount: parseInt(cfg('STRIPE_PRICE_AMOUNT')) || 25000,
+          unit_amount: parseInt(process.env.STRIPE_PRICE_AMOUNT) || 25000,
         },
         quantity: 1,
       }],
@@ -684,7 +765,7 @@ app.post('/api/create-checkout', rateLimit(60000, 10), async (req, res) => {
 app.get('/api/verify-payment', async (req, res) => {
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: 'No session ID' });
-  if (!stripe || cfg('STRIPE_DISABLED') === 'true') return res.json({ paid: true, devMode: true });
+  if (!stripe || process.env.STRIPE_DISABLED === 'true') return res.json({ paid: true, devMode: true });
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id);
     const paid    = session.payment_status === 'paid';
@@ -694,272 +775,4 @@ app.get('/api/verify-payment', async (req, res) => {
     if (paid) {
       const users = loadUsers();
       if (!users.find(u => u.stripeSessionId === session_id)) {
-        users.push({ id: Date.now().toString(), email, stripeSessionId: session_id, paidAt: new Date().toISOString(), caseRefs: [] });
-        saveUsers(users);
-      }
-    }
-
-    res.json({ paid, email });
-  } catch(err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ── ATTORNEY COVERAGE BY STATE ────────────────────────────────
-app.get('/api/attorneys/coverage', async (req, res) => {
-  const { state }  = req.query;
-  const attorneys  = await loadAttorneys();
-  const matched    = state
-    ? attorneys.filter(a => (a.licenseStates || a.barState || '').toUpperCase().includes(state.toUpperCase()))
-    : attorneys;
-
-  const result = matched.map(a => {
-    const primaryState = (a.barState || (a.licenseStates || '').split(',')[0] || '').trim().toUpperCase();
-    const court        = FEDERAL_COURTS[primaryState] || FEDERAL_COURTS['IL'];
-    return { id: a.id, name: a.name, firmName: a.firmName || null, barState: a.barState, licenseStates: a.licenseStates, city: court.city, state: court.state, phone: a.phone || null };
-  });
-
-  res.json(result);
-});
-
-
-
-// ── DOCUMENT UPLOAD ───────────────────────────────────────────
-app.post('/api/upload-docs', upload.array('files', 10), (req, res) => {
-  if (!req.files || !req.files.length) return res.status(400).json({ error: 'No files uploaded' });
-  const saved = req.files.map(f => ({
-    id:       f.filename,
-    name:     f.originalname,
-    size:     f.size,
-    mimetype: f.mimetype,
-    path:     f.path,
-  }));
-  res.json({ files: saved });
-});
-
-app.get('/api/docs/:id', (req, res) => {
-  const filePath = path.join(UPLOADS_DIR, req.params.id);
-  if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File not found' });
-  res.sendFile(filePath);
-});
-
-// ── GOOGLE MAPS PUBLIC KEY (safe to expose — restrict in GCP console) ──
-app.get('/api/maps-key', (req, res) => {
-  const key = cfg('GOOGLE_MAPS_API_KEY');
-  res.json({ key: key || '' });
-});
-
-// ── ADMIN AUTH ────────────────────────────────────────────────
-function getAdminPassword() { return cfg('ADMIN_PASSWORD') || 'mikee@megafleetcorp.com'; }
-
-function requireAdmin(req, res, next) {
-  const token = req.headers['x-admin-token'];
-  if (token !== getAdminPassword()) return res.status(401).json({ error: 'Unauthorized' });
-  next();
-}
-
-app.post('/api/admin/login', (req, res) => {
-  const { password } = req.body;
-  if (password === getAdminPassword()) {
-    res.json({ token: getAdminPassword(), success: true });
-  } else {
-    res.status(401).json({ error: 'Invalid password' });
-  }
-});
-
-app.get('/api/admin/overview', requireAdmin, async (req, res) => {
-  const users     = loadUsers();
-  const letters   = await loadLetters();
-  const reports   = await loadReports();
-  const followups = loadFollowups();
-  const attorneys = await loadAttorneys();
-  const totalDamages = letters.reduce((sum, l) => sum + (l.totalDamages || 0), 0);
-  const stripeDisabled = !stripe || cfg('STRIPE_DISABLED') === 'true';
-  res.json({
-    userCount:     users.length,
-    letterCount:   letters.length,
-    reportCount:   reports.length,
-    followupCount: followups.length,
-    attorneyCount: attorneys.length,
-    totalDamages,
-    recentLetters: letters
-      .sort((a, b) => new Date(b.ts || b.createdAt || 0) - new Date(a.ts || a.createdAt || 0))
-      .slice(0, 10)
-      .map(l => ({ ...l, letterText: undefined, createdAt: l.ts || l.createdAt })),
-    apis: {
-      anthropic:  !!cfg('ANTHROPIC_API_KEY'),
-      stripe:     !!stripe && !stripeDisabled,
-      resend:     !!resendClient,
-      smtp:       !!cfg('SMTP_USER'),
-      googleMaps: !!cfg('GOOGLE_MAPS_API_KEY'),
-      stripeMode: stripeDisabled ? 'Free Access (Disabled)' : 'Live',
-    },
-  });
-});
-
-app.get('/api/admin/users', requireAdmin, (req, res) => {
-  const users = loadUsers().sort((a, b) => new Date(b.paidAt || 0) - new Date(a.paidAt || 0));
-  res.json({ users });
-});
-
-app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
-  saveUsers(loadUsers().filter(u => u.id !== req.params.id));
-  res.json({ success: true });
-});
-
-app.get('/api/admin/letters', requireAdmin, (req, res) => {
-  const letters = (await loadLetters()).sort((a, b) => new Date(b.ts || b.createdAt || 0) - new Date(a.ts || a.createdAt || 0));
-  res.json({ letters: letters.map(l => ({ ...l, createdAt: l.ts || l.createdAt, letterText: undefined })) });
-});
-
-app.get('/api/admin/letters/:caseRef', requireAdmin, (req, res) => {
-  const letter = (await loadLetters()).find(l => l.caseRef === req.params.caseRef || l.id === req.params.caseRef);
-  if (!letter) return res.status(404).json({ error: 'Letter not found' });
-  res.json({ ...letter, createdAt: letter.ts || letter.createdAt });
-});
-
-app.get('/api/admin/reports', requireAdmin, async (req, res) => {
-  const reports = (await loadReports()).sort((a, b) => new Date(b.ts || b.createdAt || 0) - new Date(a.ts || a.createdAt || 0));
-  res.json({ reports: reports.map(r => ({ ...r, createdAt: r.ts || r.createdAt })) });
-});
-
-app.get('/api/admin/followups', requireAdmin, (req, res) => {
-  const followups = loadFollowups().sort((a, b) => b.id - a.id);
-  // Flatten pending steps into individual rows for display
-  const rows = [];
-  for (const job of followups) {
-    for (const step of (job.pending || [])) {
-      rows.push({
-        id:       job.id + '_' + step.label,
-        caseRef:  job.caseRef,
-        email:    job.brokerEmail,
-        day:      step.label.includes('14') ? 14 : 7,
-        status:   step.sent ? 'sent' : 'pending',
-        sentAt:   step.sentAt || null,
-        scheduledAt: step.sendAt ? new Date(step.sendAt).toISOString() : null,
-      });
-    }
-  }
-  res.json({ followups: rows });
-});
-
-// ── FOLLOW-UP EMAIL SCHEDULER ────────────────────────────────
-async function runFollowupScheduler() {
-  const followups = loadFollowups();
-  let changed     = false;
-  const now       = Date.now();
-
-  for (const job of followups) {
-    for (const step of job.pending) {
-      if (step.sent || now < step.sendAt) continue;
-      const isDay14 = step.label.includes('14');
-      const subj = isDay14
-        ? `⚠️ FINAL NOTICE — Case ${job.caseRef} — 14-Day Deadline Expired — Filing Imminent`
-        : `FOLLOW-UP — Case ${job.caseRef} — Awaiting Response to Legal Demand`;
-      const body = isDay14
-        ? `${job.brokerName},\n\nThis is final notice regarding Case No. ${job.caseRef}.\n\nOur client's 14-day response deadline has expired. Our attorneys are prepared to file in federal court. This is your final opportunity to resolve this matter without litigation.\n\nUnless we receive written confirmation of (1) retraction of the FreightGuard report and (2) payment confirmation within 48 hours, we will proceed with filing.\n\nDo not ignore this communication.\n\nLegal Department\n${cfg('FIRM_NAME') || 'FreightGuard Defense'}`
-        : `${job.brokerName},\n\nThis is a follow-up regarding our formal demand letter sent on behalf of ${job.carrierName} (Case No. ${job.caseRef}).\n\nAs of today, we have not received a response. Our client's 14-day deadline is approaching. We strongly encourage you to respond in writing before the deadline expires.\n\nLegal Department\n${cfg('FIRM_NAME') || 'FreightGuard Defense'}`;
-
-      try {
-        await dispatchEmail({ to: job.brokerEmail, cc: job.carrierEmail, subject: subj, text: body, html: `<pre style="font-family:sans-serif;white-space:pre-wrap;">${body}</pre>` });
-        step.sent   = true;
-        step.sentAt = new Date().toISOString();
-        changed     = true;
-        console.log(`✉️  Follow-up sent [${step.label}] → ${job.brokerEmail} (Case ${job.caseRef})`);
-      } catch(e) {
-        console.error(`Follow-up send failed [${step.label}]:`, e.message);
-      }
-    }
-  }
-  if (changed) saveFollowups(followups);
-}
-
-setInterval(runFollowupScheduler, 3600000);
-setTimeout(runFollowupScheduler, 30000);
-
-// ── START ─────────────────────────────────────────────────────
-const server = app.listen(PORT, () => {
-  console.log('');
-  console.log('╔══════════════════════════════════════════════════════╗');
-  console.log('║        FreightGuard Defense  —  Server Ready          ║');
-  console.log('╚══════════════════════════════════════════════════════╝');
-  console.log(`  🌐  URL:              http://localhost:${PORT}`);
-  console.log(`  🤖  Anthropic API:    ${cfg('ANTHROPIC_API_KEY')  ? '✅ Connected' : '❌ Missing ANTHROPIC_API_KEY'}`);
-  console.log(`  💳  Stripe:           ${stripe && cfg('STRIPE_DISABLED') !== 'true' ? '✅ Active' : '⚠️  DISABLED (free access mode)'}`);
-  console.log(`  📨  Resend Email:     ${resendClient                   ? '✅ Connected' : '⚠️  Not set'}`);
-  console.log(`  📧  SMTP Fallback:    ${cfg('SMTP_USER')          ? '✅ Configured' : '⚠️  Not set'}`);
-  console.log(`  🗺️   Google Maps:      ${cfg('GOOGLE_MAPS_API_KEY') ? '✅ Connected' : '⚠️  Not set (state fallback active)'}`);
-  console.log(`  🔐  Admin Panel:      http://localhost:${PORT}/admin.html`);
-  console.log(`  📁  Data dir:         ${DATA_DIR}`);
-  console.log('');
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error('  ⚠️   WARNING: ANTHROPIC_API_KEY is not set. Letter generation will fail until you add it to .env');
-  }
-});
-
-
-// ── ADMIN CONFIG (API KEYS) ───────────────────────────────────
-app.get('/api/admin/config', requireAdmin, (req, res) => {
-  const keys = ['ANTHROPIC_API_KEY','RESEND_API_KEY','RESEND_FROM_EMAIL',
-                 'STRIPE_SECRET_KEY','STRIPE_PUBLISHABLE_KEY','STRIPE_DISABLED','STRIPE_PRICE_AMOUNT',
-                 'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASS',
-                 'GOOGLE_MAPS_API_KEY','FIRM_NAME','BASE_URL','ADMIN_PASSWORD'];
-  const result = {};
-  for (const k of keys) {
-    const v = cfg(k);
-    // Mask secrets — show only last 4 chars
-    if (v && ['ANTHROPIC_API_KEY','RESEND_API_KEY','STRIPE_SECRET_KEY','SMTP_PASS'].includes(k)) {
-      result[k] = v.length > 4 ? '••••' + v.slice(-4) : '••••';
-    } else {
-      result[k] = v || '';
-    }
-  }
-  res.json({ config: result, source: 'runtime' });
-});
-
-app.post('/api/admin/config', requireAdmin, (req, res) => {
-  const allowed = ['ANTHROPIC_API_KEY','RESEND_API_KEY','RESEND_FROM_EMAIL',
-                   'STRIPE_SECRET_KEY','STRIPE_PUBLISHABLE_KEY','STRIPE_DISABLED','STRIPE_PRICE_AMOUNT',
-                   'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASS',
-                   'GOOGLE_MAPS_API_KEY','FIRM_NAME','BASE_URL','ADMIN_PASSWORD'];
-  const updates = req.body;
-  for (const [k, v] of Object.entries(updates)) {
-    if (!allowed.includes(k)) continue;
-    if (v === '' || v === null) {
-      delete runtimeConfig[k]; // revert to env var
-    } else {
-      runtimeConfig[k] = v;
-    }
-  }
-  saveConfig();
-  // Reinitialize clients with new keys
-  initAnthropic();
-  initStripe();
-  initResend();
-  res.json({ success: true, message: 'Configuration saved and applied live.' });
-});
-
-// ── GLOBAL ERROR HANDLER ──────────────────────────────────────
-// Catches any unhandled Express errors — always returns JSON (never empty)
-app.use((err, req, res, next) => {
-  console.error('Unhandled Express error:', err.message);
-  if (res.headersSent) return next(err);
-  res.status(500).json({ error: err.message || 'Internal server error' });
-});
-
-// ── 404 CATCH-ALL ─────────────────────────────────────────────
-app.use((req, res) => {
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
-  }
-  res.status(404).send('Not found');
-});
-
-// ── GRACEFUL SHUTDOWN ─────────────────────────────────────────
-function shutdown(signal) {
-    console.log(`Received ${signal}, shutting down gracefully...`);
-  process.exit(0);
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+        users.

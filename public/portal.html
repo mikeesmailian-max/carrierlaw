@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FreightGuard Defense — My Portal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #0d1117;
+      --surface: #161b22;
+      --surface2:#21262d;
+      --border:  #30363d;
+      --fg:      #e6edf3;
+      --muted:   #7d8590;
+      --accent:  #f0b429;
+      --blue:    #3a82f6;
+      --red:     #f85149;
+      --green:   #3fb950;
+    }
+    body {
+      background: var(--bg);
+      color: var(--fg);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+    }
+
+    /* ── NAV ── */
+    .nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      height: 56px;
+      gap: 16px;
+    }
+    .nav-logo {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--fg);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+    }
+    .nav-logo span { color: var(--accent); }
+    .nav-right {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .nav-user {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .nav-user strong { color: var(--fg); }
+    .btn-sm {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--fg);
+      border-radius: 6px;
+      padding: 6px 14px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-sm:hover { border-color: var(--accent); }
+
+    /* ── MAIN ── */
+    .main {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 32px 24px;
+    }
+    .page-title {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .page-sub {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 28px;
+    }
+
+    /* ── STATS ── */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    /* ── TABLE ── */
+    .table-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .table-head {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .table-head h3 { font-size: 15px; font-weight: 600; }
+    .btn-reload {
+      margin-left: auto;
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 5px 12px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-reload:hover { border-color: var(--accent); color: var(--fg); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 12px 20px;
+      text-align: left;
+      font-size: 13px;
+    }
+    th {
+      background: var(--surface2);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      border-bottom: 1px solid var(--border);
+    }
+    tr { border-bottom: 1px solid var(--border); }
+    tr:last-child { border-bottom: none; }
+    tr:hover { background: rgba(255,255,255,.02); }
+    .empty {
+      text-align: center;
+      padding: 48px 24px;
+      color: var(--muted);
+    }
+    .empty .e-icon { font-size: 40px; margin-bottom: 12px; }
+    .mono { font-family: monospace; }
+    .btn-view {
+      background: rgba(58,130,246,.12);
+      border: 1px solid rgba(58,130,246,.3);
+      color: var(--blue);
+      border-radius: 5px;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-view:hover { background: rgba(58,130,246,.22); }
+    .spin {
+      display: inline-block;
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .section-loading { text-align: center; padding: 40px; }
+
+    /* ── MODAL ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.7);
+      z-index: 1000;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 32px 16px;
+      overflow-y: auto;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 100%;
+      max-width: 720px;
+    }
+    .modal-head {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      gap: 12px;
+    }
+    .modal-head h3 { font-size: 16px; font-weight: 600; flex: 1; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .modal-close:hover { color: var(--fg); background: var(--surface2); }
+    .modal-body { padding: 24px 20px; }
+    .modal-actions {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 12px;
+    }
+    .letter-text {
+      white-space: pre-wrap;
+      font-family: 'Georgia', serif;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--fg);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 20px 24px;
+      max-height: 520px;
+      overflow-y: auto;
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .detail-item label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 3px;
+    }
+    .detail-item span { font-size: 13px; }
+    .btn-print {
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 6px;
+      padding: 9px 20px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    @media (max-width: 600px) {
+      .detail-grid { grid-template-columns: 1fr; }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+    }
+
+    @media print {
+      .nav, .stats-row, .table-card, .modal-head, .modal-actions { display: none !important; }
+      .modal-overlay { position: static; background: none; padding: 0; }
+      .modal-box { border: none; box-shadow: none; }
+      .letter-text { max-height: none; border: none; background: white; color: black; padding: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<nav class="nav">
+  <a class="nav-logo" href="/">⚖️ FreightGuard <span>Defense</span></a>
+  <div class="nav-right">
+    <span class="nav-user" id="nav-user">Loading…</span>
+    <button class="btn-sm" onclick="doLogout()">Sign Out</button>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-title">My Letter History</div>
+  <div class="page-sub">All demand letters generated under your account.</div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">Total Letters</div>
+      <div class="stat-value" id="stat-total">—</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">This Month</div>
+      <div class="stat-value" id="stat-month">—</div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-head">
+      <h3>Letters</h3>
+      <button class="btn-reload" onclick="loadLetters()">↻ Refresh</button>
+    </div>
+    <div id="lettersWrap">
+      <div class="section-loading"><span class="spin"></span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Letter Modal -->
+<div class="modal-overlay" id="letterModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">Demand Letter</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid" id="modalMeta"></div>
+      <pre class="letter-text" id="modalText"></pre>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-print" onclick="printLetter()">🖨 Print / Save PDF</button>
+      <button class="btn-sm" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let clientToken = localStorage.getItem('fgd_client_token') || '';
+let currentLetter = null;
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function init() {
+  if (!clientToken) {
+    window.location.href = '/login.html';
+    return;
+  }
+  try {
+    const res = await fetch('/api/auth/me', {
+      headers: { 'Authorization': 'Bearer ' + clientToken }
+    });
+    if (!res.ok) {
+      localStorage.removeItem('fgd_client_token');
+      window.location.href = '/login.html';
+      return;
+    }
+    const user = await res.json();
+    document.getElementById('nav-user').innerHTML = `Welcome, <strong>${esc(user.name || user.email)}</strong>`;
+    loadLetters();
+  } catch {
+    window.location.href = '/login.html';
+  }
+}
+
+async function loadLetters() {
+  const wrap = document.getElementById('lettersWrap');
+  wrap.innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
+  try {
+    const res = await fetch('/api/portal/letters', {
+      headers: { 'Authorization': 'Bearer ' + clientToken }
+    });
+    if (!res.ok) throw new Error('Failed to load letters');
+    const letters = await res.json();
+
+    // Update stats
+    const now = new Date();
+    const thisMonth = letters.filter(l => {
+      const d = new Date(l.created_at || l.timestamp || 0);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    document.getElementById('stat-total').textContent = letters.length;
+    document.getElementById('stat-month').textContent = thisMonth.length;
+
+    if (!letters.length) {
+      wrap.innerHTML = `<div class="empty">
+        <div class="e-icon">📄</div>
+        <p>No letters yet.</p>
+        <p style="margin-top:8px;font-size:12px"><a href="/" style="color:var(--blue)">Generate your first demand letter →</a></p>
+      </div>`;
+      return;
+    }
+
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Case Ref</th>
+        <th>Broker</th>
+        <th>Amount</th>
+        <th>Attorney</th>
+        <th>Date</th>
+        <th></th>
+      </tr></thead>
+      <tbody>
+        ${letters.map(l => `<tr>
+          <td class="mono" style="color:var(--accent);font-size:12px">${esc(l.caseRef || l.case_ref || '—')}</td>
+          <td>
+            <div style="font-weight:600">${esc(l.brokerName || l.broker_name || '—')}</div>
+            <div style="font-size:11px;color:var(--muted)">${esc(l.brokerAddress || l.broker_address || '')}</div>
+          </td>
+          <td style="font-weight:700;color:var(--green)">$${(Number(l.amountDue || l.amount_due || 0)).toLocaleString()}</td>
+          <td style="font-size:12px">${esc(l.attorneyName || l.attorney_name || '—')}</td>
+          <td style="font-size:12px;color:var(--muted)">${l.created_at || l.timestamp ? new Date(l.created_at || l.timestamp).toLocaleDateString() : '—'}</td>
+          <td><button class="btn-view" onclick="viewLetter('${esc(l.caseRef || l.case_ref)}')">View</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) {
+    wrap.innerHTML = `<div class="empty"><p>Error: ${esc(e.message)}</p></div>`;
+  }
+}
+
+async function viewLetter(caseRef) {
+  document.getElementById('modalTitle').textContent = 'Loading…';
+  document.getElementById('modalMeta').innerHTML = '';
+  document.getElementById('modalText').textContent = '';
+  document.getElementById('letterModal').classList.add('open');
+
+  try {
+    const res = await fetch('/api/portal/letter/' + encodeURIComponent(caseRef), {
+      headers: { 'Authorization': 'Bearer ' + clientToken }
+    });
+    if (!res.ok) throw new Error('Letter not found');
+    const data = await res.json();
+    currentLetter = data;
+
+    document.getElementById('modalTitle').textContent = 'Demand Letter — ' + (data.caseRef || caseRef);
+
+    const meta = [
+      ['Case Ref', data.caseRef || caseRef],
+      ['Broker', data.brokerName],
+      ['Amount Due', data.amountDue ? '$' + Number(data.amountDue).toLocaleString() : '—'],
+      ['Attorney', data.attorneyName],
+      ['Generated', data.created_at || data.timestamp ? new Date(data.created_at || data.timestamp).toLocaleDateString() : '—'],
+      ['Filing Court', data.court ? data.court.name : '—'],
+    ].filter(([,v]) => v);
+
+    document.getElementById('modalMeta').innerHTML = meta.map(([label, val]) => `
+      <div class="detail-item">
+        <label>${esc(label)}</label>
+        <span>${esc(String(val))}</span>
+      </div>`).join('');
+
+    // Clean the letter text
+    const raw = data.letter || '';
+    const clean = raw
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>').replace(/&#160;/g, ' ')
+      .replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+    document.getElementById('modalText').textContent = clean;
+
+  } catch(e) {
+    document.getElementById('modalTitle').textContent = 'Error';
+    document.getElementById('modalText').textContent = e.message;
+  }
+}
+
+function closeModal() {
+  document.getElementById('letterModal').classList.remove('open');
+  currentLetter = null;
+}
+
+function printLetter() {
+  if (!currentLetter) return;
+  const atty    = currentLetter.attorney  || {};
+  const court   = currentLetter.court     || {};
+  const letter  = currentLetter.letter    || '';
+
+  const clean = letter
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>').replace(/&#160;/g, ' ')
+    .replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
+
+  const firmName  = atty.firmName  || atty.name || 'FreightGuard Defense';
+  const attyName  = atty.name      || '';
+  const barNum    = atty.barNumber ? `Bar No. ${atty.barNumber}` : '';
+  const barState  = atty.barState  || '';
+  const attyEmail = atty.email     || '';
+  const attyPhone = atty.phone     || '';
+
+  const courtBlock = court.name
+    ? `<table style="width:100%;border-collapse:collapse;margin:24px 0">
+        <tr>
+          <td style="width:48%;border:1px solid #333;padding:12px;font-size:11px;vertical-align:top">
+            <strong>Venue / Filing Court</strong><br>
+            ${esc(court.name)}<br>
+            ${esc(court.address || '')}<br>
+            ${court.distance ? `(~${court.distance} mi from broker)` : ''}
+          </td>
+          <td style="width:4%"></td>
+          <td style="width:48%;border:1px solid #333;padding:12px;font-size:11px;vertical-align:top">
+            <strong>Date of Letter</strong><br>
+            ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })}
+          </td>
+        </tr>
+      </table>` : '';
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Demand Letter — ${esc(currentLetter.caseRef || '')}</title>
+<style>
+  body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; margin: 0; padding: 0; }
+  .letterhead { border-bottom: 3px solid #b8860b; padding-bottom: 14px; margin-bottom: 6px; }
+  .firm-name { font-size: 20pt; font-weight: 700; color: #b8860b; letter-spacing: 1px; }
+  .atty-info { font-size: 9pt; color: #444; margin-top: 4px; }
+  .letter-body { white-space: pre-wrap; line-height: 1.75; font-size: 11pt; }
+  .confidential { margin-top: 32px; font-size: 9pt; color: #666; border-top: 1px solid #ccc; padding-top: 8px; text-align: center; }
+  @page { margin: 1in; }
+</style></head><body>
+<div class="letterhead">
+  <div class="firm-name">${esc(firmName)}</div>
+  <div class="atty-info">
+    ${attyName ? esc(attyName) + (barState ? ', ' + esc(barState) : '') + (barNum ? ' · ' + esc(barNum) : '') + '<br>' : ''}
+    ${attyEmail ? esc(attyEmail) : ''}${attyEmail && attyPhone ? ' · ' : ''}${attyPhone ? esc(attyPhone) : ''}
+  </div>
+</div>
+${courtBlock}
+<div class="letter-body">${esc(clean)}</div>
+<div class="confidential">CONFIDENTIAL ATTORNEY-CLIENT COMMUNICATION — This letter contains legally privileged information.</div>
+</body></html>`;
+
+  const pw = window.open('', '_blank', 'width=900,height=700');
+  pw.document.write(html);
+  pw.document.close();
+  pw.focus();
+  setTimeout(() => { pw.print(); }, 600);
+}
+
+function doLogout() {
+  localStorage.removeItem('fgd_client_token');
+  window.location.href = '/login.html';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+
+init();
+</script>
+</body>
+</html>
