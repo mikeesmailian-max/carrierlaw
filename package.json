@@ -5,7 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "deploy": "wrangler deploy",
+    "preview": "wrangler dev"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.24.0",
@@ -17,7 +19,16 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["trucking", "freight", "carrier", "demand-letter", "legal"],
+  "keywords": [
+    "trucking",
+    "freight",
+    "carrier",
+    "demand-letter",
+    "legal"
+  ],
   "license": "UNLICENSED",
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "wrangler": "^4.92.0"
+  }
 }
