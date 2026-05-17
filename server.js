@@ -290,7 +290,7 @@ async function dispatchEmail({ to, cc, subject, text, html }) {
 // ── ATTORNEY ROUTES ───────────────────────────────────────────
 app.get('/api/attorneys', (req, res) => res.json(loadAttorneys()));
 
-app.post('/api/attorneys', (req, res) => {
+app.post('/api/attorneys', requireAdmin, (req, res) => {
   const { name, barNumber, barState, email, phone, licenseStates, specialty, firmName } = req.body;
   if (!name || !barNumber || !email) return res.status(400).json({ error: 'Name, bar number, and email required' });
   const attorneys = loadAttorneys();
@@ -300,7 +300,7 @@ app.post('/api/attorneys', (req, res) => {
   res.json(attorney);
 });
 
-app.delete('/api/attorneys/:id', (req, res) => {
+app.delete('/api/attorneys/:id', requireAdmin, (req, res) => {
   saveAttorneys(loadAttorneys().filter(a => a.id !== req.params.id));
   res.json({ success: true });
 });

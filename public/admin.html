@@ -242,6 +242,9 @@
       <a href="#" data-tab="followups" onclick="switchTab('followups',this)">
         <span class="nav-icon">📬</span> Follow-Ups
       </a>
+      <a href="#" data-tab="attorneys" onclick="switchTab('attorneys',this)">
+        <span class="nav-icon">👔</span> Attorneys
+      </a>
     </nav>
     <div class="sidebar-footer">
       <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-align:center" id="adminUser">—</div>
@@ -347,6 +350,63 @@
       </div>
     </div>
 
+    <div id="tab-attorneys" class="tab-section">
+      <div class="page-title">Attorney Network</div>
+      <div class="page-sub">Add, view, and remove attorneys in your legal network (admin only)</div>
+
+      <!-- Add form -->
+      <div class="table-wrap" style="margin-bottom:20px;padding:20px 24px;">
+        <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);margin-bottom:16px;">➕ Add New Attorney</div>
+        <div id="attyAdminAlert"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Full Name *</label>
+            <input id="aa-name" placeholder="Robert J. Harrington" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Firm Name</label>
+            <input id="aa-firm" placeholder="Harrington & Associates, P.C." style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Bar Number *</label>
+            <input id="aa-bar" placeholder="47821" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Bar State</label>
+            <input id="aa-barstate" placeholder="TX" maxlength="2" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Email *</label>
+            <input id="aa-email" type="email" placeholder="attorney@firm.com" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Phone</label>
+            <input id="aa-phone" placeholder="(555) 000-0000" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Licensed States (comma-sep)</label>
+            <input id="aa-states" placeholder="TX, LA, OK, AR" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
+          </div>
+          <div>
+            <label style="display:block;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">Specialty / Notes</label>
+            <input id="aa-specialty" placeholder="Transportation law, FMCSA disputes" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:9px 12px;color:var(--text);font-size:13px;outline:none;" />
+          </div>
+        </div>
+        <button onclick="adminAddAttorney()" style="background:var(--accent);color:#000;border:none;border-radius:6px;padding:10px 24px;font-weight:700;font-size:13px;cursor:pointer;">+ Save Attorney</button>
+      </div>
+
+      <!-- Attorney list -->
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>Network Attorneys</h3>
+          <span class="count-badge" id="attyAdminCount">—</span>
+        </div>
+        <div id="attyAdminTableWrap">
+          <div class="section-loading"><span class="spin"></span></div>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -442,6 +502,7 @@ function switchTab(tab, el) {
   if (tab === 'letters')  loadLetters();
   if (tab === 'reports')  loadReports();
   if (tab === 'followups') loadFollowups();
+  if (tab === 'attorneys') loadAdminAttorneys();
 }
 
 // ── FORMAT HELPERS ───────────────────────────
@@ -735,6 +796,87 @@ async function loadFollowups() {
   } catch(e) {
     document.getElementById('followupsTableWrap').innerHTML = '<div class="empty"><p>Error loading follow-ups.</p></div>';
   }
+}
+
+// ── ATTORNEYS (ADMIN) ────────────────────────
+async function loadAdminAttorneys() {
+  try {
+    const res  = await fetch('/api/attorneys');
+    const atty = await res.json();
+    const count = document.getElementById('attyAdminCount');
+    if (count) count.textContent = atty.length;
+    const wrap = document.getElementById('attyAdminTableWrap');
+    if (!wrap) return;
+    if (!atty.length) {
+      wrap.innerHTML = '<div class="empty"><div class="e-icon">👔</div><p>No attorneys yet. Add one above.</p></div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Name / Firm</th><th>Bar #</th><th>States</th><th>Contact</th><th>Specialty</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${atty.map(a => `<tr>
+          <td><div style="font-weight:600">${esc(a.name)}</div><div style="font-size:12px;color:var(--muted)">${esc(a.firmName||'Independent')}</div></td>
+          <td class="mono" style="color:var(--accent)">${esc(a.barNumber)}<br><span style="color:var(--muted);font-size:11px">${esc(a.barState||'')}</span></td>
+          <td style="font-size:12px">${esc(a.licenseStates||'—')}</td>
+          <td><div style="color:var(--blue);font-size:12px">${esc(a.email)}</div><div style="font-size:12px;color:var(--muted)">${esc(a.phone||'')}</div></td>
+          <td style="font-size:12px;color:var(--muted)">${esc(a.specialty||'—')}</td>
+          <td><button onclick="adminDeleteAttorney('${a.id}')" style="background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.3);color:var(--red);border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:600">Remove</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) {
+    document.getElementById('attyAdminTableWrap').innerHTML = '<div class="empty"><p>Error loading attorneys.</p></div>';
+  }
+}
+
+async function adminAddAttorney() {
+  const v = id => (document.getElementById(id)?.value || '').trim();
+  const data = {
+    name:          v('aa-name'),
+    firmName:      v('aa-firm'),
+    barNumber:     v('aa-bar'),
+    barState:      v('aa-barstate').toUpperCase(),
+    email:         v('aa-email'),
+    phone:         v('aa-phone'),
+    licenseStates: v('aa-states'),
+    specialty:     v('aa-specialty'),
+  };
+  if (!data.name || !data.barNumber || !data.email) {
+    showAttyAlert('Name, bar number, and email are required.', 'red'); return;
+  }
+  try {
+    const res = await fetch('/api/attorneys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    ['aa-name','aa-firm','aa-bar','aa-barstate','aa-email','aa-phone','aa-states','aa-specialty']
+      .forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+    showAttyAlert('✅ Attorney added.', 'green');
+    loadAdminAttorneys();
+  } catch(e) { showAttyAlert('❌ ' + e.message, 'red'); }
+}
+
+async function adminDeleteAttorney(id) {
+  if (!confirm('Remove this attorney from the network?')) return;
+  await fetch('/api/attorneys/' + id, {
+    method: 'DELETE',
+    headers: { 'x-admin-token': TOKEN },
+  });
+  loadAdminAttorneys();
+}
+
+function showAttyAlert(msg, type) {
+  const el = document.getElementById('attyAdminAlert');
+  if (!el) return;
+  const colors = { red:'rgba(248,81,73,.15)', green:'rgba(63,185,80,.15)' };
+  const borders = { red:'rgba(248,81,73,.4)', green:'rgba(63,185,80,.4)' };
+  const texts   = { red:'var(--red)', green:'var(--green)' };
+  el.innerHTML = `<div style="background:${colors[type]};border:1px solid ${borders[type]};color:${texts[type]};padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;">${msg}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 5000);
 }
 
 // ── KEYBOARD SHORTCUTS ────────────────────────
