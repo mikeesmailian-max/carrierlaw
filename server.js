@@ -741,4 +741,9 @@ app.use((req, res) => {
 
 // ── GRACEFUL SHUTDOWN ─────────────────────────────────────────
 function shutdown(signal) {
-  console.lo
+    console.log(`Received ${signal}, shutting down gracefully...`);
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
