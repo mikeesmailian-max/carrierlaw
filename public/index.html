@@ -481,12 +481,6 @@
             <input id="brokerAddress" placeholder="4500 Commerce Blvd, Dallas, TX 75201" autocomplete="off" oninput="updateCourtPreview()" />
           </div>
 
-          <!-- Google Maps embed — broker location -->
-          <div id="brokerMapContainer" style="display:none;margin-top:4px;margin-bottom:14px;border-radius:8px;overflow:hidden;border:1px solid var(--border);">
-            <div style="padding:6px 12px;background:var(--navy-mid);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:var(--gold);">📍 Broker Location (Google Maps)</div>
-            <iframe id="brokerMapFrame" src="" style="width:100%;height:200px;border:none;display:block;" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
-          </div>
-
           <div class="field-row">
             <div class="field"><label>Point of Contact Name *</label><input id="brokerPOC" placeholder="John Martinez" /></div>
             <div class="field"><label>Person Who Filed the Report *</label><input id="reporterName" placeholder="Sarah Thompson" /></div>
@@ -657,26 +651,14 @@ function recalcDamages() {
   }
 }
 
-// ── COURT PREVIEW + BROKER MAP ────────────────────────────────
+// ── COURT PREVIEW ─────────────────────────────────────────────
 let _courtDebounce = null;
 async function updateCourtPreview() {
-  const addr         = document.getElementById('brokerAddress').value.trim();
-  const mapContainer = document.getElementById('brokerMapContainer');
-  const mapFrame     = document.getElementById('brokerMapFrame');
-
+  const addr = document.getElementById('brokerAddress').value.trim();
   if (addr.length < 8) {
     document.getElementById('courtPreview').style.display = 'none';
-    if (mapContainer) mapContainer.style.display = 'none';
     return;
   }
-
-  // Show Google Maps embed immediately (no API key needed on frontend)
-  if (mapFrame && mapContainer) {
-    mapFrame.src = `https://maps.google.com/maps?q=${encodeURIComponent(addr)}&output=embed&z=14&hl=en`;
-    mapContainer.style.display = 'block';
-  }
-
-  // Debounce the court lookup API call
   clearTimeout(_courtDebounce);
   _courtDebounce = setTimeout(async () => {
     try {
@@ -684,12 +666,7 @@ async function updateCourtPreview() {
       const c   = await res.json();
       document.getElementById('courtPreview').style.display = 'block';
       let html = `<strong>${c.name}</strong><br>${c.address}, ${c.city}, ${c.state} ${c.zip}<br>${c.dept} · 📞 ${c.phone}`;
-      if (c.distanceMiles) {
-        html += `<br><span style="color:var(--gold);font-weight:600;margin-top:4px;display:inline-block;">📏 ${c.distanceMiles} miles from broker's address</span>`;
-      }
-      if (c.fromGoogleMaps) {
-        html += ` <span style="font-size:11px;color:var(--text-muted);">(via Google Maps)</span>`;
-      }
+      if (c.distanceMiles) html += `<br><span style="color:var(--gold);font-weight:600;margin-top:4px;display:inline-block;">📏 ${c.distanceMiles} miles from broker</span>`;
       document.getElementById('courtPreviewText').innerHTML = html;
     } catch { /* silent */ }
   }, 700);
@@ -1036,33 +1013,34 @@ loadGooglePlaces();
 // ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────
 let _placesLoaded = false;
 async function loadGooglePlaces() {
-  if (_placesLoaded || window.google) { initPlacesAutocomplete(); return; }
+  if (_placesLoaded) return;
   try {
     const r = await fetch('/api/maps-key');
     const { key } = await r.json();
-    if (!key) return; // no key configured — skip silently
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&callback=initPlacesAutocomplete`;
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
+    if (!key) return;
     _placesLoaded = true;
-  } catch(e) { /* Places not available — manual entry works fine */ }
+    // Load Maps JS API; initPlacesAutocomplete called via callback
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&loading=async&callback=initPlacesAutocomplete`;
+    script.async = true;
+    document.head.appendChild(script);
+  } catch(e) { /* no key — manual entry works fine */ }
 }
 
 window.initPlacesAutocomplete = function() {
-  // ── Broker company name → establishment search, auto-fills address ──
+  // ── Broker company name → auto-fills address ──
   const brokerInput = document.getElementById('brokerName');
   if (brokerInput) {
-    const brokerAC = new google.maps.places.Autocomplete(brokerInput, {
+    const ac = new google.maps.places.Autocomplete(brokerInput, {
       types: ['establishment'],
-      fields: ['name','formatted_address','address_components','formatted_phone_number','website']
+      fields: ['name', 'formatted_address']
     });
-    brokerAC.addListener('place_changed', () => {
-      const place = brokerAC.getPlace();
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (place.name) brokerInput.value = place.name;
       if (place.formatted_address) {
         document.getElementById('brokerAddress').value = place.formatted_address;
-        updateCourtPreview(); // trigger court lookup
+        updateCourtPreview();
       }
     });
   }
@@ -1070,12 +1048,12 @@ window.initPlacesAutocomplete = function() {
   // ── Broker address field ──
   const addrInput = document.getElementById('brokerAddress');
   if (addrInput) {
-    const addrAC = new google.maps.places.Autocomplete(addrInput, {
+    const ac = new google.maps.places.Autocomplete(addrInput, {
       types: ['address'],
-      fields: ['formatted_address','address_components']
+      fields: ['formatted_address']
     });
-    addrAC.addListener('place_changed', () => {
-      const place = addrAC.getPlace();
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
       if (place.formatted_address) {
         addrInput.value = place.formatted_address;
         updateCourtPreview();
@@ -1086,9 +1064,13 @@ window.initPlacesAutocomplete = function() {
   // ── Carrier company name ──
   const carrierInput = document.getElementById('carrierName');
   if (carrierInput) {
-    new google.maps.places.Autocomplete(carrierInput, {
+    const ac = new google.maps.places.Autocomplete(carrierInput, {
       types: ['establishment'],
       fields: ['name']
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (place.name) carrierInput.value = place.name;
     });
   }
 };
