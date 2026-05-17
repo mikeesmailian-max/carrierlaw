@@ -314,7 +314,7 @@ async function dispatchEmail({ to, cc, subject, text, html, attachments = [] }) 
 
   // Try Resend first
   if (resendClient) {
-    const fromEmail = cfg('RESEND_FROM_EMAIL') || 'legal@freightguarddefense.com';
+    const fromEmail = cfg('RESEND_FROM_EMAIL') || 'legal@brokermc.com';
     const { data, error } = await resendClient.emails.send({
       from:        `${fromName} <${fromEmail}>`,
       to:          Array.isArray(to) ? to : [to],
