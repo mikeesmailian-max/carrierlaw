@@ -6,23 +6,58 @@ const nodemailer = require('nodemailer');
 const Anthropic  = require('@anthropic-ai/sdk');
 const Stripe     = require('stripe');
 
+// ── RUNTIME CONFIG ────────────────────────────────────────────
+// Keys saved via admin panel are persisted to config.json and take priority
+// over environment variables, so you never need to touch Railway dashboard.
+const CONFIG_FILE = '/tmp/freightguard-data/config.json';
+let runtimeConfig = {};
+try {
+  if (fs.existsSync(CONFIG_FILE)) runtimeConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+} catch(e) { runtimeConfig = {}; }
+
+function cfg(key) { return runtimeConfig[key] || process.env[key] || ''; }
+function saveConfig() {
+  try {
+    const dir = path.dirname(CONFIG_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify(runtimeConfig, null, 2));
+  } catch(e) { console.error('Failed to save config:', e.message); }
+}
+
 // ── RESEND CLIENT ─────────────────────────────────────────────
 let resendClient = null;
-try {
-  if (process.env.RESEND_API_KEY) {
-    const { Resend } = require('resend');
-    resendClient = new Resend(process.env.RESEND_API_KEY);
-  }
-} catch(e) { /* resend package not installed */ }
+function initResend() {
+  resendClient = null;
+  try {
+    if (cfg('RESEND_API_KEY')) {
+      const { Resend } = require('resend');
+      resendClient = new Resend(cfg('RESEND_API_KEY'));
+    }
+  } catch(e) { /* resend package not installed */ }
+}
+initResend();
 
-const app    = express();
-const PORT   = process.env.PORT || 3000;
-const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
+// ── ANTHROPIC CLIENT ──────────────────────────────────────────
+let anthropic = null;
+function initAnthropic() {
+  try {
+    anthropic = new Anthropic({ apiKey: cfg('ANTHROPIC_API_KEY') || 'placeholder' });
+  } catch(e) { anthropic = null; }
+}
+initAnthropic();
+
+// ── STRIPE CLIENT ─────────────────────────────────────────────
+let stripe = null;
+function initStripe() {
+  stripe = cfg('STRIPE_SECRET_KEY') ? Stripe(cfg('STRIPE_SECRET_KEY')) : null;
+}
+initStripe();
+
+const app  = express();
+const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // ── SECURITY HEADERS ──────────────────────────────────────────
 app.use((req, res, next) => {
@@ -54,11 +89,11 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     uptime: Math.floor(process.uptime()),
-    anthropic:  !!process.env.ANTHROPIC_API_KEY,
-    stripe:     !!process.env.STRIPE_SECRET_KEY,
+    anthropic:  !!cfg('ANTHROPIC_API_KEY'),
+    stripe:     !!cfg('STRIPE_SECRET_KEY'),
     resend:     !!resendClient,
-    smtp:       !!process.env.SMTP_USER,
-    googleMaps: !!process.env.GOOGLE_MAPS_API_KEY,
+    smtp:       !!cfg('SMTP_USER'),
+    googleMaps: !!cfg('GOOGLE_MAPS_API_KEY'),
     ts: new Date().toISOString(),
   });
 });
@@ -186,7 +221,7 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
 }
 
 async function findCourthouseViaGoogleMaps(address) {
-  const key = process.env.GOOGLE_MAPS_API_KEY;
+  const key = cfg('GOOGLE_MAPS_API_KEY');
   if (!key) return null;
   try {
     // Step 1 — geocode the broker's address
@@ -256,11 +291,11 @@ function buildEmailHtml(letterText) {
 }
 
 async function dispatchEmail({ to, cc, subject, text, html }) {
-  const fromName = process.env.FIRM_NAME || 'FreightGuard Defense Legal Network';
+  const fromName = cfg('FIRM_NAME') || 'FreightGuard Defense Legal Network';
 
   // Try Resend first
   if (resendClient) {
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'legal@freightguarddefense.com';
+    const fromEmail = cfg('RESEND_FROM_EMAIL') || 'legal@freightguarddefense.com';
     const { data, error } = await resendClient.emails.send({
       from:    `${fromName} <${fromEmail}>`,
       to:      Array.isArray(to) ? to : [to],
@@ -272,17 +307,17 @@ async function dispatchEmail({ to, cc, subject, text, html }) {
   }
 
   // Fall back to SMTP / nodemailer
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  if (!cfg('SMTP_USER') || !cfg('SMTP_PASS')) {
     throw new Error('Email not configured. Add RESEND_API_KEY or SMTP_USER + SMTP_PASS to your .env file.');
   }
   const transporter = nodemailer.createTransport({
-    host:   process.env.SMTP_HOST || 'smtp.gmail.com',
-    port:   Number(process.env.SMTP_PORT) || 587,
+    host:   cfg('SMTP_HOST') || 'smtp.gmail.com',
+    port:   Number(cfg('SMTP_PORT')) || 587,
     secure: false,
-    auth:   { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+    auth:   { user: cfg('SMTP_USER'), pass: cfg('SMTP_PASS') },
   });
   await transporter.sendMail({
-    from: `"${fromName}" <${process.env.SMTP_USER}>`,
+    from: `"${fromName}" <${cfg('SMTP_USER')}>`,
     to, cc, subject, html, text,
   });
 }
@@ -504,11 +539,11 @@ app.post('/api/send-email', rateLimit(60000, 10), async (req, res) => {
 // Stripe is DISABLED (devMode) until re-enabled by admin
 app.post('/api/create-checkout', rateLimit(60000, 10), async (req, res) => {
   // Payment bypassed — return devMode so client skips Stripe
-  if (!stripe || process.env.STRIPE_DISABLED === 'true') {
+  if (!stripe || cfg('STRIPE_DISABLED') === 'true') {
     return res.json({ devMode: true });
   }
   try {
-    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+    const baseUrl = cfg('BASE_URL') || `http://localhost:${PORT}`;
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [{
@@ -518,7 +553,7 @@ app.post('/api/create-checkout', rateLimit(60000, 10), async (req, res) => {
             name:        'FreightGuard Defense — Demand Letter',
             description: 'AI-drafted federal demand letter with damages calculation, court locator, and direct email delivery.',
           },
-          unit_amount: parseInt(process.env.STRIPE_PRICE_AMOUNT) || 25000,
+          unit_amount: parseInt(cfg('STRIPE_PRICE_AMOUNT')) || 25000,
         },
         quantity: 1,
       }],
@@ -537,7 +572,7 @@ app.post('/api/create-checkout', rateLimit(60000, 10), async (req, res) => {
 app.get('/api/verify-payment', async (req, res) => {
   const { session_id } = req.query;
   if (!session_id) return res.status(400).json({ error: 'No session ID' });
-  if (!stripe || process.env.STRIPE_DISABLED === 'true') return res.json({ paid: true, devMode: true });
+  if (!stripe || cfg('STRIPE_DISABLED') === 'true') return res.json({ paid: true, devMode: true });
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id);
     const paid    = session.payment_status === 'paid';
@@ -576,18 +611,18 @@ app.get('/api/attorneys/coverage', (req, res) => {
 });
 
 // ── ADMIN AUTH ────────────────────────────────────────────────
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'mikee@megafleetcorp.com';
+function getAdminPassword() { return cfg('ADMIN_PASSWORD') || 'mikee@megafleetcorp.com'; }
 
 function requireAdmin(req, res, next) {
   const token = req.headers['x-admin-token'];
-  if (token !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  if (token !== getAdminPassword()) return res.status(401).json({ error: 'Unauthorized' });
   next();
 }
 
 app.post('/api/admin/login', (req, res) => {
   const { password } = req.body;
-  if (password === ADMIN_PASSWORD) {
-    res.json({ token: ADMIN_PASSWORD, success: true });
+  if (password === getAdminPassword()) {
+    res.json({ token: getAdminPassword(), success: true });
   } else {
     res.status(401).json({ error: 'Invalid password' });
   }
@@ -600,7 +635,7 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
   const followups = loadFollowups();
   const attorneys = loadAttorneys();
   const totalDamages = letters.reduce((sum, l) => sum + (l.totalDamages || 0), 0);
-  const stripeDisabled = !stripe || process.env.STRIPE_DISABLED === 'true';
+  const stripeDisabled = !stripe || cfg('STRIPE_DISABLED') === 'true';
   res.json({
     userCount:     users.length,
     letterCount:   letters.length,
@@ -613,11 +648,11 @@ app.get('/api/admin/overview', requireAdmin, (req, res) => {
       .slice(0, 10)
       .map(l => ({ ...l, letterText: undefined, createdAt: l.ts || l.createdAt })),
     apis: {
-      anthropic:  !!process.env.ANTHROPIC_API_KEY,
+      anthropic:  !!cfg('ANTHROPIC_API_KEY'),
       stripe:     !!stripe && !stripeDisabled,
       resend:     !!resendClient,
-      smtp:       !!process.env.SMTP_USER,
-      googleMaps: !!process.env.GOOGLE_MAPS_API_KEY,
+      smtp:       !!cfg('SMTP_USER'),
+      googleMaps: !!cfg('GOOGLE_MAPS_API_KEY'),
       stripeMode: stripeDisabled ? 'Free Access (Disabled)' : 'Live',
     },
   });
@@ -683,8 +718,8 @@ async function runFollowupScheduler() {
         ? `⚠️ FINAL NOTICE — Case ${job.caseRef} — 14-Day Deadline Expired — Filing Imminent`
         : `FOLLOW-UP — Case ${job.caseRef} — Awaiting Response to Legal Demand`;
       const body = isDay14
-        ? `${job.brokerName},\n\nThis is final notice regarding Case No. ${job.caseRef}.\n\nOur client's 14-day response deadline has expired. Our attorneys are prepared to file in federal court. This is your final opportunity to resolve this matter without litigation.\n\nUnless we receive written confirmation of (1) retraction of the FreightGuard report and (2) payment confirmation within 48 hours, we will proceed with filing.\n\nDo not ignore this communication.\n\nLegal Department\n${process.env.FIRM_NAME || 'FreightGuard Defense'}`
-        : `${job.brokerName},\n\nThis is a follow-up regarding our formal demand letter sent on behalf of ${job.carrierName} (Case No. ${job.caseRef}).\n\nAs of today, we have not received a response. Our client's 14-day deadline is approaching. We strongly encourage you to respond in writing before the deadline expires.\n\nLegal Department\n${process.env.FIRM_NAME || 'FreightGuard Defense'}`;
+        ? `${job.brokerName},\n\nThis is final notice regarding Case No. ${job.caseRef}.\n\nOur client's 14-day response deadline has expired. Our attorneys are prepared to file in federal court. This is your final opportunity to resolve this matter without litigation.\n\nUnless we receive written confirmation of (1) retraction of the FreightGuard report and (2) payment confirmation within 48 hours, we will proceed with filing.\n\nDo not ignore this communication.\n\nLegal Department\n${cfg('FIRM_NAME') || 'FreightGuard Defense'}`
+        : `${job.brokerName},\n\nThis is a follow-up regarding our formal demand letter sent on behalf of ${job.carrierName} (Case No. ${job.caseRef}).\n\nAs of today, we have not received a response. Our client's 14-day deadline is approaching. We strongly encourage you to respond in writing before the deadline expires.\n\nLegal Department\n${cfg('FIRM_NAME') || 'FreightGuard Defense'}`;
 
       try {
         await dispatchEmail({ to: job.brokerEmail, cc: job.carrierEmail, subject: subj, text: body, html: `<pre style="font-family:sans-serif;white-space:pre-wrap;">${body}</pre>` });
@@ -710,17 +745,59 @@ const server = app.listen(PORT, () => {
   console.log('║        FreightGuard Defense  —  Server Ready          ║');
   console.log('╚══════════════════════════════════════════════════════╝');
   console.log(`  🌐  URL:              http://localhost:${PORT}`);
-  console.log(`  🤖  Anthropic API:    ${process.env.ANTHROPIC_API_KEY  ? '✅ Connected' : '❌ Missing ANTHROPIC_API_KEY'}`);
-  console.log(`  💳  Stripe:           ${stripe && process.env.STRIPE_DISABLED !== 'true' ? '✅ Active' : '⚠️  DISABLED (free access mode)'}`);
+  console.log(`  🤖  Anthropic API:    ${cfg('ANTHROPIC_API_KEY')  ? '✅ Connected' : '❌ Missing ANTHROPIC_API_KEY'}`);
+  console.log(`  💳  Stripe:           ${stripe && cfg('STRIPE_DISABLED') !== 'true' ? '✅ Active' : '⚠️  DISABLED (free access mode)'}`);
   console.log(`  📨  Resend Email:     ${resendClient                   ? '✅ Connected' : '⚠️  Not set'}`);
-  console.log(`  📧  SMTP Fallback:    ${process.env.SMTP_USER          ? '✅ Configured' : '⚠️  Not set'}`);
-  console.log(`  🗺️   Google Maps:      ${process.env.GOOGLE_MAPS_API_KEY ? '✅ Connected' : '⚠️  Not set (state fallback active)'}`);
+  console.log(`  📧  SMTP Fallback:    ${cfg('SMTP_USER')          ? '✅ Configured' : '⚠️  Not set'}`);
+  console.log(`  🗺️   Google Maps:      ${cfg('GOOGLE_MAPS_API_KEY') ? '✅ Connected' : '⚠️  Not set (state fallback active)'}`);
   console.log(`  🔐  Admin Panel:      http://localhost:${PORT}/admin.html`);
   console.log(`  📁  Data dir:         ${DATA_DIR}`);
   console.log('');
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error('  ⚠️   WARNING: ANTHROPIC_API_KEY is not set. Letter generation will fail until you add it to .env');
   }
+});
+
+
+// ── ADMIN CONFIG (API KEYS) ───────────────────────────────────
+app.get('/api/admin/config', requireAdmin, (req, res) => {
+  const keys = ['ANTHROPIC_API_KEY','RESEND_API_KEY','RESEND_FROM_EMAIL',
+                 'STRIPE_SECRET_KEY','STRIPE_PUBLISHABLE_KEY','STRIPE_DISABLED','STRIPE_PRICE_AMOUNT',
+                 'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASS',
+                 'GOOGLE_MAPS_API_KEY','FIRM_NAME','BASE_URL','ADMIN_PASSWORD'];
+  const result = {};
+  for (const k of keys) {
+    const v = cfg(k);
+    // Mask secrets — show only last 4 chars
+    if (v && ['ANTHROPIC_API_KEY','RESEND_API_KEY','STRIPE_SECRET_KEY','SMTP_PASS'].includes(k)) {
+      result[k] = v.length > 4 ? '••••' + v.slice(-4) : '••••';
+    } else {
+      result[k] = v || '';
+    }
+  }
+  res.json({ config: result, source: 'runtime' });
+});
+
+app.post('/api/admin/config', requireAdmin, (req, res) => {
+  const allowed = ['ANTHROPIC_API_KEY','RESEND_API_KEY','RESEND_FROM_EMAIL',
+                   'STRIPE_SECRET_KEY','STRIPE_PUBLISHABLE_KEY','STRIPE_DISABLED','STRIPE_PRICE_AMOUNT',
+                   'SMTP_HOST','SMTP_PORT','SMTP_USER','SMTP_PASS',
+                   'GOOGLE_MAPS_API_KEY','FIRM_NAME','BASE_URL','ADMIN_PASSWORD'];
+  const updates = req.body;
+  for (const [k, v] of Object.entries(updates)) {
+    if (!allowed.includes(k)) continue;
+    if (v === '' || v === null) {
+      delete runtimeConfig[k]; // revert to env var
+    } else {
+      runtimeConfig[k] = v;
+    }
+  }
+  saveConfig();
+  // Reinitialize clients with new keys
+  initAnthropic();
+  initStripe();
+  initResend();
+  res.json({ success: true, message: 'Configuration saved and applied live.' });
 });
 
 // ── GLOBAL ERROR HANDLER ──────────────────────────────────────
