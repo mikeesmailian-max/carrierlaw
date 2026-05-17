@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>FreightGuard Defense — Admin</title>
+<style>
+  :root {
+    --bg:      #0d1117;
+    --surface: #161b22;
+    --border:  #30363d;
+    --accent:  #c9a227;
+    --accent2: #e8b84b;
+    --red:     #f85149;
+    --green:   #3fb950;
+    --blue:    #58a6ff;
+    --text:    #e6edf3;
+    --muted:   #8b949e;
+    --radius:  8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* ── LOGIN ── */
+  #loginWrap {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+    background: radial-gradient(ellipse at 50% 20%, #1a1200 0%, #0d1117 70%);
+  }
+  .login-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 48px 40px; width: 380px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  }
+  .login-logo { text-align: center; margin-bottom: 32px; }
+  .login-logo .shield { font-size: 40px; }
+  .login-logo h1 { font-size: 20px; color: var(--accent); margin-top: 8px; letter-spacing: .5px; }
+  .login-logo p  { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .login-card label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 6px; }
+  .login-card input[type=password] {
+    width: 100%; padding: 10px 14px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-size: 14px; outline: none; margin-bottom: 20px;
+  }
+  .login-card input[type=password]:focus { border-color: var(--accent); }
+  .login-btn {
+    width: 100%; padding: 12px; background: var(--accent); color: #000;
+    border: none; border-radius: var(--radius); font-weight: 700; font-size: 14px;
+    cursor: pointer; transition: background .2s;
+  }
+  .login-btn:hover { background: var(--accent2); }
+  #loginError { color: var(--red); font-size: 13px; text-align: center; margin-top: 12px; display: none; }
+
+  /* ── APP SHELL ── */
+  #appWrap { display: none; }
+
+  /* Sidebar */
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; width: 220px;
+    background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    z-index: 100;
+  }
+  .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); }
+  .sidebar-logo .s-shield { font-size: 22px; }
+  .sidebar-logo .s-title  { font-size: 13px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+  .sidebar-logo .s-sub    { font-size: 11px; color: var(--muted); }
+
+  nav { flex: 1; padding: 12px 0; }
+  nav a {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 20px; color: var(--muted); text-decoration: none;
+    font-size: 13px; font-weight: 500; transition: color .15s, background .15s;
+    border-left: 3px solid transparent;
+  }
+  nav a:hover   { color: var(--text); background: rgba(255,255,255,.04); }
+  nav a.active  { color: var(--accent); background: rgba(201,162,39,.08); border-left-color: var(--accent); }
+  nav a .nav-icon { width: 16px; text-align: center; }
+
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--border); }
+  .logout-btn {
+    display: block; width: 100%; padding: 8px 12px;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); border-radius: var(--radius); cursor: pointer;
+    font-size: 12px; font-weight: 600; text-align: center; transition: all .2s;
+  }
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* Main content */
+  .main { margin-left: 220px; padding: 28px 32px; min-height: 100vh; }
+  .page-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .page-sub   { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+
+  /* Tabs */
+  .tab-section { display: none; }
+  .tab-section.visible { display: block; }
+
+  /* Stat cards */
+  .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px 20px;
+  }
+  .stat-card .s-label { font-size: 11px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin-bottom: 10px; }
+  .stat-card .s-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+  .stat-card .s-note  { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* API status */
+  .api-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 32px; }
+  .api-chip {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px;
+    display: flex; align-items: center; gap: 8px; font-size: 12px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .dot.green { background: var(--green); }
+  .dot.red   { background: var(--red);   }
+  .dot.yellow{ background: #f0e68c; }
+
+  /* Tables */
+  .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .table-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .table-header h3 { font-size: 14px; font-weight: 600; }
+  .table-header .count-badge { background: rgba(201,162,39,.15); color: var(--accent); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 20px; }
+  table { width: 100%; border-collapse: collapse; }
+  thead th { text-align: left; padding: 12px 20px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; color: var(--muted); border-bottom: 1px solid var(--border); }
+  tbody td { padding: 13px 20px; border-bottom: 1px solid rgba(48,54,61,.5); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,.025); }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green  { background: rgba(63,185,80,.15); color: var(--green); }
+  .badge-red    { background: rgba(248,81,73,.15);  color: var(--red); }
+  .badge-blue   { background: rgba(88,166,255,.15); color: var(--blue); }
+  .badge-yellow { background: rgba(201,162,39,.15); color: var(--accent2); }
+
+  /* Buttons */
+  .btn { padding: 6px 12px; border-radius: var(--radius); border: 1px solid var(--border); cursor: pointer; font-size: 12px; font-weight: 600; transition: all .15s; }
+  .btn-del  { background: rgba(248,81,73,.1); color: var(--red); border-color: rgba(248,81,73,.3); }
+  .btn-del:hover { background: var(--red); color: #fff; }
+  .btn-view { background: rgba(88,166,255,.1); color: var(--blue); border-color: rgba(88,166,255,.3); }
+  .btn-view:hover { background: var(--blue); color: #fff; }
+  .btn-reload { background: var(--surface); color: var(--text); border-color: var(--border); padding: 6px 14px; }
+  .btn-reload:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* Search bar */
+  .search-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+  .search-row input {
+    flex: 1; max-width: 320px; padding: 8px 12px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); font-size: 13px; outline: none;
+  }
+  .search-row input:focus { border-color: var(--accent); }
+
+  /* Letter modal */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
+    z-index: 999; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; width: 760px; max-width: 95vw; max-height: 88vh;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  .modal-head h3 { font-size: 15px; font-weight: 700; }
+  .modal-close { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; line-height: 1; }
+  .modal-close:hover { color: var(--text); }
+  .modal-body { flex: 1; overflow-y: auto; padding: 24px; }
+  .letter-text { white-space: pre-wrap; font-family: 'Georgia', serif; font-size: 13px; line-height: 1.7; color: var(--text); }
+
+  /* Empty state */
+  .empty { text-align: center; padding: 48px 20px; color: var(--muted); }
+  .empty .e-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty p { font-size: 13px; }
+
+  /* Loading spinner */
+  .spin {
+    display: inline-block; width: 16px; height: 16px;
+    border: 2px solid rgba(201,162,39,.3); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .section-loading { text-align: center; padding: 40px; color: var(--muted); }
+
+  .mono { font-family: 'Courier New', monospace; font-size: 12px; }
+
+  @media (max-width: 700px) {
+    .sidebar { width: 180px; }
+    .main { margin-left: 180px; padding: 20px 16px; }
+    .stat-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════
+     LOGIN
+══════════════════════════════════════════════ -->
+<div id="loginWrap">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="shield">⚖️</div>
+      <h1>FreightGuard Defense</h1>
+      <p>Admin Control Panel</p>
+    </div>
+    <label for="adminPass">Admin Password</label>
+    <input type="password" id="adminPass" placeholder="Enter admin password" autocomplete="current-password"/>
+    <button class="login-btn" onclick="doLogin()">Sign In</button>
+    <div id="loginError">❌ Incorrect password. Please try again.</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     APP
+══════════════════════════════════════════════ -->
+<div id="appWrap">
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="s-shield">⚖️</div>
+      <div class="s-title">FreightGuard</div>
+      <div class="s-sub">Admin Panel</div>
+    </div>
+    <nav>
+      <a href="#" class="active" data-tab="overview" onclick="switchTab('overview',this)">
+        <span class="nav-icon">📊</span> Overview
+      </a>
+      <a href="#" data-tab="users" onclick="switchTab('users',this)">
+        <span class="nav-icon">👤</span> Users
+      </a>
+      <a href="#" data-tab="letters" onclick="switchTab('letters',this)">
+        <span class="nav-icon">📄</span> Letters
+      </a>
+      <a href="#" data-tab="reports" onclick="switchTab('reports',this)">
+        <span class="nav-icon">🔍</span> Broker Reports
+      </a>
+      <a href="#" data-tab="followups" onclick="switchTab('followups',this)">
+        <span class="nav-icon">📬</span> Follow-Ups
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-align:center" id="adminUser">—</div>
+      <button class="logout-btn" onclick="doLogout()">Sign Out</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+
+    <!-- ── OVERVIEW ── -->
+    <div id="tab-overview" class="tab-section visible">
+      <div class="page-title">Dashboard Overview</div>
+      <div class="page-sub">Real-time platform stats and API health</div>
+
+      <div class="stat-grid" id="statGrid">
+        <div class="section-loading"><span class="spin"></span></div>
+      </div>
+
+      <div style="margin-bottom:16px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">API Status</div>
+      <div class="api-grid" id="apiGrid">
+        <div class="section-loading"><span class="spin"></span></div>
+      </div>
+
+      <div style="margin-bottom:16px;font-size:13px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px">Recent Letters</div>
+      <div id="recentLetters" class="table-wrap">
+        <div class="section-loading"><span class="spin"></span></div>
+      </div>
+    </div>
+
+    <!-- ── USERS ── -->
+    <div id="tab-users" class="tab-section">
+      <div class="page-title">Registered Users</div>
+      <div class="page-sub">Everyone who has completed registration</div>
+      <div class="search-row">
+        <input type="text" id="userSearch" placeholder="Search by name, email, company…" oninput="filterTable('userTable','userSearch')"/>
+        <button class="btn btn-reload" onclick="loadUsers()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>Users</h3>
+          <span class="count-badge" id="usersCount">—</span>
+        </div>
+        <div id="usersTableWrap">
+          <div class="section-loading"><span class="spin"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── LETTERS ── -->
+    <div id="tab-letters" class="tab-section">
+      <div class="page-title">Generated Demand Letters</div>
+      <div class="page-sub">All letters generated through the platform</div>
+      <div class="search-row">
+        <input type="text" id="letterSearch" placeholder="Search by broker, case ref, carrier…" oninput="filterTable('letterTable','letterSearch')"/>
+        <button class="btn btn-reload" onclick="loadLetters()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>Demand Letters</h3>
+          <span class="count-badge" id="lettersCount">—</span>
+        </div>
+        <div id="lettersTableWrap">
+          <div class="section-loading"><span class="spin"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── REPORTS ── -->
+    <div id="tab-reports" class="tab-section">
+      <div class="page-title">Broker Reports</div>
+      <div class="page-sub">All broker complaint and fraud reports submitted</div>
+      <div class="search-row">
+        <input type="text" id="reportSearch" placeholder="Search by broker, MC#, carrier…" oninput="filterTable('reportTable','reportSearch')"/>
+        <button class="btn btn-reload" onclick="loadReports()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>Broker Reports</h3>
+          <span class="count-badge" id="reportsCount">—</span>
+        </div>
+        <div id="reportsTableWrap">
+          <div class="section-loading"><span class="spin"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── FOLLOW-UPS ── -->
+    <div id="tab-followups" class="tab-section">
+      <div class="page-title">Follow-Up Emails</div>
+      <div class="page-sub">Scheduled and sent follow-up sequences</div>
+      <div class="search-row">
+        <button class="btn btn-reload" onclick="loadFollowups()">↻ Refresh</button>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <h3>Follow-Ups</h3>
+          <span class="count-badge" id="followupsCount">—</span>
+        </div>
+        <div id="followupsTableWrap">
+          <div class="section-loading"><span class="spin"></span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Letter Modal -->
+<div class="modal-overlay" id="letterModal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">Demand Letter</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <pre class="letter-text" id="modalText"></pre>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ─────────────────────────────────────
+let adminToken = sessionStorage.getItem('fgd_admin_token') || '';
+
+// ── LOGIN ─────────────────────────────────────
+async function doLogin() {
+  const pass = document.getElementById('adminPass').value.trim();
+  if (!pass) return;
+  try {
+    const res  = await fetch('/api/admin/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pass })
+    });
+    const data = await res.json();
+    if (data.success) {
+      adminToken = data.token;
+      sessionStorage.setItem('fgd_admin_token', adminToken);
+      showApp();
+    } else {
+      showLoginError();
+    }
+  } catch(e) {
+    showLoginError();
+  }
+}
+
+function showLoginError() {
+  const el = document.getElementById('loginError');
+  el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 3000);
+}
+
+document.getElementById('adminPass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogout() {
+  sessionStorage.removeItem('fgd_admin_token');
+  adminToken = '';
+  document.getElementById('appWrap').style.display  = 'none';
+  document.getElementById('loginWrap').style.display = 'flex';
+  document.getElementById('adminPass').value = '';
+}
+
+function showApp() {
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('appWrap').style.display  = 'block';
+  document.getElementById('adminUser').textContent   = 'mikee@megafleetcorp.com';
+  loadOverview();
+}
+
+// Auto-login if token still valid
+if (adminToken) {
+  fetch('/api/admin/overview', { headers: { 'x-admin-token': adminToken } })
+    .then(r => r.ok ? showApp() : (adminToken = '', sessionStorage.removeItem('fgd_admin_token')))
+    .catch(() => {});
+}
+
+// ── API HELPER ───────────────────────────────
+async function apiFetch(path) {
+  const res = await fetch(path, { headers: { 'x-admin-token': adminToken } });
+  if (res.status === 401) { doLogout(); throw new Error('Unauthorized'); }
+  if (!res.ok) throw new Error('Request failed');
+  return res.json();
+}
+
+// ── TAB SWITCHING ────────────────────────────
+function switchTab(tab, el) {
+  event.preventDefault();
+  document.querySelectorAll('.tab-section').forEach(s => s.classList.remove('visible'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('visible');
+  el.classList.add('active');
+
+  if (tab === 'users')    loadUsers();
+  if (tab === 'letters')  loadLetters();
+  if (tab === 'reports')  loadReports();
+  if (tab === 'followups') loadFollowups();
+}
+
+// ── FORMAT HELPERS ───────────────────────────
+function fmt(n)   { return '$' + Number(n).toLocaleString(); }
+function fmtDate(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  return d.toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── TABLE SEARCH ─────────────────────────────
+function filterTable(tableId, inputId) {
+  const q = document.getElementById(inputId).value.toLowerCase();
+  const rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+  rows.forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+
+// ── OVERVIEW ─────────────────────────────────
+async function loadOverview() {
+  try {
+    const data = await apiFetch('/api/admin/overview');
+    renderStats(data);
+    renderApiStatus(data.apis || {});
+    renderRecentLetters(data.recentLetters || []);
+  } catch(e) { console.error(e); }
+}
+
+function renderStats(d) {
+  const grid = document.getElementById('statGrid');
+  const totalDmg = fmt(d.totalDamages || 0);
+  grid.innerHTML = `
+    <div class="stat-card">
+      <div class="s-label">Registered Users</div>
+      <div class="s-value">${d.userCount || 0}</div>
+      <div class="s-note">all time</div>
+    </div>
+    <div class="stat-card">
+      <div class="s-label">Demand Letters</div>
+      <div class="s-value">${d.letterCount || 0}</div>
+      <div class="s-note">generated</div>
+    </div>
+    <div class="stat-card">
+      <div class="s-label">Broker Reports</div>
+      <div class="s-value">${d.reportCount || 0}</div>
+      <div class="s-note">submitted</div>
+    </div>
+    <div class="stat-card">
+      <div class="s-label">Total Damages Claimed</div>
+      <div class="s-value" style="font-size:20px">${totalDmg}</div>
+      <div class="s-note">across all letters</div>
+    </div>
+    <div class="stat-card">
+      <div class="s-label">Follow-Ups</div>
+      <div class="s-value">${d.followupCount || 0}</div>
+      <div class="s-note">scheduled / sent</div>
+    </div>
+    <div class="stat-card">
+      <div class="s-label">Attorneys</div>
+      <div class="s-value">${d.attorneyCount || 0}</div>
+      <div class="s-note">in network</div>
+    </div>
+  `;
+}
+
+function renderApiStatus(apis) {
+  const grid = document.getElementById('apiGrid');
+  const items = [
+    { key: 'anthropic',  label: 'Claude AI'     },
+    { key: 'stripe',     label: 'Stripe'         },
+    { key: 'resend',     label: 'Resend Email'   },
+    { key: 'smtp',       label: 'SMTP Fallback'  },
+    { key: 'googleMaps', label: 'Google Maps'    },
+    { key: 'stripeMode', label: 'Stripe Mode', raw: true },
+  ];
+  grid.innerHTML = items.map(item => {
+    if (item.raw) {
+      const val = apis[item.key] || '—';
+      return `<div class="api-chip">
+        <span class="dot yellow"></span>
+        <div>
+          <div style="font-weight:700;color:var(--text)">${item.label}</div>
+          <div style="color:var(--muted)">${esc(val)}</div>
+        </div>
+      </div>`;
+    }
+    const ok = !!apis[item.key];
+    return `<div class="api-chip">
+      <span class="dot ${ok ? 'green' : 'red'}"></span>
+      <div>
+        <div style="font-weight:700;color:var(--text)">${item.label}</div>
+        <div style="color:var(--muted)">${ok ? 'Connected' : 'Not configured'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderRecentLetters(letters) {
+  const wrap = document.getElementById('recentLetters');
+  if (!letters.length) {
+    wrap.innerHTML = '<div class="empty"><div class="e-icon">📄</div><p>No letters generated yet.</p></div>';
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="table-header"><h3>Recent Demand Letters</h3><span class="count-badge">${letters.length}</span></div>
+    <table>
+      <thead><tr>
+        <th>Case Ref</th><th>Carrier</th><th>Broker</th><th>Trucks</th><th>Damages</th><th>Generated</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${letters.map(l => `<tr>
+          <td class="mono">${esc(l.caseRef)}</td>
+          <td>${esc(l.carrierName)}</td>
+          <td>${esc(l.brokerName)}</td>
+          <td style="text-align:center">${l.numTrucks || '—'}</td>
+          <td>${l.totalDamages ? fmt(l.totalDamages) : '—'}</td>
+          <td style="color:var(--muted)">${fmtDate(l.createdAt)}</td>
+          <td><button class="btn btn-view" onclick="viewLetter('${esc(l.caseRef)}')">View</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+}
+
+// ── USERS ─────────────────────────────────────
+async function loadUsers() {
+  document.getElementById('usersTableWrap').innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
+  try {
+    const data = await apiFetch('/api/admin/users');
+    const users = data.users || [];
+    document.getElementById('usersCount').textContent = users.length;
+    if (!users.length) {
+      document.getElementById('usersTableWrap').innerHTML =
+        '<div class="empty"><div class="e-icon">👤</div><p>No registered users yet.</p></div>';
+      return;
+    }
+    document.getElementById('usersTableWrap').innerHTML = `
+      <table id="userTable">
+        <thead><tr>
+          <th>Name</th><th>Email</th><th>Company</th><th>Phone</th><th>MC #</th><th>Trucks</th><th>Registered</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${users.map(u => `<tr>
+            <td><strong>${esc(u.name || u.carrierName || '—')}</strong></td>
+            <td style="color:var(--blue)">${esc(u.email || '—')}</td>
+            <td>${esc(u.company || u.carrierName || '—')}</td>
+            <td>${esc(u.phone || '—')}</td>
+            <td class="mono">${esc(u.mc || '—')}</td>
+            <td style="text-align:center">${u.numTrucks || '—'}</td>
+            <td style="color:var(--muted)">${fmtDate(u.createdAt || u.registeredAt)}</td>
+            <td><button class="btn btn-del" onclick="deleteUser('${esc(u.id)}', this)">Delete</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('usersTableWrap').innerHTML = '<div class="empty"><p>Error loading users.</p></div>';
+  }
+}
+
+async function deleteUser(id, btn) {
+  if (!confirm('Delete this user? This cannot be undone.')) return;
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const res = await fetch('/api/admin/users/' + encodeURIComponent(id), {
+      method: 'DELETE',
+      headers: { 'x-admin-token': adminToken }
+    });
+    if (res.ok) { btn.closest('tr').remove(); }
+    else { btn.disabled = false; btn.textContent = 'Delete'; alert('Failed to delete.'); }
+  } catch(e) { btn.disabled = false; btn.textContent = 'Delete'; }
+}
+
+// ── LETTERS ──────────────────────────────────
+async function loadLetters() {
+  document.getElementById('lettersTableWrap').innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
+  try {
+    const data = await apiFetch('/api/admin/letters');
+    const letters = data.letters || [];
+    document.getElementById('lettersCount').textContent = letters.length;
+    if (!letters.length) {
+      document.getElementById('lettersTableWrap').innerHTML =
+        '<div class="empty"><div class="e-icon">📄</div><p>No letters generated yet.</p></div>';
+      return;
+    }
+    document.getElementById('lettersTableWrap').innerHTML = `
+      <table id="letterTable">
+        <thead><tr>
+          <th>Case Ref</th><th>Carrier</th><th>Broker</th><th>Court</th><th>Trucks</th><th>Total Damages</th><th>Generated</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${letters.map(l => `<tr>
+            <td class="mono">${esc(l.caseRef)}</td>
+            <td><strong>${esc(l.carrierName)}</strong></td>
+            <td>${esc(l.brokerName)}</td>
+            <td style="color:var(--muted);font-size:12px">${esc(l.court || '—')}</td>
+            <td style="text-align:center">${l.numTrucks || '—'}</td>
+            <td><strong style="color:var(--accent)">${l.totalDamages ? fmt(l.totalDamages) : '—'}</strong></td>
+            <td style="color:var(--muted)">${fmtDate(l.createdAt)}</td>
+            <td><button class="btn btn-view" onclick="viewLetter('${esc(l.caseRef)}')">View Letter</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('lettersTableWrap').innerHTML = '<div class="empty"><p>Error loading letters.</p></div>';
+  }
+}
+
+async function viewLetter(caseRef) {
+  document.getElementById('modalTitle').textContent = 'Case: ' + caseRef;
+  document.getElementById('modalText').textContent  = 'Loading…';
+  document.getElementById('letterModal').classList.add('open');
+  try {
+    const data = await apiFetch('/api/admin/letters/' + encodeURIComponent(caseRef));
+    document.getElementById('modalText').textContent = data.letterText || '(no text available)';
+  } catch(e) {
+    document.getElementById('modalText').textContent = 'Error loading letter.';
+  }
+}
+
+function closeModal() {
+  document.getElementById('letterModal').classList.remove('open');
+}
+document.getElementById('letterModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('letterModal')) closeModal();
+});
+
+// ── REPORTS ──────────────────────────────────
+async function loadReports() {
+  document.getElementById('reportsTableWrap').innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
+  try {
+    const data = await apiFetch('/api/admin/reports');
+    const reports = data.reports || [];
+    document.getElementById('reportsCount').textContent = reports.length;
+    if (!reports.length) {
+      document.getElementById('reportsTableWrap').innerHTML =
+        '<div class="empty"><div class="e-icon">🔍</div><p>No broker reports yet.</p></div>';
+      return;
+    }
+    document.getElementById('reportsTableWrap').innerHTML = `
+      <table id="reportTable">
+        <thead><tr>
+          <th>Broker Name</th><th>MC #</th><th>Address</th><th>Carrier</th><th>Amount</th><th>Category</th><th>Submitted</th>
+        </tr></thead>
+        <tbody>
+          ${reports.map(r => `<tr>
+            <td><strong>${esc(r.brokerName)}</strong></td>
+            <td class="mono">${esc(r.brokerMC || '—')}</td>
+            <td style="font-size:12px;color:var(--muted)">${esc(r.brokerAddress || '—')}</td>
+            <td>${esc(r.carrierName || '—')}</td>
+            <td>${r.amount ? fmt(r.amount) : '—'}</td>
+            <td><span class="badge ${r.category === 'fraud' ? 'badge-red' : 'badge-yellow'}">${esc(r.category || 'general')}</span></td>
+            <td style="color:var(--muted)">${fmtDate(r.createdAt)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('reportsTableWrap').innerHTML = '<div class="empty"><p>Error loading reports.</p></div>';
+  }
+}
+
+// ── FOLLOW-UPS ────────────────────────────────
+async function loadFollowups() {
+  document.getElementById('followupsTableWrap').innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
+  try {
+    const data = await apiFetch('/api/admin/followups');
+    const followups = data.followups || [];
+    document.getElementById('followupsCount').textContent = followups.length;
+    if (!followups.length) {
+      document.getElementById('followupsTableWrap').innerHTML =
+        '<div class="empty"><div class="e-icon">📬</div><p>No follow-up records yet.</p></div>';
+      return;
+    }
+    document.getElementById('followupsTableWrap').innerHTML = `
+      <table id="followupTable">
+        <thead><tr>
+          <th>Case Ref</th><th>Email</th><th>Day</th><th>Status</th><th>Sent At</th>
+        </tr></thead>
+        <tbody>
+          ${followups.map(f => `<tr>
+            <td class="mono">${esc(f.caseRef)}</td>
+            <td style="color:var(--blue)">${esc(f.email)}</td>
+            <td style="text-align:center">Day ${f.day || '?'}</td>
+            <td><span class="badge ${f.status === 'sent' ? 'badge-green' : f.status === 'failed' ? 'badge-red' : 'badge-blue'}">${esc(f.status || 'pending')}</span></td>
+            <td style="color:var(--muted)">${fmtDate(f.sentAt || f.scheduledAt)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('followupsTableWrap').innerHTML = '<div class="empty"><p>Error loading follow-ups.</p></div>';
+  }
+}
+
+// ── KEYBOARD SHORTCUTS ────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+</script>
+</body>
+</html>
