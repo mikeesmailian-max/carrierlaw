@@ -98,20 +98,16 @@ app.get('/health', (req, res) => {
   });
 });
 
-// ── DATA FILES ────────────────────────────────────────────────
-// Use /tmp on production (Render/Railway have read-only app dirs), local data/ otherwise
-const DATA_DIR = process.env.NODE_ENV === 'production'
-  ? '/tmp/freightguard-data'
-  : path.join(__dirname, 'data');
-
+// ── DATA STORAGE — PostgreSQL (production) + JSON fallback (local dev) ─────
+const DATA_DIR    = process.env.NODE_ENV === 'production' ? '/tmp/freightguard-data' : path.join(__dirname, 'data');
+const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
+try { fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch(e) {}
 
 // ── FILE UPLOADS ──────────────────────────────────────────────
 const multer = require('multer');
-const UPLOADS_DIR = path.join(DATA_DIR, 'uploads');
-try { if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true }); } catch(e) {}
 const upload = multer({
   dest: UPLOADS_DIR,
-  limits: { fileSize: 20 * 1024 * 1024, files: 10 }, // 20MB per file, 10 files max
+  limits: { fileSize: 20 * 1024 * 1024, files: 10 },
   fileFilter: (req, file, cb) => {
     const ok = /pdf|jpeg|jpg|png|gif|doc|docx|xls|xlsx|txt|csv/.test(
       file.mimetype + ' ' + file.originalname.toLowerCase()
@@ -120,46 +116,126 @@ const upload = multer({
   }
 });
 
+// ── POSTGRES CLIENT ───────────────────────────────────────────
+let pgPool = null;
+if (process.env.DATABASE_URL) {
+  const { Pool } = require('pg');
+  pgPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: process.env.DATABASE_URL.includes('localhost') ? false : { rejectUnauthorized: false },
+  });
+  pgPool.query(`
+    CREATE TABLE IF NOT EXISTS attorneys (
+      id TEXT PRIMARY KEY,
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS letters (
+      id TEXT PRIMARY KEY,
+      data JSONB NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS broker_reports (
+      id SERIAL PRIMARY KEY,
+      broker_mc TEXT, broker_name TEXT, carrier_name TEXT, case_ref TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE TABLE IF NOT EXISTS app_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `).then(() => console.log('PostgreSQL tables ready')).catch(e => console.error('PG init error:', e.message));
+}
+
+// ── JSON FILE FALLBACK (local / no DB) ───────────────────────
 const ATTORNEYS_FILE = path.join(DATA_DIR, 'attorneys.json');
 const REPORTS_FILE   = path.join(DATA_DIR, 'broker-reports.json');
 const FOLLOWUPS_FILE = path.join(DATA_DIR, 'followups.json');
 const USERS_FILE     = path.join(DATA_DIR, 'users.json');
 const LETTERS_FILE   = path.join(DATA_DIR, 'letters.json');
-
-// Wrap in try/catch — never crash the server over missing data files
 try {
-  if (!fs.existsSync(DATA_DIR))       fs.mkdirSync(DATA_DIR, { recursive: true });
   if (!fs.existsSync(ATTORNEYS_FILE)) fs.writeFileSync(ATTORNEYS_FILE, '[]');
   if (!fs.existsSync(REPORTS_FILE))   fs.writeFileSync(REPORTS_FILE,   '[]');
   if (!fs.existsSync(FOLLOWUPS_FILE)) fs.writeFileSync(FOLLOWUPS_FILE, '[]');
   if (!fs.existsSync(USERS_FILE))     fs.writeFileSync(USERS_FILE,     '[]');
   if (!fs.existsSync(LETTERS_FILE))   fs.writeFileSync(LETTERS_FILE,   '[]');
-} catch(e) {
-  console.error('Warning: could not initialize data directory:', e.message);
-}
+} catch(e) {}
 
 function loadJSON(file)       { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return []; } }
-function saveJSON(file, data) { fs.writeFileSync(file, JSON.stringify(data, null, 2)); }
+function saveJSON(file, data) { try { fs.writeFileSync(file, JSON.stringify(data, null, 2)); } catch(e) {} }
 
-function loadAttorneys()       { return loadJSON(ATTORNEYS_FILE); }
-function saveAttorneys(d)      { saveJSON(ATTORNEYS_FILE, d); }
-function loadReports()         { return loadJSON(REPORTS_FILE); }
-function loadFollowups()       { return loadJSON(FOLLOWUPS_FILE); }
-function saveFollowups(d)      { saveJSON(FOLLOWUPS_FILE, d); }
-function loadUsers()           { return loadJSON(USERS_FILE); }
-function saveUsers(d)          { saveJSON(USERS_FILE, d); }
-function loadLetters()         { return loadJSON(LETTERS_FILE); }
-function saveLetters(d)        { saveJSON(LETTERS_FILE, d); }
-
-// ── CASE REFERENCE & BROKER REPORT HELPERS ───────────────────
-function generateCaseRef() {
-  return `FGD-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
+// ── ASYNC DATA HELPERS — use PG when available ───────────────
+async function loadAttorneys() {
+  if (pgPool) {
+    const r = await pgPool.query('SELECT data FROM attorneys ORDER BY created_at ASC');
+    return r.rows.map(row => row.data);
+  }
+  return loadJSON(ATTORNEYS_FILE);
+}
+async function saveAttorneys(list) {
+  if (pgPool) {
+    await pgPool.query('DELETE FROM attorneys');
+    for (const a of list) {
+      await pgPool.query('INSERT INTO attorneys(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=$2', [a.id, a]);
+    }
+    return;
+  }
+  saveJSON(ATTORNEYS_FILE, list);
+}
+async function addAttorney(a) {
+  if (pgPool) {
+    await pgPool.query('INSERT INTO attorneys(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=$2', [a.id, a]);
+    return;
+  }
+  const list = loadJSON(ATTORNEYS_FILE); list.push(a); saveJSON(ATTORNEYS_FILE, list);
+}
+async function deleteAttorney(id) {
+  if (pgPool) { await pgPool.query('DELETE FROM attorneys WHERE id=$1', [id]); return; }
+  saveJSON(ATTORNEYS_FILE, loadJSON(ATTORNEYS_FILE).filter(a => a.id !== id));
 }
 
-function recordBrokerReport(brokerMC, brokerName, carrierName, caseRef) {
-  const reports = loadReports();
+async function loadLetters() {
+  if (pgPool) {
+    const r = await pgPool.query('SELECT data FROM letters ORDER BY created_at DESC');
+    return r.rows.map(row => row.data);
+  }
+  return loadJSON(LETTERS_FILE);
+}
+async function addLetter(letter) {
+  if (pgPool) {
+    await pgPool.query('INSERT INTO letters(id,data) VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET data=$2', [letter.caseRef || letter.id, letter]);
+    return;
+  }
+  const list = loadJSON(LETTERS_FILE); list.push(letter); saveJSON(LETTERS_FILE, list);
+}
+
+async function loadReports() {
+  if (pgPool) {
+    const r = await pgPool.query('SELECT broker_mc as "brokerMC", broker_name as "brokerName", carrier_name as "carrierName", case_ref as "caseRef", created_at as ts FROM broker_reports ORDER BY created_at DESC');
+    return r.rows;
+  }
+  return loadJSON(REPORTS_FILE);
+}
+async function recordBrokerReport(brokerMC, brokerName, carrierName, caseRef) {
+  if (pgPool) {
+    await pgPool.query('INSERT INTO broker_reports(broker_mc,broker_name,carrier_name,case_ref) VALUES($1,$2,$3,$4)',
+      [String(brokerMC).trim(), brokerName, carrierName, caseRef]);
+    return;
+  }
+  const reports = loadJSON(REPORTS_FILE);
   reports.push({ brokerMC: String(brokerMC).trim(), brokerName, carrierName, caseRef, ts: new Date().toISOString() });
   saveJSON(REPORTS_FILE, reports);
+}
+
+function loadFollowups()  { return loadJSON(FOLLOWUPS_FILE); }
+function saveFollowups(d) { saveJSON(FOLLOWUPS_FILE, d); }
+function loadUsers()      { return loadJSON(USERS_FILE); }
+function saveUsers(d)     { saveJSON(USERS_FILE, d); }
+
+// ── CASE REFERENCE ────────────────────────────────────────────
+function generateCaseRef() {
+  return `FGD-${new Date().getFullYear()}-${String(Date.now()).slice(-5)}`;
 }
 
 // ── FEDERAL COURT LOCATOR ─────────────────────────────────────
@@ -346,29 +422,28 @@ async function dispatchEmail({ to, cc, subject, text, html, attachments = [] }) 
 }
 
 // ── ATTORNEY ROUTES ───────────────────────────────────────────
-app.get('/api/attorneys', (req, res) => res.json(loadAttorneys()));
+app.get('/api/attorneys', async (req, res) => { try { res.json(await loadAttorneys()); } catch(e) { res.status(500).json({error:e.message}); } });
 
-app.post('/api/attorneys', requireAdmin, (req, res) => {
+app.post('/api/attorneys', requireAdmin, async (req, res) => {
   const { name, barNumber, barState, email, phone, licenseStates, specialty, firmName, website } = req.body;
   if (!name || !barNumber || !email) return res.status(400).json({ error: 'Name, bar number, and email required' });
-  const attorneys = loadAttorneys();
-  const attorney  = { id: Date.now().toString(), name, barNumber, barState, email, phone, licenseStates, specialty, firmName, website, createdAt: new Date().toISOString() };
-  attorneys.push(attorney);
-  saveAttorneys(attorneys);
+  const attorney = { id: Date.now().toString(), name, barNumber, barState, email, phone, licenseStates, specialty, firmName, website, createdAt: new Date().toISOString() };
+  await addAttorney(attorney);
   res.json(attorney);
 });
 
-app.delete('/api/attorneys/:id', requireAdmin, (req, res) => {
-  saveAttorneys(loadAttorneys().filter(a => a.id !== req.params.id));
+app.delete('/api/attorneys/:id', requireAdmin, async (req, res) => {
+  await deleteAttorney(req.params.id);
   res.json({ success: true });
 });
 
 // ── BROKER REPEAT-OFFENDER CHECK ─────────────────────────────
-app.get('/api/check-broker', (req, res) => {
+app.get('/api/check-broker', async (req, res) => {
   const { mc } = req.query;
   if (!mc) return res.json({ count: 0, reports: [] });
   const mc_clean = String(mc).trim().replace(/^MC-?/i, '');
-  const reports  = loadReports().filter(r => String(r.brokerMC).replace(/^MC-?/i, '') === mc_clean);
+  const allReports = await loadReports();
+  const reports  = allReports.filter(r => String(r.brokerMC).replace(/^MC-?/i, '') === mc_clean);
   res.json({ count: reports.length, reports });
 });
 
@@ -400,10 +475,10 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
 
     // Use Google Maps first, fall back to state-based
     const court    = (await findCourthouseViaGoogleMaps(brokerAddress)) || getCourtByState(brokerAddress);
-    const attorneys = loadAttorneys();
+    const attorneys = await loadAttorneys();
     const attorney  = assignedAttorneyId ? attorneys.find(a => a.id === assignedAttorneyId) : null;
 
-    recordBrokerReport(brokerMC, brokerName, carrierName, caseRef);
+    await recordBrokerReport(brokerMC, brokerName, carrierName, caseRef);
 
     const today    = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const deadline = new Date();
@@ -510,8 +585,7 @@ ${attorneyBlock}`;
     const letterText = message.content[0].type === 'text' ? message.content[0].text : '';
 
     // Save letter to database
-    const letters = loadLetters();
-    letters.push({
+    await addLetter({
       id: caseRef,
       caseRef,
       carrierName, carrierEmail, carrierMC,
@@ -522,7 +596,6 @@ ${attorneyBlock}`;
       uploadedDocs: uploadedDocs || [],
       ts: new Date().toISOString(),
     });
-    saveLetters(letters);
 
     res.json({ letter: letterText, damages, court, attorney: attorney || null, caseRef });
   } catch(err) {
@@ -633,9 +706,9 @@ app.get('/api/verify-payment', async (req, res) => {
 });
 
 // ── ATTORNEY COVERAGE BY STATE ────────────────────────────────
-app.get('/api/attorneys/coverage', (req, res) => {
+app.get('/api/attorneys/coverage', async (req, res) => {
   const { state }  = req.query;
-  const attorneys  = loadAttorneys();
+  const attorneys  = await loadAttorneys();
   const matched    = state
     ? attorneys.filter(a => (a.licenseStates || a.barState || '').toUpperCase().includes(state.toUpperCase()))
     : attorneys;
@@ -694,12 +767,12 @@ app.post('/api/admin/login', (req, res) => {
   }
 });
 
-app.get('/api/admin/overview', requireAdmin, (req, res) => {
+app.get('/api/admin/overview', requireAdmin, async (req, res) => {
   const users     = loadUsers();
-  const letters   = loadLetters();
-  const reports   = loadReports();
+  const letters   = await loadLetters();
+  const reports   = await loadReports();
   const followups = loadFollowups();
-  const attorneys = loadAttorneys();
+  const attorneys = await loadAttorneys();
   const totalDamages = letters.reduce((sum, l) => sum + (l.totalDamages || 0), 0);
   const stripeDisabled = !stripe || cfg('STRIPE_DISABLED') === 'true';
   res.json({
@@ -735,18 +808,18 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
 });
 
 app.get('/api/admin/letters', requireAdmin, (req, res) => {
-  const letters = loadLetters().sort((a, b) => new Date(b.ts || b.createdAt || 0) - new Date(a.ts || a.createdAt || 0));
+  const letters = (await loadLetters()).sort((a, b) => new Date(b.ts || b.createdAt || 0) - new Date(a.ts || a.createdAt || 0));
   res.json({ letters: letters.map(l => ({ ...l, createdAt: l.ts || l.createdAt, letterText: undefined })) });
 });
 
 app.get('/api/admin/letters/:caseRef', requireAdmin, (req, res) => {
-  const letter = loadLetters().find(l => l.caseRef === req.params.caseRef || l.id === req.params.caseRef);
+  const letter = (await loadLetters()).find(l => l.caseRef === req.params.caseRef || l.id === req.params.caseRef);
   if (!letter) return res.status(404).json({ error: 'Letter not found' });
   res.json({ ...letter, createdAt: letter.ts || letter.createdAt });
 });
 
-app.get('/api/admin/reports', requireAdmin, (req, res) => {
-  const reports = loadReports().sort((a, b) => new Date(b.ts || b.createdAt || 0) - new Date(a.ts || a.createdAt || 0));
+app.get('/api/admin/reports', requireAdmin, async (req, res) => {
+  const reports = (await loadReports()).sort((a, b) => new Date(b.ts || b.createdAt || 0) - new Date(a.ts || a.createdAt || 0));
   res.json({ reports: reports.map(r => ({ ...r, createdAt: r.ts || r.createdAt })) });
 });
 
