@@ -510,32 +510,11 @@
 <!-- ════════════════════════ ATTORNEYS SCREEN ════════════════════════ -->
 <div id="screen-attorneys" class="screen">
   <div class="form-header">
-    <div><h2>Attorney Database</h2><p>Manage your network of in-house and partner attorneys.</p></div>
-    <button class="btn btn-red" onclick="document.getElementById('attyFormCard').style.display='block'">+ Add Attorney</button>
+    <div><h2>Our Attorney Network</h2><p>Licensed transportation attorneys available in your area.</p></div>
+
   </div>
   <div class="atty-content">
-    <div id="attyFormCard" class="card" style="display:none;">
-      <div class="card-title"><span class="dot"></span>Add New Attorney</div>
-      <div id="attorneyAlert"></div>
-      <div class="field-row">
-        <div class="field"><label>Full Name *</label><input id="attyName" placeholder="Robert J. Harrington" /></div>
-        <div class="field"><label>Firm Name</label><input id="attyFirm" placeholder="Harrington & Associates, P.C." /></div>
-      </div>
-      <div class="field-row-3">
-        <div class="field"><label>Bar Number *</label><input id="attyBar" placeholder="47821" /></div>
-        <div class="field"><label>Bar State</label><input id="attyBarState" placeholder="TX" maxlength="2" /></div>
-        <div class="field"><label>Licensed States (comma-sep)</label><input id="attyStates" placeholder="TX, LA, OK, AR" /></div>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Email *</label><input id="attyEmail" type="email" placeholder="attorney@firm.com" /></div>
-        <div class="field"><label>Phone</label><input id="attyPhone" placeholder="(555) 000-0000" /></div>
-      </div>
-      <div class="field"><label>Specialty / Notes</label><input id="attySpecialty" placeholder="Transportation law, FMCSA disputes, cargo claims, defamation" /></div>
-      <div class="btn-row">
-        <button class="btn btn-red" onclick="addAttorney()">+ Save Attorney</button>
-        <button class="btn btn-navy" onclick="document.getElementById('attyFormCard').style.display='none'">Cancel</button>
-      </div>
-    </div>
+
     <div class="card" style="padding:0;overflow:hidden;">
       <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
         <div class="card-title" style="margin-bottom:0;"><span class="dot"></span>Network Attorneys (<span id="attyCount">0</span>)</div>
@@ -871,32 +850,8 @@ function renderAttorneys() {
       <td>${(a.licenseStates||'').split(',').map(s=>`<span class="tag">${s.trim()}</span>`).join('')}</td>
       <td><div style="font-size:12px;">${a.email}</div><div style="font-size:12px;color:var(--text-muted);">${a.phone||''}</div></td>
       <td style="font-size:12px;color:var(--text-muted);">${a.specialty||'—'}</td>
-      <td><button class="btn btn-navy" style="padding:6px 14px;font-size:12px;" onclick="deleteAttorney('${a.id}')">Remove</button></td>
+
     </tr>`).join('')}</tbody></table>`;
-}
-
-async function addAttorney() {
-  const data = {
-    name: v('attyName'), firmName: v('attyFirm'), barNumber: v('attyBar'),
-    barState: (document.getElementById('attyBarState')?.value||'').toUpperCase(),
-    licenseStates: v('attyStates'), email: v('attyEmail'),
-    phone: v('attyPhone'), specialty: v('attySpecialty'),
-  };
-  if (!data.name || !data.barNumber || !data.email) { showAlert('attorneyAlert','red','Name, bar number, and email are required.'); return; }
-  try {
-    const res = await fetch('/api/attorneys', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
-    if (!res.ok) throw new Error('Failed');
-    ['attyName','attyFirm','attyBar','attyBarState','attyStates','attyEmail','attyPhone','attySpecialty'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
-    showAlert('attorneyAlert','green','✅ Attorney added successfully.');
-    document.getElementById('attyFormCard').style.display = 'none';
-    loadAttorneys();
-  } catch(err) { showAlert('attorneyAlert','red','❌ '+err.message); }
-}
-
-async function deleteAttorney(id) {
-  if (!confirm('Remove this attorney?')) return;
-  await fetch('/api/attorneys/'+id, { method:'DELETE' });
-  loadAttorneys();
 }
 
 // ── UTILS ─────────────────────────────────────────────────────
