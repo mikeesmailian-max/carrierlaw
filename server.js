@@ -326,10 +326,10 @@ async function dispatchEmail({ to, cc, subject, text, html }) {
 app.get('/api/attorneys', (req, res) => res.json(loadAttorneys()));
 
 app.post('/api/attorneys', requireAdmin, (req, res) => {
-  const { name, barNumber, barState, email, phone, licenseStates, specialty, firmName } = req.body;
+  const { name, barNumber, barState, email, phone, licenseStates, specialty, firmName, website } = req.body;
   if (!name || !barNumber || !email) return res.status(400).json({ error: 'Name, bar number, and email required' });
   const attorneys = loadAttorneys();
-  const attorney  = { id: Date.now().toString(), name, barNumber, barState, email, phone, licenseStates, specialty, firmName, createdAt: new Date().toISOString() };
+  const attorney  = { id: Date.now().toString(), name, barNumber, barState, email, phone, licenseStates, specialty, firmName, website, createdAt: new Date().toISOString() };
   attorneys.push(attorney);
   saveAttorneys(attorneys);
   res.json(attorney);
@@ -391,7 +391,7 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
       ? `${attorney.firmName || attorney.name + ', Attorney at Law'}`
       : '[LAW FIRM NAME — TBD]';
     const attorneyBlock = attorney
-      ? `\n\nRespectfully submitted,\n\n${attorney.name}\n${attorney.firmName || 'Attorney at Law'}\nBar No. ${attorney.barNumber} (${attorney.barState})\n${attorney.phone || ''}\n${attorney.email}`
+      ? `\n\nRespectfully submitted,\n\n${attorney.name}\n${attorney.firmName || 'Attorney at Law'}\nBar No. ${attorney.barNumber} (${attorney.barState})\n${attorney.phone || ''}\n${attorney.email}${attorney.website ? '\n' + attorney.website : ''}`
       : '\n\nRespectfully submitted,\n\n_________________________________\nAuthorized Representative\nLegal Department';
 
     const distanceLine = court.distanceMiles
