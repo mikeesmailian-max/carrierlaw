@@ -736,7 +736,9 @@ async function generateLetter() {
       .replace(/<[^>]+>/g, '');
     document.getElementById('letterText').textContent = cleanLetter;
     document.getElementById('letterOutput').style.display = 'block';
-    window._caseRef = data.caseRef || '';
+    window._caseRef    = data.caseRef   || '';
+    window._attorney   = data.attorney  || null;
+    window._courtData  = data.court     || null;
 
     if (data.caseRef) {
       let caseBar = document.getElementById('caseRefBar');
@@ -810,63 +812,106 @@ async function checkBrokerRepeat(mc) {
 function printLetter() {
   const text = document.getElementById('letterText').textContent;
   const el   = document.getElementById('printArea');
+  const atty = window._attorney  || null;
+  const ct   = window._courtData || null;
+
+  const safe = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+  // Suppress browser print header (title / URL)
+  const origTitle = document.title;
+  document.title = '';
+
+  // Build attorney letterhead block
+  const firmName    = atty ? safe(atty.firmName || (atty.name + ', Attorney at Law')) : 'LAW OFFICES';
+  const attyName    = atty ? safe(atty.name)    : '';
+  const attyBar     = atty ? `Bar No. ${safe(atty.barNumber)} &bull; ${safe(atty.barState)}` : '';
+  const attyPhone   = atty && atty.phone   ? safe(atty.phone)   : '';
+  const attyEmail   = atty && atty.email   ? safe(atty.email)   : '';
+  const attyWebsite = atty && atty.website ? safe(atty.website) : '';
+
+  // Court notice
+  let courtHtml = '';
+  if (ct) {
+    courtHtml = `<div class="pl-court">
+      <span class="pl-court-label">DESIGNATED FILING VENUE</span>
+      <span class="pl-court-text">${safe(ct.name)} &mdash; ${safe(ct.address)}, ${safe(ct.city)}, ${safe(ct.state)} ${safe(ct.zip)} &mdash; ${safe(ct.dept)}</span>
+    </div>`;
+  }
+
+  // Scales of Justice SVG (no emoji)
+  const scalesSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 100 100" fill="none" stroke="#1a1a4e" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="50" y1="10" x2="50" y2="85"/>
+    <line x1="20" y1="25" x2="80" y2="25"/>
+    <line x1="20" y1="25" x2="10" y2="48"/>
+    <line x1="20" y1="25" x2="30" y2="48"/>
+    <path d="M10 48 Q20 56 30 48"/>
+    <line x1="80" y1="25" x2="70" y2="48"/>
+    <line x1="80" y1="25" x2="90" y2="48"/>
+    <path d="M70 48 Q80 56 90 48"/>
+    <line x1="35" y1="85" x2="65" y2="85"/>
+    <circle cx="50" cy="10" r="3" fill="#1a1a4e" stroke="none"/>
+  </svg>`;
+
   el.style.display = 'block';
-
-  // Escape text safely for HTML
-  const safeText = text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-  // Build court info line if available
-  const courtEl = document.getElementById('courtBoxText');
-  const courtLine = courtEl ? courtEl.innerText.replace(/\n/g,' · ') : '';
-
   el.innerHTML = `
 <style>
-  @page { margin: 0.9in 1in; size: letter; }
+  @page { size: letter; margin: 0.75in 1in 0.85in 1in; }
+  * { box-sizing: border-box; }
+  .pl { font-family: 'Times New Roman', Times, serif; font-size: 11.5pt; line-height: 1.85; color: #000; background: #fff; }
+
+  /* ── Header ── */
+  .pl-head { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 14px; }
+  .pl-head-left  { flex: 1; }
+  .pl-head-right { text-align: right; font-size: 9pt; line-height: 1.7; color: #222; padding-right: 16px; }
+  .pl-firm  { font-family: 'Times New Roman', serif; font-size: 19pt; font-weight: 900; letter-spacing: 0.5px; color: #1a1a4e; text-transform: uppercase; }
+  .pl-atty  { font-size: 10pt; color: #333; margin-top: 3px; letter-spacing: 0.3px; }
+  .pl-bar   { font-size: 8.5pt; color: #555; margin-top: 1px; }
+  .pl-rule1 { border: none; border-top: 3px solid #1a1a4e; margin: 10px 0 2px; }
+  .pl-rule2 { border: none; border-top: 1px solid #1a1a4e; margin: 0 0 18px; }
+
+  /* ── Court notice ── */
+  .pl-court { border: 1px solid #bbb; border-left: 4px solid #1a1a4e; padding: 8px 14px; margin: 0 0 18px; font-size: 8.5pt; color: #222; line-height: 1.6; }
+  .pl-court-label { font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; margin-right: 8px; color: #1a1a4e; }
+  .pl-court-text  { color: #333; }
+
+  /* ── Body ── */
+  .pl-body { white-space: pre-wrap; word-wrap: break-word; font-size: 11.5pt; line-height: 1.9; text-align: left; }
+
+  /* ── Footer ── */
+  .pl-foot { margin-top: 32px; border-top: 1px solid #aaa; padding-top: 9px; font-size: 7.5pt; color: #555; line-height: 1.5; text-align: center; letter-spacing: 0.2px; }
+
   @media print {
-    body { margin: 0; }
-    #printArea * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body > *:not(#printArea) { display: none !important; }
+    #printArea { display: block !important; }
+    .pl { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
-  .pl-page { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.9; color: #000; background: #fff; }
-  .pl-header { border-bottom: 3px double #1a1a4e; padding-bottom: 18px; margin-bottom: 24px; display: flex; align-items: flex-start; justify-content: space-between; }
-  .pl-logo-block { flex: 1; }
-  .pl-firm-name { font-size: 20pt; font-weight: 900; letter-spacing: 1px; color: #1a1a4e; font-family: 'Times New Roman', serif; }
-  .pl-firm-tagline { font-size: 8.5pt; color: #555; letter-spacing: 2px; text-transform: uppercase; margin-top: 3px; }
-  .pl-contact-block { text-align: right; font-size: 8.5pt; color: #444; line-height: 1.7; }
-  .pl-seal { width: 64px; height: 64px; border-radius: 50%; border: 3px solid #1a1a4e; display: flex; align-items: center; justify-content: center; margin-left: 20px; flex-shrink: 0; }
-  .pl-seal-inner { font-size: 28px; }
-  .pl-body { white-space: pre-wrap; word-wrap: break-word; font-size: 12pt; line-height: 1.9; }
-  .pl-footer { margin-top: 36px; border-top: 1px solid #999; padding-top: 12px; font-size: 8pt; color: #666; line-height: 1.5; }
-  .pl-court-notice { background: #f5f5f0; border: 1px solid #ccc; border-left: 4px solid #1a1a4e; padding: 10px 14px; margin: 20px 0; font-size: 9pt; color: #333; }
 </style>
-<div class="pl-page">
-  <div class="pl-header">
-    <div class="pl-logo-block">
-      <div class="pl-firm-name">FREIGHTGUARD DEFENSE</div>
-      <div class="pl-firm-tagline">Legal Network &nbsp;·&nbsp; Transportation Law &nbsp;·&nbsp; Carrier Rights</div>
+<div class="pl">
+  <div class="pl-head">
+    <div class="pl-head-left">
+      <div class="pl-firm">${firmName}</div>
+      ${attyName ? `<div class="pl-atty">${attyName}${attyBar ? ` &nbsp;&bull;&nbsp; ${attyBar}` : ''}</div>` : ''}
+      ${attyPhone || attyEmail ? `<div class="pl-bar">${[attyPhone, attyEmail, attyWebsite].filter(Boolean).join(' &nbsp;|&nbsp; ')}</div>` : ''}
     </div>
-    <div class="pl-contact-block">
-      legal@brokermc.com<br>
-      www.freightguarddefense.com<br>
-      Confidential Legal Communication<br>
+    <div class="pl-head-right">
       ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}
     </div>
-    <div class="pl-seal"><div class="pl-seal-inner">⚖</div></div>
+    <div>${scalesSVG}</div>
   </div>
-
-  ${courtLine ? `<div class="pl-court-notice">📍 <strong>Designated Filing Venue:</strong> ${courtLine.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>` : ''}
-
-  <div class="pl-body">${safeText}</div>
-
-  <div class="pl-footer">
-    This communication is from a legal network acting on behalf of a licensed carrier. It contains information that is confidential and legally privileged.
-    If you are not the intended recipient, any disclosure, copying, distribution, or use of this communication is strictly prohibited and may be unlawful.
-    FreightGuard Defense · legal@brokermc.com · www.freightguarddefense.com
+  <hr class="pl-rule1"/><hr class="pl-rule2"/>
+  ${courtHtml}
+  <div class="pl-body">${safe(text)}</div>
+  <div class="pl-foot">
+    CONFIDENTIAL LEGAL COMMUNICATION &mdash; ATTORNEY-CLIENT PRIVILEGED &mdash;
+    Unauthorized disclosure, copying, or use is strictly prohibited and may be unlawful.
   </div>
 </div>`;
 
   window.print();
-  setTimeout(() => { el.style.display = 'none'; }, 2000);
+  setTimeout(() => {
+    el.style.display = 'none';
+    document.title = origTitle;
+  }, 2000);
 }
 
 // ── EMAIL ─────────────────────────────────────────────────────
