@@ -10,6 +10,16 @@ services:
         value: production
       - key: ANTHROPIC_API_KEY
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        value: noreply@freightguarddefense.com
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: STRIPE_DISABLED
+        value: "true"
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_PUBLISHABLE_KEY
@@ -25,7 +35,7 @@ services:
       - key: SMTP_PASS
         sync: false
       - key: FIRM_NAME
-        sync: false
+        value: FreightGuard Defense Legal Network
       - key: BASE_URL
         sync: false
       - key: PORT

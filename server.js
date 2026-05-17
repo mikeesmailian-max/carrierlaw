@@ -64,19 +64,28 @@ app.get('/health', (req, res) => {
 });
 
 // ── DATA FILES ────────────────────────────────────────────────
-const DATA_DIR       = path.join(__dirname, 'data');
+// Use /tmp on production (Render/Railway have read-only app dirs), local data/ otherwise
+const DATA_DIR = process.env.NODE_ENV === 'production'
+  ? '/tmp/freightguard-data'
+  : path.join(__dirname, 'data');
+
 const ATTORNEYS_FILE = path.join(DATA_DIR, 'attorneys.json');
 const REPORTS_FILE   = path.join(DATA_DIR, 'broker-reports.json');
 const FOLLOWUPS_FILE = path.join(DATA_DIR, 'followups.json');
 const USERS_FILE     = path.join(DATA_DIR, 'users.json');
 const LETTERS_FILE   = path.join(DATA_DIR, 'letters.json');
 
-if (!fs.existsSync(DATA_DIR))      fs.mkdirSync(DATA_DIR, { recursive: true });
-if (!fs.existsSync(ATTORNEYS_FILE)) fs.writeFileSync(ATTORNEYS_FILE, '[]');
-if (!fs.existsSync(REPORTS_FILE))   fs.writeFileSync(REPORTS_FILE,   '[]');
-if (!fs.existsSync(FOLLOWUPS_FILE)) fs.writeFileSync(FOLLOWUPS_FILE, '[]');
-if (!fs.existsSync(USERS_FILE))     fs.writeFileSync(USERS_FILE,     '[]');
-if (!fs.existsSync(LETTERS_FILE))   fs.writeFileSync(LETTERS_FILE,   '[]');
+// Wrap in try/catch — never crash the server over missing data files
+try {
+  if (!fs.existsSync(DATA_DIR))       fs.mkdirSync(DATA_DIR, { recursive: true });
+  if (!fs.existsSync(ATTORNEYS_FILE)) fs.writeFileSync(ATTORNEYS_FILE, '[]');
+  if (!fs.existsSync(REPORTS_FILE))   fs.writeFileSync(REPORTS_FILE,   '[]');
+  if (!fs.existsSync(FOLLOWUPS_FILE)) fs.writeFileSync(FOLLOWUPS_FILE, '[]');
+  if (!fs.existsSync(USERS_FILE))     fs.writeFileSync(USERS_FILE,     '[]');
+  if (!fs.existsSync(LETTERS_FILE))   fs.writeFileSync(LETTERS_FILE,   '[]');
+} catch(e) {
+  console.error('Warning: could not initialize data directory:', e.message);
+}
 
 function loadJSON(file)       { try { return JSON.parse(fs.readFileSync(file, 'utf8')); } catch { return []; } }
 function saveJSON(file, data) { fs.writeFileSync(file, JSON.stringify(data, null, 2)); }
@@ -732,10 +741,4 @@ app.use((req, res) => {
 
 // ── GRACEFUL SHUTDOWN ─────────────────────────────────────────
 function shutdown(signal) {
-  console.log(`\n${signal} received — shutting down gracefully...`);
-  server.close(() => { console.log('Server closed.'); process.exit(0); });
-  setTimeout(() => { console.error('Forced shutdown.'); process.exit(1); }, 10000);
-}
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
-process.on('uncaught
+  console.lo
