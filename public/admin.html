@@ -1033,7 +1033,7 @@ async function adminAddAttorney() {
   try {
     const res = await fetch('/api/attorneys', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN },
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': adminToken },
       body: JSON.stringify(data),
     });
     if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
@@ -1048,7 +1048,7 @@ async function adminDeleteAttorney(id) {
   if (!confirm('Remove this attorney from the network?')) return;
   await fetch('/api/attorneys/' + id, {
     method: 'DELETE',
-    headers: { 'x-admin-token': TOKEN },
+    headers: { 'x-admin-token': adminToken },
   });
   loadAdminAttorneys();
 }
