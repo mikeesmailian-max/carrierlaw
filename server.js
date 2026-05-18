@@ -1159,4 +1159,14 @@ app.use((req, res) => {
 
 // ── GRACEFUL SHUTDOWN ─────────────────────────────────────────
 function shutdown(signal) {
-  console.lo
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+    server.close(() => {
+          console.log('HTTP server closed.');
+          if (pgPool) pgPool.end();
+          process.exit(0);
+    });
+    setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));
