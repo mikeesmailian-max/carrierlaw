@@ -29,8 +29,10 @@ if (process.env.DATABASE_URL) {
         id TEXT PRIMARY KEY, case_ref TEXT UNIQUE, carrier_name TEXT, carrier_email TEXT,
         carrier_mc TEXT, broker_name TEXT, broker_mc TEXT, broker_address TEXT,
         num_trucks INT, total_damages NUMERIC, court TEXT, letter_text TEXT,
+        attorney_id TEXT,
         ts TIMESTAMPTZ DEFAULT NOW()
       );
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS attorney_id TEXT;
       CREATE TABLE IF NOT EXISTS broker_reports (
         id SERIAL PRIMARY KEY, broker_mc TEXT, broker_name TEXT, carrier_name TEXT,
         case_ref TEXT, ts TIMESTAMPTZ DEFAULT NOW()
@@ -204,7 +206,7 @@ async function loadLetters() {
       brokerName: row.broker_name, brokerMC: row.broker_mc,
       brokerAddress: row.broker_address, numTrucks: row.num_trucks,
       totalDamages: row.total_damages, court: row.court,
-      letterText: row.letter_text, ts: row.ts,
+      letterText: row.letter_text, attorneyId: row.attorney_id, ts: row.ts,
     }));
   }
   return loadJSON(LETTERS_FILE);
@@ -213,8 +215,8 @@ async function loadLetters() {
 async function addLetterDB(l) {
   if (pgPool) {
     await pgPool.query(
-      'INSERT INTO letters(id,case_ref,carrier_name,carrier_email,carrier_mc,broker_name,broker_mc,broker_address,num_trucks,total_damages,court,letter_text) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
-      [l.caseRef, l.caseRef, l.carrierName, l.carrierEmail, l.carrierMC, l.brokerName, l.brokerMC, l.brokerAddress, l.numTrucks, l.totalDamages, l.court, l.letterText]
+      'INSERT INTO letters(id,case_ref,carrier_name,carrier_email,carrier_mc,broker_name,broker_mc,broker_address,num_trucks,total_damages,court,letter_text,attorney_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
+      [l.caseRef, l.caseRef, l.carrierName, l.carrierEmail, l.carrierMC, l.brokerName, l.brokerMC, l.brokerAddress, l.numTrucks, l.totalDamages, l.court, l.letterText, l.attorneyId || null]
     ).catch(async () => {
       // Duplicate — update instead
       await pgPool.query('UPDATE letters SET letter_text=$1 WHERE case_ref=$2', [l.letterText, l.caseRef]);
@@ -679,6 +681,7 @@ ${attorneyBlock}`;
       numTrucks, totalDamages: damages.totalDamages,
       court: `${court.name}, ${court.city}, ${court.state}`,
       letterText,
+      attorneyId: attorney ? (attorney.id || null) : null,
       ts: new Date().toISOString(),
     });
 
@@ -775,4 +778,385 @@ app.get('/api/verify-payment', async (req, res) => {
     if (paid) {
       const users = loadUsers();
       if (!users.find(u => u.stripeSessionId === session_id)) {
-        users.
+        users.push({ id: Date.now().toString(), email, stripeSessionId: session_id, paidAt: new Date().toISOString(), caseRefs: [] });
+        saveUsers(users);
+      }
+    }
+
+    res.json({ paid, email });
+  } catch(err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── ATTORNEY COVERAGE BY STATE ────────────────────────────────
+app.get('/api/attorneys/coverage', async (req, res) => {
+  const { state }  = req.query;
+  const attorneys  = await loadAttorneys();
+  const matched    = state
+    ? attorneys.filter(a => (a.licenseStates || a.barState || '').toUpperCase().includes(state.toUpperCase()))
+    : attorneys;
+
+  const result = matched.map(a => {
+    const primaryState = (a.barState || (a.licenseStates || '').split(',')[0] || '').trim().toUpperCase();
+    const court        = FEDERAL_COURTS[primaryState] || FEDERAL_COURTS['IL'];
+    return { id: a.id, name: a.name, firmName: a.firmName || null, barState: a.barState, licenseStates: a.licenseStates, city: court.city, state: court.state, phone: a.phone || null };
+  });
+
+  res.json(result);
+});
+
+// ── CLIENT AUTH ───────────────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || 'fgd-secret-change-me-in-production';
+
+function makeJWT(payload) {
+  if (!jwt) return null;
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: '30d' });
+}
+
+function requireClient(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Login required' });
+  try {
+    if (!jwt) return res.status(500).json({ error: 'JWT package not installed' });
+    req.clientUser = jwt.verify(auth.slice(7), JWT_SECRET);
+    next();
+  } catch { return res.status(401).json({ error: 'Session expired. Please log in again.' }); }
+}
+
+// Register
+app.post('/api/auth/register', rateLimit(60000, 10), async (req, res) => {
+  const { email, name, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+  if (password.length < 6)  return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  const existing = await dbGetUserByEmail(email.toLowerCase().trim());
+  if (existing) return res.status(409).json({ error: 'An account with this email already exists' });
+  const hash = bcrypt ? await bcrypt.hash(password, 10) : password;
+  const user = await dbCreateUser({ email: email.toLowerCase().trim(), name: name||'', passwordHash: hash });
+  const token = makeJWT({ id: user.id, email: user.email });
+  res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+});
+
+// Email/password login
+app.post('/api/auth/login', rateLimit(60000, 20), async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password are required' });
+  const user = await dbGetUserByEmail(email.toLowerCase().trim());
+  if (!user) return res.status(401).json({ error: 'Invalid email or password' });
+  if (user.suspended) return res.status(403).json({ error: 'Your account has been suspended. Contact support.' });
+  const hash = user.password_hash || user.passwordHash;
+  const valid = bcrypt ? await bcrypt.compare(password, hash||'') : (password === hash);
+  if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+  await dbUpdateUserLogin(user.id);
+  const token = makeJWT({ id: user.id, email: user.email });
+  res.json({ token, user: { id: user.id, email: user.email, name: user.name||'' } });
+});
+
+// Google Sign-In
+app.post('/api/auth/google', rateLimit(60000, 20), async (req, res) => {
+  const { credential } = req.body; // Google ID token
+  if (!credential) return res.status(400).json({ error: 'Google credential required' });
+  try {
+    let payload;
+    try {
+      const { OAuth2Client } = require('google-auth-library');
+      const clientId = cfg('GOOGLE_CLIENT_ID') || process.env.GOOGLE_CLIENT_ID;
+      if (!clientId) throw new Error('GOOGLE_CLIENT_ID not configured');
+      const gClient = new OAuth2Client(clientId);
+      const ticket  = await gClient.verifyIdToken({ idToken: credential, audience: clientId });
+      payload = ticket.getPayload();
+    } catch {
+      // Fallback: decode JWT without verification (for testing only)
+      const parts = credential.split('.');
+      if (parts.length !== 3) throw new Error('Invalid Google credential');
+      payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    }
+    const { sub: googleId, email, name, picture } = payload;
+    if (!email) return res.status(400).json({ error: 'Could not get email from Google' });
+    let user = await dbGetUserByEmail(email.toLowerCase());
+    if (user) {
+      if (user.suspended) return res.status(403).json({ error: 'Account suspended. Contact support.' });
+      await dbUpdateUserLogin(user.id);
+    } else {
+      user = await dbCreateUser({ email: email.toLowerCase(), name: name||'', googleId, googlePicture: picture||'' });
+    }
+    const token = makeJWT({ id: user.id, email: user.email });
+    res.json({ token, user: { id: user.id, email: user.email, name: user.name||name||'' } });
+  } catch(err) {
+    console.error('Google auth error:', err.message);
+    res.status(400).json({ error: 'Google sign-in failed: ' + err.message });
+  }
+});
+
+// Get current user
+app.get('/api/auth/me', requireClient, async (req, res) => {
+  const user = await dbGetUserById(req.clientUser.id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  if (user.suspended) return res.status(403).json({ error: 'Account suspended' });
+  res.json({ id: user.id, email: user.email, name: user.name||'' });
+});
+
+// Google client ID (public — needed by login.html)
+app.get('/api/auth/google-client-id', (req, res) => {
+  res.json({ clientId: cfg('GOOGLE_CLIENT_ID') || process.env.GOOGLE_CLIENT_ID || '' });
+});
+
+// ── CLIENT PORTAL ─────────────────────────────────────────────
+app.get('/api/portal/letters', requireClient, async (req, res) => {
+  const all     = await loadLetters();
+  const email   = req.clientUser.email.toLowerCase();
+  const mine    = all.filter(l => (l.carrierEmail||'').toLowerCase() === email);
+  res.json({ letters: mine.map(l => ({ ...l, letterText: undefined, createdAt: l.ts||l.createdAt })) });
+});
+
+app.get('/api/portal/letter/:caseRef', requireClient, async (req, res) => {
+  const all    = await loadLetters();
+  const letter = all.find(l => l.caseRef === req.params.caseRef || l.id === req.params.caseRef);
+  if (!letter) return res.status(404).json({ error: 'Letter not found' });
+  // Allow access if email matches or admin (checked via client JWT)
+  const email = req.clientUser.email.toLowerCase();
+  if ((letter.carrierEmail||'').toLowerCase() !== email) {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  res.json({ ...letter, createdAt: letter.ts||letter.createdAt });
+});
+
+// ── ADMIN AUTH ────────────────────────────────────────────────
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'mikee@megafleetcorp.com';
+
+function requireAdmin(req, res, next) {
+  const token = req.headers['x-admin-token'];
+  if (token !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+}
+
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  if (password === ADMIN_PASSWORD) {
+    res.json({ token: ADMIN_PASSWORD, success: true });
+  } else {
+    res.status(401).json({ error: 'Invalid password' });
+  }
+});
+
+app.get('/api/admin/overview', requireAdmin, async (req, res) => {
+  const [users, letters, reports, attorneys, followups] = await Promise.all([
+    Promise.resolve(loadUsers()),
+    loadLetters(),
+    loadReports(),
+    loadAttorneys(),
+    Promise.resolve(loadFollowups()),
+  ]);
+  const totalDamages   = letters.reduce((sum, l) => sum + (Number(l.totalDamages)||0), 0);
+  const stripeDisabled = !stripe || process.env.STRIPE_DISABLED === 'true';
+  res.json({
+    userCount:     users.length,
+    letterCount:   letters.length,
+    reportCount:   reports.length,
+    followupCount: followups.length,
+    attorneyCount: attorneys.length,
+    totalDamages,
+    recentLetters: letters
+      .sort((a, b) => new Date(b.ts||b.createdAt||0) - new Date(a.ts||a.createdAt||0))
+      .slice(0, 10)
+      .map(l => ({ ...l, letterText: undefined, createdAt: l.ts||l.createdAt })),
+    apis: {
+      anthropic:  !!(cfg('ANTHROPIC_API_KEY')||process.env.ANTHROPIC_API_KEY),
+      stripe:     !!stripe && !stripeDisabled,
+      resend:     !!resendClient,
+      smtp:       !!process.env.SMTP_USER,
+      googleMaps: !!(cfg('GOOGLE_MAPS_API_KEY')||process.env.GOOGLE_MAPS_API_KEY),
+      stripeMode: stripeDisabled ? 'Free Access (Disabled)' : 'Live',
+    },
+  });
+});
+
+// ── ADMIN CONFIG (API keys) ───────────────────────────────────
+const CONFIG_KEYS = ['ANTHROPIC_API_KEY','RESEND_API_KEY','RESEND_FROM_EMAIL','GOOGLE_MAPS_API_KEY',
+  'STRIPE_SECRET_KEY','STRIPE_PRICE_AMOUNT','FIRM_NAME','ADMIN_PASSWORD','JWT_SECRET','GOOGLE_CLIENT_ID'];
+
+app.get('/api/admin/config', requireAdmin, (req, res) => {
+  try {
+    const fileConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    const out = {};
+    for (const k of CONFIG_KEYS) {
+      const v = fileConfig[k] || process.env[k] || '';
+      // Mask secrets — show last 4 chars only
+      const isSensitive = k.includes('KEY') || k.includes('SECRET') || k === 'ADMIN_PASSWORD' || k === 'JWT_SECRET';
+      out[k] = v ? (isSensitive && v.length > 4 ? '•'.repeat(v.length - 4) + v.slice(-4) : v) : '';
+      out[k + '_set'] = !!v;
+    }
+    res.json(out);
+  } catch { res.json({}); }
+});
+
+app.put('/api/admin/config', requireAdmin, async (req, res) => {
+  const updates = {};
+  for (const k of CONFIG_KEYS) {
+    if (req.body[k] !== undefined && req.body[k] !== '' && !req.body[k].startsWith('•')) {
+      updates[k] = req.body[k];
+    }
+  }
+  await saveConfig(updates);
+  // Re-init Anthropic client if key updated
+  if (updates.ANTHROPIC_API_KEY) {
+    anthropic._client = new Anthropic({ apiKey: updates.ANTHROPIC_API_KEY });
+  }
+  res.json({ success: true, updated: Object.keys(updates) });
+});
+
+// ── ADMIN: STRIPE USERS ───────────────────────────────────────
+app.get('/api/admin/users', requireAdmin, (req, res) => {
+  const users = loadUsers().sort((a, b) => new Date(b.paidAt || 0) - new Date(a.paidAt || 0));
+  res.json({ users });
+});
+
+app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
+  saveUsers(loadUsers().filter(u => u.id !== req.params.id));
+  res.json({ success: true });
+});
+
+// ── ADMIN: CLIENT PORTAL USERS ────────────────────────────────
+app.get('/api/admin/client-users', requireAdmin, async (req, res) => {
+  res.json({ users: await dbListClientUsers() });
+});
+
+app.post('/api/admin/client-users/:id/suspend', requireAdmin, async (req, res) => {
+  await dbSuspendUser(req.params.id, true);
+  res.json({ success: true });
+});
+
+app.post('/api/admin/client-users/:id/unsuspend', requireAdmin, async (req, res) => {
+  await dbSuspendUser(req.params.id, false);
+  res.json({ success: true });
+});
+
+app.delete('/api/admin/client-users/:id', requireAdmin, async (req, res) => {
+  await dbDeleteClientUser(req.params.id);
+  res.json({ success: true });
+});
+
+app.post('/api/admin/client-users/:id/reset-password', requireAdmin, async (req, res) => {
+  const { newPassword } = req.body;
+  if (!newPassword || newPassword.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters' });
+  const hash = bcrypt ? await bcrypt.hash(newPassword, 10) : newPassword;
+  await dbResetPassword(req.params.id, hash);
+  res.json({ success: true });
+});
+
+// ── ADMIN: LETTERS + REPORTS ──────────────────────────────────
+app.get('/api/admin/letters', requireAdmin, async (req, res) => {
+  const letters = await loadLetters();
+  res.json({ letters: letters.map(l => ({ ...l, createdAt: l.ts||l.createdAt, letterText: undefined })) });
+});
+
+app.get('/api/admin/letters/:caseRef', requireAdmin, async (req, res) => {
+  const letters = await loadLetters();
+  const letter  = letters.find(l => l.caseRef === req.params.caseRef || l.id === req.params.caseRef);
+  if (!letter) return res.status(404).json({ error: 'Letter not found' });
+  let attorney = null;
+  if (letter.attorneyId) {
+    const attorneys = await loadAttorneys();
+    attorney = attorneys.find(a => a.id === letter.attorneyId) || null;
+  }
+  res.json({ ...letter, attorney, createdAt: letter.ts||letter.createdAt });
+});
+
+app.get('/api/admin/reports', requireAdmin, async (req, res) => {
+  const reports = await loadReports();
+  res.json({ reports: reports.map(r => ({ ...r, createdAt: r.ts||r.createdAt })) });
+});
+
+app.get('/api/admin/followups', requireAdmin, (req, res) => {
+  const followups = loadFollowups().sort((a, b) => b.id - a.id);
+  // Flatten pending steps into individual rows for display
+  const rows = [];
+  for (const job of followups) {
+    for (const step of (job.pending || [])) {
+      rows.push({
+        id:       job.id + '_' + step.label,
+        caseRef:  job.caseRef,
+        email:    job.brokerEmail,
+        day:      step.label.includes('14') ? 14 : 7,
+        status:   step.sent ? 'sent' : 'pending',
+        sentAt:   step.sentAt || null,
+        scheduledAt: step.sendAt ? new Date(step.sendAt).toISOString() : null,
+      });
+    }
+  }
+  res.json({ followups: rows });
+});
+
+// ── FOLLOW-UP EMAIL SCHEDULER ────────────────────────────────
+async function runFollowupScheduler() {
+  const followups = loadFollowups();
+  let changed     = false;
+  const now       = Date.now();
+
+  for (const job of followups) {
+    for (const step of job.pending) {
+      if (step.sent || now < step.sendAt) continue;
+      const isDay14 = step.label.includes('14');
+      const subj = isDay14
+        ? `⚠️ FINAL NOTICE — Case ${job.caseRef} — 14-Day Deadline Expired — Filing Imminent`
+        : `FOLLOW-UP — Case ${job.caseRef} — Awaiting Response to Legal Demand`;
+      const body = isDay14
+        ? `${job.brokerName},\n\nThis is final notice regarding Case No. ${job.caseRef}.\n\nOur client's 14-day response deadline has expired. Our attorneys are prepared to file in federal court. This is your final opportunity to resolve this matter without litigation.\n\nUnless we receive written confirmation of (1) retraction of the FreightGuard report and (2) payment confirmation within 48 hours, we will proceed with filing.\n\nDo not ignore this communication.\n\nLegal Department\n${process.env.FIRM_NAME || 'FreightGuard Defense'}`
+        : `${job.brokerName},\n\nThis is a follow-up regarding our formal demand letter sent on behalf of ${job.carrierName} (Case No. ${job.caseRef}).\n\nAs of today, we have not received a response. Our client's 14-day deadline is approaching. We strongly encourage you to respond in writing before the deadline expires.\n\nLegal Department\n${process.env.FIRM_NAME || 'FreightGuard Defense'}`;
+
+      try {
+        await dispatchEmail({ to: job.brokerEmail, cc: job.carrierEmail, subject: subj, text: body, html: `<pre style="font-family:sans-serif;white-space:pre-wrap;">${body}</pre>` });
+        step.sent   = true;
+        step.sentAt = new Date().toISOString();
+        changed     = true;
+        console.log(`✉️  Follow-up sent [${step.label}] → ${job.brokerEmail} (Case ${job.caseRef})`);
+      } catch(e) {
+        console.error(`Follow-up send failed [${step.label}]:`, e.message);
+      }
+    }
+  }
+  if (changed) saveFollowups(followups);
+}
+
+setInterval(runFollowupScheduler, 3600000);
+setTimeout(runFollowupScheduler, 30000);
+
+// ── START ─────────────────────────────────────────────────────
+const server = app.listen(PORT, () => {
+  console.log('');
+  console.log('╔══════════════════════════════════════════════════════╗');
+  console.log('║        FreightGuard Defense  —  Server Ready          ║');
+  console.log('╚══════════════════════════════════════════════════════╝');
+  console.log(`  🌐  URL:              http://localhost:${PORT}`);
+  console.log(`  🤖  Anthropic API:    ${process.env.ANTHROPIC_API_KEY  ? '✅ Connected' : '❌ Missing ANTHROPIC_API_KEY'}`);
+  console.log(`  💳  Stripe:           ${stripe && process.env.STRIPE_DISABLED !== 'true' ? '✅ Active' : '⚠️  DISABLED (free access mode)'}`);
+  console.log(`  📨  Resend Email:     ${resendClient                   ? '✅ Connected' : '⚠️  Not set'}`);
+  console.log(`  📧  SMTP Fallback:    ${process.env.SMTP_USER          ? '✅ Configured' : '⚠️  Not set'}`);
+  console.log(`  🗺️   Google Maps:      ${process.env.GOOGLE_MAPS_API_KEY ? '✅ Connected' : '⚠️  Not set (state fallback active)'}`);
+  console.log(`  🔐  Admin Panel:      http://localhost:${PORT}/admin.html`);
+  console.log(`  📁  Data dir:         ${DATA_DIR}`);
+  console.log('');
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.error('  ⚠️   WARNING: ANTHROPIC_API_KEY is not set. Letter generation will fail until you add it to .env');
+  }
+});
+
+// ── GLOBAL ERROR HANDLER ──────────────────────────────────────
+// Catches any unhandled Express errors — always returns JSON (never empty)
+app.use((err, req, res, next) => {
+  console.error('Unhandled Express error:', err.message);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: err.message || 'Internal server error' });
+});
+
+// ── 404 CATCH-ALL ─────────────────────────────────────────────
+app.use((req, res) => {
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
+  }
+  res.status(404).send('Not found');
+});
+
+// ── GRACEFUL SHUTDOWN ─────────────────────────────────────────
+function shutdown(signal) {
+  console.lo

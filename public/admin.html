@@ -153,6 +153,29 @@
   }
   .search-row input:focus { border-color: var(--accent); }
 
+  /* ── PRINT ── */
+  @media print {
+    body * { visibility: hidden !important; }
+    #printArea, #printArea * { visibility: visible !important; }
+    #printArea {
+      position: fixed !important;
+      inset: 0 !important;
+      padding: 1in !important;
+      background: #fff !important;
+      color: #111 !important;
+      font-family: 'Times New Roman', serif !important;
+      font-size: 12pt !important;
+      line-height: 1.75 !important;
+    }
+    #printArea .ph-head { border-bottom: 3px solid #b8860b; padding-bottom: 12px; margin-bottom: 8px; }
+    #printArea .ph-firm { font-size: 20pt; font-weight: 700; color: #b8860b; letter-spacing: 1px; }
+    #printArea .ph-meta { font-size: 9pt; color: #444; margin-top: 4px; }
+    #printArea .ph-court-row { width: 100%; border-collapse: collapse; margin: 18px 0 24px; }
+    #printArea .ph-court-row td { border: 1px solid #666; padding: 10px 12px; font-size: 10pt; vertical-align: top; }
+    #printArea .ph-body { white-space: pre-wrap; font-size: 11pt; line-height: 1.8; }
+    #printArea .ph-footer { margin-top: 36px; border-top: 1px solid #ccc; padding-top: 8px; font-size: 8pt; color: #666; text-align: center; }
+  }
+
   /* Letter modal */
   .modal-overlay {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,.7);
@@ -447,6 +470,9 @@
 
   </main>
 </div>
+
+<!-- Hidden print area — only visible when window.print() is called -->
+<div id="printArea" style="display:none"></div>
 
 <!-- Letter Modal -->
 <div class="modal-overlay" id="letterModal">
@@ -817,54 +843,355 @@ function closeModal() {
   _currentLetter = null;
 }
 
+function getCleanLetterText() {
+  // Always read directly from the DOM — no state dependency
+  const raw = document.getElementById('modalText').textContent || '';
+  return raw;
+}
+
 function printAdminLetter() {
-  if (!_currentLetter) return;
-  // attorney is not stored in the letter record — use generic header
-  const clean = _currentLetter._cleanText || '';
-  // court is stored as a plain string
-  const courtStr = typeof _currentLetter.court === 'string'
-    ? _currentLetter.court
-    : (_currentLetter.court?.name || '');
+  const text = getCleanLetterText();
+  if (!text || text === 'Loading…') { alert('Letter is still loading, please wait.'); return; }
 
-  const todayStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const L = _currentLetter || {};
+  const courtStr = typeof L.court === 'string' ? L.court : (L.court?.name || '');
+  const letterDate = L.ts || L.created_at || L.timestamp;
+  const dateStr = letterDate
+    ? new Date(letterDate).toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })
+    : new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
-  const letterDate = _currentLetter.ts || _currentLetter.created_at || _currentLetter.timestamp;
-  const generatedStr = letterDate
-    ? new Date(letterDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
-    : todayStr;
+  // Build attorney header — only show attorney info
+  const atty = L.attorney || {};
+  const firmName  = atty.firmName  || atty.name || 'Law Office';
+  const attyName  = atty.name      || '';
+  const barInfo   = [atty.barState, atty.barNumber ? 'Bar No. ' + atty.barNumber : ''].filter(Boolean).join(' · ');
+  const contact   = [atty.email, atty.phone].filter(Boolean).join(' · ');
 
-  const courtBlock = courtStr ? `
-    <table style="width:100%;border-collapse:collapse;margin:20px 0 24px">
+  // Populate hidden print div
+  const pa = document.getElementById('printArea');
+  pa.innerHTML = `
+    <div class="ph-head">
+      <div class="ph-firm">${firmName}</div>
+      <div class="ph-meta">
+        ${attyName ? `<span>${attyName}</span>` : ''}
+        ${barInfo  ? `<span> &middot; ${barInfo}</span>` : ''}
+        ${contact  ? `<br><span>${contact}</span>` : ''}
+      </div>
+    </div>
+    ${courtStr ? `
+    <table class="ph-court-row">
       <tr>
-        <td style="width:48%;border:1px solid #444;padding:10px 12px;font-size:10pt;vertical-align:top">
-          <strong>Venue / Filing Court</strong><br>${esc(courtStr)}
-        </td>
+        <td><strong>Venue / Filing Court</strong><br>${courtStr}</td>
         <td style="width:4%"></td>
-        <td style="width:48%;border:1px solid #444;padding:10px 12px;font-size:10pt;vertical-align:top">
-          <strong>Date of Letter</strong><br>${generatedStr}
-        </td>
+        <td><strong>Date of Letter</strong><br>${dateStr}</td>
       </tr>
-    </table>` : `<div style="text-align:right;margin:16px 0 24px;font-size:10pt">${generatedStr}</div>`;
+    </table>` : `<div style="text-align:right;margin:16px 0 24px">${dateStr}</div>`}
+    <div class="ph-body">${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+    <div class="ph-footer">CONFIDENTIAL ATTORNEY-CLIENT COMMUNICATION — This letter contains legally privileged information intended solely for the named recipient.</div>
+  `;
 
-  const brokerLine  = _currentLetter.brokerName  ? `<strong>To:</strong> ${esc(_currentLetter.brokerName)}` : '';
-  const carrierLine = _currentLetter.carrierName ? `<strong>Re:</strong> ${esc(_currentLetter.carrierName)}` : '';
-  const amtLine     = _currentLetter.totalDamages
-    ? `<strong>Claim Amount:</strong> $${Number(_currentLetter.totalDamages).toLocaleString()}` : '';
+  window.print();
+}
 
-  const html = `<!DOCTYPE html><html><head>
-<meta charset="UTF-8">
-<title>Demand Letter — ${esc(_currentLetter.caseRef || '')}</title>
-<style>
-  body { font-family: 'Times New Roman', serif; font-size: 12pt; color: #111; margin: 0; padding: 0; background: #fff; }
-  .letterhead { border-bottom: 3px solid #b8860b; padding-bottom: 12px; margin-bottom: 4px; }
-  .firm-name  { font-size: 20pt; font-weight: 700; color: #b8860b; letter-spacing: 1px; }
-  .case-meta  { font-size: 9pt; color: #444; margin-top: 6px; line-height: 1.8; }
-  .letter-body{ white-space: pre-wrap; line-height: 1.75; font-size: 11pt; }
-  .footer     { margin-top: 36px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 9pt; color: #666; text-align: center; }
-  @page { margin: 1in; }
-</style>
-</head><body>
-<div class="letterhead">
-  <div class="firm-name">FreightGuard Defense</div>
-  <div class="case-meta">
-    <strong>Case:</stron
+function downloadAdminLetter() {
+  const text = getCleanLetterText();
+  if (!text || text === 'Loading…') { alert('Letter is still loading, please wait.'); return; }
+
+  const L       = _currentLetter || {};
+  const caseRef = L.caseRef || 'letter';
+  const broker  = (L.brokerName || '').replace(/\s+/g,'-').replace(/[^a-zA-Z0-9-]/g,'');
+  const filename = `demand-letter-${caseRef}${broker ? '-'+broker : ''}.txt`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+}
+document.getElementById('letterModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('letterModal')) closeModal();
+});
+
+// ── REPORTS ──────────────────────────────────
+async function loadReports() {
+  document.getElementById('reportsTableWrap').innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
+  try {
+    const data = await apiFetch('/api/admin/reports');
+    const reports = data.reports || [];
+    document.getElementById('reportsCount').textContent = reports.length;
+    if (!reports.length) {
+      document.getElementById('reportsTableWrap').innerHTML =
+        '<div class="empty"><div class="e-icon">🔍</div><p>No broker reports yet.</p></div>';
+      return;
+    }
+    document.getElementById('reportsTableWrap').innerHTML = `
+      <table id="reportTable">
+        <thead><tr>
+          <th>Broker Name</th><th>MC #</th><th>Address</th><th>Carrier</th><th>Amount</th><th>Category</th><th>Submitted</th>
+        </tr></thead>
+        <tbody>
+          ${reports.map(r => `<tr>
+            <td><strong>${esc(r.brokerName)}</strong></td>
+            <td class="mono">${esc(r.brokerMC || '—')}</td>
+            <td style="font-size:12px;color:var(--muted)">${esc(r.brokerAddress || '—')}</td>
+            <td>${esc(r.carrierName || '—')}</td>
+            <td>${r.amount ? fmt(r.amount) : '—'}</td>
+            <td><span class="badge ${r.category === 'fraud' ? 'badge-red' : 'badge-yellow'}">${esc(r.category || 'general')}</span></td>
+            <td style="color:var(--muted)">${fmtDate(r.createdAt)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('reportsTableWrap').innerHTML = '<div class="empty"><p>Error loading reports.</p></div>';
+  }
+}
+
+// ── FOLLOW-UPS ────────────────────────────────
+async function loadFollowups() {
+  document.getElementById('followupsTableWrap').innerHTML = '<div class="section-loading"><span class="spin"></span></div>';
+  try {
+    const data = await apiFetch('/api/admin/followups');
+    const followups = data.followups || [];
+    document.getElementById('followupsCount').textContent = followups.length;
+    if (!followups.length) {
+      document.getElementById('followupsTableWrap').innerHTML =
+        '<div class="empty"><div class="e-icon">📬</div><p>No follow-up records yet.</p></div>';
+      return;
+    }
+    document.getElementById('followupsTableWrap').innerHTML = `
+      <table id="followupTable">
+        <thead><tr>
+          <th>Case Ref</th><th>Email</th><th>Day</th><th>Status</th><th>Sent At</th>
+        </tr></thead>
+        <tbody>
+          ${followups.map(f => `<tr>
+            <td class="mono">${esc(f.caseRef)}</td>
+            <td style="color:var(--blue)">${esc(f.email)}</td>
+            <td style="text-align:center">Day ${f.day || '?'}</td>
+            <td><span class="badge ${f.status === 'sent' ? 'badge-green' : f.status === 'failed' ? 'badge-red' : 'badge-blue'}">${esc(f.status || 'pending')}</span></td>
+            <td style="color:var(--muted)">${fmtDate(f.sentAt || f.scheduledAt)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  } catch(e) {
+    document.getElementById('followupsTableWrap').innerHTML = '<div class="empty"><p>Error loading follow-ups.</p></div>';
+  }
+}
+
+// ── ATTORNEYS (ADMIN) ────────────────────────
+async function loadAdminAttorneys() {
+  try {
+    const res  = await fetch('/api/attorneys');
+    const atty = await res.json();
+    const count = document.getElementById('attyAdminCount');
+    if (count) count.textContent = atty.length;
+    const wrap = document.getElementById('attyAdminTableWrap');
+    if (!wrap) return;
+    if (!atty.length) {
+      wrap.innerHTML = '<div class="empty"><div class="e-icon">👔</div><p>No attorneys yet. Add one above.</p></div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Name / Firm</th><th>Bar #</th><th>States</th><th>Contact</th><th>Specialty</th><th></th>
+      </tr></thead>
+      <tbody>
+        ${atty.map(a => `<tr>
+          <td><div style="font-weight:600">${esc(a.name)}</div><div style="font-size:12px;color:var(--muted)">${esc(a.firmName||'Independent')}</div></td>
+          <td class="mono" style="color:var(--accent)">${esc(a.barNumber)}<br><span style="color:var(--muted);font-size:11px">${esc(a.barState||'')}</span></td>
+          <td style="font-size:12px">${esc(a.licenseStates||'—')}</td>
+          <td><div style="color:var(--blue);font-size:12px">${esc(a.email)}</div><div style="font-size:12px;color:var(--muted)">${esc(a.phone||'')}</div></td>
+          <td style="font-size:12px;color:var(--muted)">${esc(a.specialty||'—')}</td>
+          <td><button onclick="adminDeleteAttorney('${a.id}')" style="background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.3);color:var(--red);border-radius:5px;padding:5px 12px;font-size:12px;cursor:pointer;font-weight:600">Remove</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) {
+    document.getElementById('attyAdminTableWrap').innerHTML = '<div class="empty"><p>Error loading attorneys.</p></div>';
+  }
+}
+
+async function adminAddAttorney() {
+  const v = id => (document.getElementById(id)?.value || '').trim();
+  const data = {
+    name:          v('aa-name'),
+    firmName:      v('aa-firm'),
+    barNumber:     v('aa-bar'),
+    barState:      v('aa-barstate').toUpperCase(),
+    email:         v('aa-email'),
+    phone:         v('aa-phone'),
+    licenseStates: v('aa-states'),
+    specialty:     v('aa-specialty'),
+  };
+  if (!data.name || !data.barNumber || !data.email) {
+    showAttyAlert('Name, bar number, and email are required.', 'red'); return;
+  }
+  try {
+    const res = await fetch('/api/attorneys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
+    ['aa-name','aa-firm','aa-bar','aa-barstate','aa-email','aa-phone','aa-states','aa-specialty']
+      .forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+    showAttyAlert('✅ Attorney added.', 'green');
+    loadAdminAttorneys();
+  } catch(e) { showAttyAlert('❌ ' + e.message, 'red'); }
+}
+
+async function adminDeleteAttorney(id) {
+  if (!confirm('Remove this attorney from the network?')) return;
+  await fetch('/api/attorneys/' + id, {
+    method: 'DELETE',
+    headers: { 'x-admin-token': TOKEN },
+  });
+  loadAdminAttorneys();
+}
+
+function showAttyAlert(msg, type) {
+  const el = document.getElementById('attyAdminAlert');
+  if (!el) return;
+  const colors = { red:'rgba(248,81,73,.15)', green:'rgba(63,185,80,.15)' };
+  const borders = { red:'rgba(248,81,73,.4)', green:'rgba(63,185,80,.4)' };
+  const texts   = { red:'var(--red)', green:'var(--green)' };
+  el.innerHTML = `<div style="background:${colors[type]};border:1px solid ${borders[type]};color:${texts[type]};padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;">${msg}</div>`;
+  setTimeout(() => { el.innerHTML = ''; }, 5000);
+}
+
+// ── PORTAL CLIENTS ────────────────────────────
+async function loadClientUsers() {
+  const wrap = document.getElementById('clientUsersTableWrap');
+  const count = document.getElementById('clientUsersCount');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="empty"><p>Loading…</p></div>';
+  try {
+    const users = await adminFetch('/api/admin/client-users');
+    if (count) count.textContent = users.length;
+    if (!users.length) {
+      wrap.innerHTML = '<div class="empty"><div class="e-icon">👤</div><p>No portal clients yet.</p></div>';
+      return;
+    }
+    wrap.innerHTML = `<table>
+      <thead><tr>
+        <th>Name</th><th>Email</th><th>Joined</th><th>Last Login</th><th>Status</th><th>Actions</th>
+      </tr></thead>
+      <tbody>
+        ${users.map(u => `<tr>
+          <td style="font-weight:600">${esc(u.name || '—')}</td>
+          <td style="color:var(--blue)">${esc(u.email)}</td>
+          <td style="font-size:12px;color:var(--muted)">${u.created_at ? new Date(u.created_at).toLocaleDateString() : '—'}</td>
+          <td style="font-size:12px;color:var(--muted)">${u.last_login ? new Date(u.last_login).toLocaleDateString() : 'Never'}</td>
+          <td><span style="font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;${u.suspended ? 'background:rgba(248,81,73,.15);color:var(--red)' : 'background:rgba(63,185,80,.15);color:var(--green)'}">${u.suspended ? 'SUSPENDED' : 'ACTIVE'}</span></td>
+          <td style="white-space:nowrap">
+            <button onclick="suspendClient('${u.id}', ${!u.suspended})" style="background:rgba(210,153,34,.15);border:1px solid rgba(210,153,34,.3);color:#d29922;border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;margin-right:4px;">${u.suspended ? 'Unsuspend' : 'Suspend'}</button>
+            <button onclick="resetClientPassword('${u.id}')" style="background:rgba(58,130,246,.15);border:1px solid rgba(58,130,246,.3);color:var(--blue);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;margin-right:4px;">Reset PW</button>
+            <button onclick="deleteClient('${u.id}')" style="background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.3);color:var(--red);border-radius:5px;padding:4px 10px;font-size:11px;cursor:pointer;">Delete</button>
+          </td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`;
+  } catch(e) {
+    wrap.innerHTML = `<div class="empty"><p>Error: ${esc(e.message)}</p></div>`;
+  }
+}
+
+async function suspendClient(id, suspend) {
+  const action = suspend ? 'suspend' : 'unsuspend';
+  if (!confirm(`${suspend ? 'Suspend' : 'Unsuspend'} this client?`)) return;
+  try {
+    await adminFetch(`/api/admin/client-users/${id}/${action}`, { method: 'POST' });
+    loadClientUsers();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function deleteClient(id) {
+  if (!confirm('Permanently delete this client and all their data?')) return;
+  try {
+    await adminFetch(`/api/admin/client-users/${id}`, { method: 'DELETE' });
+    loadClientUsers();
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+async function resetClientPassword(id) {
+  const newPw = prompt('Enter new password for this client (min 8 chars):');
+  if (!newPw || newPw.length < 8) { alert('Password too short or cancelled.'); return; }
+  try {
+    await adminFetch(`/api/admin/client-users/${id}/reset-password`, {
+      method: 'POST',
+      body: JSON.stringify({ password: newPw }),
+    });
+    alert('Password reset successfully.');
+  } catch(e) { alert('Error: ' + e.message); }
+}
+
+// ── API KEYS / CONFIG ─────────────────────────
+const CONFIG_LABELS = {
+  ANTHROPIC_API_KEY:   'Anthropic API Key',
+  RESEND_API_KEY:      'Resend API Key',
+  RESEND_FROM_EMAIL:   'Resend From Email',
+  GOOGLE_MAPS_API_KEY: 'Google Maps API Key',
+  STRIPE_SECRET_KEY:   'Stripe Secret Key',
+  STRIPE_PRICE_AMOUNT: 'Stripe Price Amount (cents)',
+  FIRM_NAME:           'Default Firm Name',
+  ADMIN_PASSWORD:      'Admin Password',
+  JWT_SECRET:          'JWT Secret',
+  GOOGLE_CLIENT_ID:    'Google OAuth Client ID',
+};
+
+async function loadConfig() {
+  const wrap = document.getElementById('configForm');
+  const alert = document.getElementById('configAlert');
+  if (!wrap) return;
+  wrap.innerHTML = '<div class="empty"><p>Loading…</p></div>';
+  try {
+    const cfg = await adminFetch('/api/admin/config');
+    wrap.innerHTML = Object.entries(CONFIG_LABELS).map(([key, label]) => `
+      <div style="margin-bottom:16px;">
+        <label style="display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;letter-spacing:.5px;text-transform:uppercase">${esc(label)}</label>
+        <input id="cfg-${key}" type="${key.includes('KEY') || key.includes('SECRET') || key === 'ADMIN_PASSWORD' || key === 'JWT_SECRET' ? 'password' : 'text'}"
+          value="${esc(cfg[key] || '')}"
+          placeholder="${key.includes('KEY') || key.includes('SECRET') ? '••••••••' : ''}"
+          style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--fg);border-radius:6px;padding:10px 12px;font-size:13px;font-family:monospace;box-sizing:border-box;outline:none;"
+          autocomplete="off" />
+      </div>`).join('');
+  } catch(e) {
+    wrap.innerHTML = `<div class="empty"><p>Error loading config: ${esc(e.message)}</p></div>`;
+  }
+}
+
+async function saveConfig() {
+  const alertEl = document.getElementById('configAlert');
+  const payload = {};
+  Object.keys(CONFIG_LABELS).forEach(key => {
+    const el = document.getElementById('cfg-' + key);
+    if (el) payload[key] = el.value;
+  });
+  try {
+    await adminFetch('/api/admin/config', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    if (alertEl) {
+      alertEl.innerHTML = '<div style="background:rgba(63,185,80,.15);border:1px solid rgba(63,185,80,.4);color:var(--green);padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;">✅ Configuration saved.</div>';
+      setTimeout(() => { alertEl.innerHTML = ''; }, 4000);
+    }
+  } catch(e) {
+    if (alertEl) {
+      alertEl.innerHTML = `<div style="background:rgba(248,81,73,.15);border:1px solid rgba(248,81,73,.4);color:var(--red);padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;">❌ ${esc(e.message)}</div>`;
+      setTimeout(() => { alertEl.innerHTML = ''; }, 5000);
+    }
+  }
+}
+
+// ── KEYBOARD SHORTCUTS ────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeModal();
+});
+</script>
+</body>
+</html>
