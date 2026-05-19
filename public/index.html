@@ -869,49 +869,73 @@ function printLetter() {
   const atty = window._attorney  || null;
   const ct   = window._courtData || null;
   const esc  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
-  // Attorney / firm header
-  const firmName    = atty ? esc(atty.firmName || (atty.name + ', Attorney at Law')) : 'LAW OFFICE';
-  const attyLine    = atty ? esc(atty.name) : '';
-  const barLine     = atty ? `Bar No. ${esc(atty.barNumber)}${atty.barState ? ' (' + esc(atty.barState) + ')' : ''}` : '';
-  const phoneLine   = atty?.phone  ? esc(atty.phone)  : '';
-  const emailLine   = atty?.email  ? esc(atty.email)  : '';
+  // ── ATTORNEY INFO ONLY — no platform branding ──
+  const firmName  = atty ? esc(atty.firmName || (atty.name + ', Attorney at Law')) : 'LAW OFFICES';
+  const attyName  = atty ? esc(atty.name)       : '';
+  const barNo     = atty ? esc(atty.barNumber)   : '';
+  const barState  = atty ? esc(atty.barState||'') : '';
+  const phone     = atty?.phone ? esc(atty.phone) : '';
+  const email     = atty?.email ? esc(atty.email) : '';
+  const specialty = atty?.specialty ? esc(atty.specialty) : 'Transportation &amp; Logistics Law';
+
+  // Right-side contact block
+  const contactLines = [
+    phone ? `<div>${phone}</div>` : '',
+    email ? `<div>${email}</div>` : '',
+    `<div style="margin-top:4px;color:#888;">${today}</div>`,
+  ].filter(Boolean).join('');
+
+  // Bar line under name
+  const barLine = (barNo || barState) ? `Bar No. ${barNo}${barState ? ' &nbsp;|&nbsp; ' + barState : ''}` : '';
 
   const courtNotice = ct ? `
-    <div style="border:1px solid #999;padding:10px 16px;margin:24px 0;font-size:10pt;background:#fafafa;">
-      <strong>DESIGNATED FEDERAL VENUE:</strong><br>
-      ${esc(ct.name)}<br>
-      ${esc(ct.address)}, ${esc(ct.city)}, ${esc(ct.state)} ${esc(ct.zip)}<br>
-      ${esc(ct.dept)}${ct.phone ? ' &nbsp;|&nbsp; ' + esc(ct.phone) : ''}${ct.distanceMiles ? '<br><em>' + ct.distanceMiles + ' miles from defendant\'s address</em>' : ''}
-    </div>` : '';
+    <table style="width:100%;border-collapse:collapse;margin:22px 0;">
+      <tr>
+        <td style="background:#f5f5f5;border:1px solid #ccc;padding:12px 16px;font-size:10pt;line-height:1.6;">
+          <span style="font-weight:700;text-transform:uppercase;letter-spacing:.5px;font-size:9pt;">Designated Federal Venue</span><br>
+          <strong>${esc(ct.name)}</strong><br>
+          ${esc(ct.address)}, ${esc(ct.city)}, ${esc(ct.state)} ${esc(ct.zip)}<br>
+          ${esc(ct.dept)}${ct.phone ? ' &nbsp;&bull;&nbsp; ' + esc(ct.phone) : ''}
+          ${ct.distanceMiles ? `<br><span style="color:#666;font-size:9pt;">${ct.distanceMiles} miles from defendant&rsquo;s registered address</span>` : ''}
+        </td>
+      </tr>
+    </table>` : '';
 
   const el = document.getElementById('printArea');
   el.style.display = 'block';
-
-  // Save title and blank it so browser doesn't print URL/title in header
   const savedTitle = document.title;
   document.title = '';
 
   el.innerHTML = `
-    <div style="font-family:'Times New Roman',Times,serif;max-width:780px;margin:0 auto;padding:60px 72px;color:#000;font-size:12pt;line-height:1.7;">
+    <div style="font-family:'Garamond','Times New Roman',Times,serif;max-width:760px;margin:0 auto;padding:54px 64px;color:#111;font-size:12pt;line-height:1.75;">
 
-      <!-- LETTERHEAD -->
-      <div style="text-align:center;border-bottom:3px double #000;padding-bottom:16px;margin-bottom:20px;">
-        <div style="font-size:22pt;font-weight:700;letter-spacing:1px;text-transform:uppercase;">${firmName}</div>
-        ${attyLine ? `<div style="font-size:11pt;margin-top:4px;">${attyLine}${barLine ? ' &nbsp;|&nbsp; ' + barLine : ''}</div>` : ''}
-        ${phoneLine || emailLine ? `<div style="font-size:10pt;color:#333;margin-top:3px;">${[phoneLine, emailLine].filter(Boolean).join(' &nbsp;&nbsp; ')}</div>` : ''}
-        <div style="font-size:9pt;color:#555;margin-top:6px;letter-spacing:2px;text-transform:uppercase;">Transportation &amp; Logistics Law &nbsp;|&nbsp; Federal Demand Counsel</div>
-      </div>
+      <!-- ══ LETTERHEAD ══ -->
+      <table style="width:100%;border-collapse:collapse;margin-bottom:0;">
+        <tr>
+          <td style="vertical-align:bottom;padding-bottom:14px;">
+            <div style="font-size:24pt;font-weight:700;letter-spacing:.5px;color:#1a1a2e;line-height:1.1;">${firmName}</div>
+            ${attyName ? `<div style="font-size:10.5pt;color:#444;margin-top:5px;letter-spacing:.3px;">${attyName}${barLine ? ' &nbsp;&nbsp; <span style="color:#888;font-size:9.5pt;">' + barLine + '</span>' : ''}</div>` : ''}
+            <div style="font-size:8.5pt;color:#777;margin-top:5px;letter-spacing:1.5px;text-transform:uppercase;">${specialty}</div>
+          </td>
+          <td style="text-align:right;vertical-align:bottom;padding-bottom:14px;font-size:9.5pt;color:#444;line-height:1.7;white-space:nowrap;">
+            ${contactLines}
+          </td>
+        </tr>
+      </table>
+      <div style="height:3px;background:linear-gradient(to right,#1a1a2e,#8b7536,#1a1a2e);margin-bottom:4px;"></div>
+      <div style="height:1px;background:#ccc;margin-bottom:24px;"></div>
 
       ${courtNotice}
 
-      <!-- LETTER BODY -->
-      <div style="white-space:pre-wrap;font-size:12pt;line-height:1.9;">${esc(text)}</div>
+      <!-- ══ LETTER BODY ══ -->
+      <div style="white-space:pre-wrap;font-size:12pt;line-height:1.9;color:#111;">${esc(text)}</div>
 
-      <!-- FOOTER -->
-      <div style="margin-top:48px;padding-top:12px;border-top:1px solid #999;font-size:9pt;color:#555;text-align:center;line-height:1.5;">
-        CONFIDENTIAL LEGAL COMMUNICATION — Attorney-Client Privileged &nbsp;|&nbsp;
-        This letter is intended solely for the named recipient. Unauthorized disclosure, copying, or use is strictly prohibited.
+      <!-- ══ FOOTER ══ -->
+      <div style="margin-top:52px;padding-top:10px;border-top:1px solid #bbb;font-size:8pt;color:#888;text-align:center;letter-spacing:.3px;">
+        CONFIDENTIAL ATTORNEY-CLIENT COMMUNICATION &nbsp;&bull;&nbsp; PRIVILEGED AND PROTECTED BY LAW<br>
+        This communication is intended solely for the named recipient. Unauthorized use, disclosure, or reproduction is strictly prohibited.
       </div>
     </div>`;
 
@@ -1037,19 +1061,4 @@ let lastMatchedState = null;
 async function loadCoverage(filterState) {
   const grid  = document.getElementById('coverageGrid');
   const title = document.getElementById('coverageTitle');
-  const sub   = document.getElementById('coverageSubtitle');
-  if (!grid) return;
-  const url = filterState ? `/api/attorneys/coverage?state=${filterState}` : '/api/attorneys/coverage';
-  try {
-    const res  = await fetch(url);
-    const data = await res.json();
-    if (!data.length) {
-      grid.innerHTML = `
-        <div class="coverage-card"><div class="atty-avatar">⚖️</div><div><h4>Network Attorney</h4><div class="firm">Transportation Law Division</div><div class="location">📍 Dallas, TX</div></div></div>
-        <div class="coverage-card"><div class="atty-avatar">⚖️</div><div><h4>Network Attorney</h4><div class="firm">FMCSA Defense Counsel</div><div class="location">📍 Chicago, IL</div></div></div>
-        <div class="coverage-card"><div class="atty-avatar">⚖️</div><div><h4>Network Attorney</h4><div class="firm">Carrier Rights Legal Group</div><div class="location">📍 Atlanta, GA</div></div></div>`;
-      return;
-    }
-    if (filterState && data.length > 0) {
-      title.textContent = `Local Attorney Available in ${data[0].city}, ${data[0].state}`;
-      sub.textContent   = `We have a licensed transportation attorney near the broker's location — your demand letter will be drafted by local counsel who knows the 
+  const sub   =
