@@ -389,7 +389,8 @@
       <div>
         <div class="card">
           <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
-          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="e.g. Swift Eagle Transport LLC" /></div>
+          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="e.g. Swift Eagle Transport LLC" autocomplete="off" /></div>
+          <div class="field"><label>Carrier Address *</label><input id="carrierAddress" placeholder="123 Main St, Dallas, TX 75201" autocomplete="off" /></div>
           <div class="field-row">
             <div class="field"><label>MC Number *</label><input id="carrierMC" placeholder="1234567" /></div>
             <div class="field"><label>DOT Number *</label><input id="carrierDOT" placeholder="9876543" /></div>
@@ -652,6 +653,31 @@ async function updateCourtPreview() {
 
 // ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────
 window.initPlacesAutocomplete = function() {
+  // Autocomplete on carrier name — fills carrier address when business is selected
+  const carrierNameInput = document.getElementById('carrierName');
+  const carrierAddrInput = document.getElementById('carrierAddress');
+  if (carrierNameInput && window.google?.maps?.places) {
+    const acCarrierName = new google.maps.places.Autocomplete(carrierNameInput, {
+      types: ['establishment'],
+      fields: ['name', 'formatted_address'],
+    });
+    acCarrierName.addListener('place_changed', () => {
+      const place = acCarrierName.getPlace();
+      if (place.name)              carrierNameInput.value = place.name;
+      if (place.formatted_address) carrierAddrInput.value = place.formatted_address;
+    });
+  }
+  if (carrierAddrInput && window.google?.maps?.places) {
+    const acCarrierAddr = new google.maps.places.Autocomplete(carrierAddrInput, {
+      types: ['geocode', 'establishment'],
+      fields: ['formatted_address'],
+    });
+    acCarrierAddr.addListener('place_changed', () => {
+      const place = acCarrierAddr.getPlace();
+      if (place.formatted_address) carrierAddrInput.value = place.formatted_address;
+    });
+  }
+
   // Autocomplete on broker name — fills address when business is selected
   const nameInput = document.getElementById('brokerName');
   const addrInput = document.getElementById('brokerAddress');
@@ -705,6 +731,7 @@ async function loadGooglePlaces() {
 async function generateLetter() {
   const f = {
     carrierName:       v('carrierName'),
+    carrierAddress:    v('carrierAddress'),
     carrierMC:         v('carrierMC'),
     carrierDOT:        v('carrierDOT'),
     carrierEmail:      v('carrierEmail'),
@@ -1025,38 +1052,4 @@ async function loadCoverage(filterState) {
     }
     if (filterState && data.length > 0) {
       title.textContent = `Local Attorney Available in ${data[0].city}, ${data[0].state}`;
-      sub.textContent   = `We have a licensed transportation attorney near the broker's location — your demand letter will be drafted by local counsel who knows the jurisdiction.`;
-    }
-    grid.innerHTML = data.map(a => `
-      <div class="coverage-card${filterState ? ' highlight' : ''}">
-        <div class="atty-avatar">⚖️</div>
-        <div>
-          <h4>${a.name}${filterState ? `<span class="local-badge">LOCAL</span>` : ''}</h4>
-          <div class="firm">${a.firmName || 'Transportation Law'}</div>
-          <div class="location">📍 ${a.city}, ${a.state}</div>
-        </div>
-      </div>`).join('');
-  } catch {
-    grid.innerHTML = '<div class="coverage-empty">Attorney coverage loading...</div>';
-  }
-}
-
-// Update coverage when broker address changes
-document.getElementById('brokerAddress')?.addEventListener('change', () => {
-  const addr  = document.getElementById('brokerAddress')?.value || '';
-  const m     = addr.match(/\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/);
-  const state = m ? m[1] : null;
-  if (state && state !== lastMatchedState) {
-    lastMatchedState = state;
-    loadCoverage(state);
-  }
-});
-
-// ── INIT ──────────────────────────────────────────────────────
-checkPaymentReturn();
-loadAttorneys();
-loadCoverage();
-loadGooglePlaces();
-</script>
-</body>
-</html>
+      sub.textContent   = `We have a licensed transportation attorney near the broker's location — your demand letter will be drafted by local counsel who knows the 
