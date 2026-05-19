@@ -416,10 +416,11 @@
           </div>
 
           <div class="field" style="margin-top:16px;">
-            <label>Assign Attorney (optional)</label>
-            <select id="assignedAttorney">
-              <option value="">— No attorney assigned yet —</option>
+            <label>Law Office / Assigned Attorney *</label>
+            <select id="assignedAttorney" style="border-color:var(--gold);">
+              <option value="">— Select a Law Office (required) —</option>
             </select>
+            <div style="font-size:11px;color:var(--gold);margin-top:5px;">⚠️ You must select a law office before generating a letter.</div>
           </div>
         </div>
 
@@ -755,6 +756,12 @@ async function generateLetter() {
     return;
   }
 
+  if (!f.assignedAttorneyId) {
+    showAlert('formAlert', 'red', '⚠️ You must select a Law Office before generating the letter. The letterhead requires an assigned attorney.');
+    document.getElementById('assignedAttorney').focus();
+    return;
+  }
+
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
   btn.innerHTML = '<div class="spinner"></div> Drafting your demand letter...';
@@ -1051,14 +1058,4 @@ async function deleteAttorney(id) {
 function showAlert(id, type, msg) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
-  setTimeout(() => { if (el.innerHTML.includes(msg)) el.innerHTML = ''; }, 7000);
-}
-
-// ── ATTORNEY COVERAGE (Landing Page) ─────────────────────────
-let lastMatchedState = null;
-
-async function loadCoverage(filterState) {
-  const grid  = document.getElementById('coverageGrid');
-  const title = document.getElementById('coverageTitle');
-  const sub   =
+  el.innerHTML = `<div class
