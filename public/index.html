@@ -653,59 +653,53 @@ async function updateCourtPreview() {
 }
 
 // ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────
+// Safe wrapper — if Places errors for any reason, the input stays usable as plain text
+function safeAutocomplete(inputEl, options, onPlace) {
+  if (!inputEl) return;
+  try {
+    if (!window.google || !window.google.maps || !window.google.maps.places) return;
+    const ac = new google.maps.places.Autocomplete(inputEl, options);
+    ac.addListener('place_changed', () => {
+      try { onPlace(ac.getPlace()); } catch(e) { /* silent */ }
+    });
+  } catch(e) {
+    console.warn('Places autocomplete skipped for', inputEl.id, ':', e.message);
+  }
+}
+
 window.initPlacesAutocomplete = function() {
-  // Autocomplete on carrier name — fills carrier address when business is selected
-  const carrierNameInput = document.getElementById('carrierName');
-  const carrierAddrInput = document.getElementById('carrierAddress');
-  if (carrierNameInput && window.google?.maps?.places) {
-    const acCarrierName = new google.maps.places.Autocomplete(carrierNameInput, {
-      types: ['establishment'],
-      fields: ['name', 'formatted_address'],
-    });
-    acCarrierName.addListener('place_changed', () => {
-      const place = acCarrierName.getPlace();
-      if (place.name)              carrierNameInput.value = place.name;
-      if (place.formatted_address) carrierAddrInput.value = place.formatted_address;
-    });
-  }
-  if (carrierAddrInput && window.google?.maps?.places) {
-    const acCarrierAddr = new google.maps.places.Autocomplete(carrierAddrInput, {
-      types: ['geocode', 'establishment'],
-      fields: ['formatted_address'],
-    });
-    acCarrierAddr.addListener('place_changed', () => {
-      const place = acCarrierAddr.getPlace();
-      if (place.formatted_address) carrierAddrInput.value = place.formatted_address;
-    });
-  }
+  try {
+    const carrierNameInput = document.getElementById('carrierName');
+    const carrierAddrInput = document.getElementById('carrierAddress');
+    const nameInput        = document.getElementById('brokerName');
+    const addrInput        = document.getElementById('brokerAddress');
 
-  // Autocomplete on broker name — fills address when business is selected
-  const nameInput = document.getElementById('brokerName');
-  const addrInput = document.getElementById('brokerAddress');
-
-  if (nameInput && window.google?.maps?.places) {
-    const acName = new google.maps.places.Autocomplete(nameInput, {
-      types: ['establishment'],
-      fields: ['name', 'formatted_address'],
+    // Carrier name → auto-fill carrier address
+    safeAutocomplete(carrierNameInput, { types: ['establishment'], fields: ['name','formatted_address'] }, place => {
+      if (place.name && carrierNameInput)               carrierNameInput.value = place.name;
+      if (place.formatted_address && carrierAddrInput)  carrierAddrInput.value = place.formatted_address;
     });
-    acName.addListener('place_changed', () => {
-      const place = acName.getPlace();
-      if (place.name)              nameInput.value = place.name;
-      if (place.formatted_address) addrInput.value = place.formatted_address;
+
+    // Carrier address
+    safeAutocomplete(carrierAddrInput, { types: ['geocode','establishment'], fields: ['formatted_address'] }, place => {
+      if (place.formatted_address && carrierAddrInput)  carrierAddrInput.value = place.formatted_address;
+    });
+
+    // Broker name → auto-fill broker address
+    safeAutocomplete(nameInput, { types: ['establishment'], fields: ['name','formatted_address'] }, place => {
+      if (place.name && nameInput)              nameInput.value = place.name;
+      if (place.formatted_address && addrInput) addrInput.value = place.formatted_address;
       updateCourtPreview();
     });
-  }
 
-  if (addrInput && window.google?.maps?.places) {
-    const acAddr = new google.maps.places.Autocomplete(addrInput, {
-      types: ['geocode', 'establishment'],
-      fields: ['formatted_address'],
-    });
-    acAddr.addListener('place_changed', () => {
-      const place = acAddr.getPlace();
-      if (place.formatted_address) addrInput.value = place.formatted_address;
+    // Broker address
+    safeAutocomplete(addrInput, { types: ['geocode','establishment'], fields: ['formatted_address'] }, place => {
+      if (place.formatted_address && addrInput) addrInput.value = place.formatted_address;
       updateCourtPreview();
     });
+
+  } catch(e) {
+    console.warn('initPlacesAutocomplete error (inputs still work normally):', e.message);
   }
 };
 
@@ -715,16 +709,24 @@ document.getElementById('brokerAddress')?.addEventListener('input', updateCourtP
 async function loadGooglePlaces() {
   try {
     const res = await fetch('/api/maps-key');
-    const { key } = await res.json();
-    if (!key) return; // Google Maps not configured — that's OK
-    const script = document.createElement('script');
-    // NOTE: do NOT add loading=async — it conflicts with the callback= parameter
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&callback=initPlacesAutocomplete`;
-    script.async = true;
-    script.onerror = () => console.warn('Google Places failed to load');
+    if (!res.ok) return; // server error — skip autocomplete, inputs work fine
+    const data = await res.json().catch(() => ({}));
+    const key  = data && data.key;
+    if (!key) {
+      console.warn('No Google Maps key configured — autocomplete disabled, inputs work normally');
+      return;
+    }
+    const script  = document.createElement('script');
+    // Use loading=async so the Maps SDK initialises asynchronously
+    script.src    = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=initPlacesAutocomplete&loading=async`;
+    script.async  = true;
+    script.defer  = true;
+    script.onerror = () => {
+      console.warn('Google Places script failed to load — autocomplete disabled, inputs work normally');
+    };
     document.head.appendChild(script);
   } catch(e) {
-    console.warn('Google Places unavailable:', e.message);
+    console.warn('loadGooglePlaces failed (inputs work normally):', e.message);
   }
 }
 
@@ -1059,11 +1061,62 @@ function showAlert(id, type, msg) {
   const el = document.getElementById(id);
   if (!el) return;
   el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+  setTimeout(() => { if (el.innerHTML.includes(msg)) el.innerHTML = ''; }, 7000);
 }
 
-  // ── INIT ──────────────────────────────────────────────────────
-  checkPaymentReturn();
-  loadGooglePlaces();
+// ── ATTORNEY COVERAGE (Landing Page) ─────────────────────────
+let lastMatchedState = null;
+
+async function loadCoverage(filterState) {
+  const grid  = document.getElementById('coverageGrid');
+  const title = document.getElementById('coverageTitle');
+  const sub   = document.getElementById('coverageSubtitle');
+  if (!grid) return;
+  const url = filterState ? `/api/attorneys/coverage?state=${filterState}` : '/api/attorneys/coverage';
+  try {
+    const res  = await fetch(url);
+    const data = await res.json();
+    if (!data.length) {
+      grid.innerHTML = `
+        <div class="coverage-card"><div class="atty-avatar">⚖️</div><div><h4>Network Attorney</h4><div class="firm">Transportation Law Division</div><div class="location">📍 Dallas, TX</div></div></div>
+        <div class="coverage-card"><div class="atty-avatar">⚖️</div><div><h4>Network Attorney</h4><div class="firm">FMCSA Defense Counsel</div><div class="location">📍 Chicago, IL</div></div></div>
+        <div class="coverage-card"><div class="atty-avatar">⚖️</div><div><h4>Network Attorney</h4><div class="firm">Carrier Rights Legal Group</div><div class="location">📍 Atlanta, GA</div></div></div>`;
+      return;
+    }
+    if (filterState && data.length > 0) {
+      title.textContent = `Local Attorney Available in ${data[0].city}, ${data[0].state}`;
+      sub.textContent   = `We have a licensed transportation attorney near the broker's location — your demand letter will be drafted by local counsel who knows the jurisdiction.`;
+    }
+    grid.innerHTML = data.map(a => `
+      <div class="coverage-card${filterState ? ' highlight' : ''}">
+        <div class="atty-avatar">⚖️</div>
+        <div>
+          <h4>${a.name}${filterState ? `<span class="local-badge">LOCAL</span>` : ''}</h4>
+          <div class="firm">${a.firmName || 'Transportation Law'}</div>
+          <div class="location">📍 ${a.city}, ${a.state}</div>
+        </div>
+      </div>`).join('');
+  } catch {
+    grid.innerHTML = '<div class="coverage-empty">Attorney coverage loading...</div>';
+  }
+}
+
+// Update coverage when broker address changes
+document.getElementById('brokerAddress')?.addEventListener('change', () => {
+  const addr  = document.getElementById('brokerAddress')?.value || '';
+  const m     = addr.match(/\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/);
+  const state = m ? m[1] : null;
+  if (state && state !== lastMatchedState) {
+    lastMatchedState = state;
+    loadCoverage(state);
+  }
+});
+
+// ── INIT ──────────────────────────────────────────────────────
+checkPaymentReturn();
+loadAttorneys();
+loadCoverage();
+loadGooglePlaces();
 </script>
 </body>
 </html>
