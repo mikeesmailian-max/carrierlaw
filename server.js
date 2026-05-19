@@ -415,50 +415,66 @@ function haversineDistance(lat1, lng1, lat2, lng2) {
 
 async function findCourthouseViaGoogleMaps(address) {
   const key = process.env.GOOGLE_MAPS_API_KEY;
-  if (!key) return null;
-  try {
-    // Step 1 — geocode the broker's address
-    const geoRes  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${key}`);
-    const geoData = await geoRes.json();
-    if (geoData.status !== 'OK' || !geoData.results[0]) return null;
+  if (!key) throw new Error('GOOGLE_MAPS_API_KEY is not configured in Railway environment variables.');
 
-    const { lat: brokerLat, lng: brokerLng } = geoData.results[0].geometry.location;
-    const formattedBrokerAddress = geoData.results[0].formatted_address;
+  // Step 1 — geocode the broker's address
+  const geoRes  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${key}`);
+  const geoData = await geoRes.json();
+  if (geoData.status !== 'OK' || !geoData.results[0])
+    throw new Error(`Could not geocode broker address "${address}". Google status: ${geoData.status}`);
 
-    // Step 2 — text search for nearest US District Court
-    const placesRes  = await fetch(`https://maps.googleapis.com/maps/api/place/textsearch/json?query=United+States+District+Court&location=${brokerLat},${brokerLng}&radius=300000&key=${key}`);
-    const placesData = await placesRes.json();
-    if (placesData.status !== 'OK' || !placesData.results.length) return null;
+  const { lat: brokerLat, lng: brokerLng } = geoData.results[0].geometry.location;
+  const formattedBrokerAddress = geoData.results[0].formatted_address;
 
-    const nearest  = placesData.results[0];
-    const courtLat = nearest.geometry.location.lat;
-    const courtLng = nearest.geometry.location.lng;
-    const distMiles = Math.round(haversineDistance(brokerLat, brokerLng, courtLat, courtLng));
+  // Step 2 — text search for US District Courts within 500 miles
+  const placesRes  = await fetch(
+    `https://maps.googleapis.com/maps/api/place/textsearch/json` +
+    `?query=United+States+District+Court` +
+    `&location=${brokerLat},${brokerLng}` +
+    `&radius=800000` +
+    `&key=${key}`
+  );
+  const placesData = await placesRes.json();
+  if (placesData.status !== 'OK' || !placesData.results.length)
+    throw new Error(`No federal courthouses found near "${address}". Google status: ${placesData.status}`);
 
-    const addrStr   = nearest.formatted_address || '';
-    const stateMatch = addrStr.match(/,\s*([A-Z]{2})\s+\d{5}/);
-    const courtState = stateMatch ? stateMatch[1] : extractState(address);
-    const details    = FEDERAL_COURTS[courtState] || {};
-    const parts      = addrStr.split(',');
-    const city       = parts.length >= 3 ? parts[parts.length - 3].trim() : details.city;
+  // Step 3 — sort ALL results by actual haversine distance, pick the closest
+  const ranked = placesData.results
+    .map(r => ({
+      ...r,
+      _dist: haversineDistance(brokerLat, brokerLng, r.geometry.location.lat, r.geometry.location.lng),
+    }))
+    .sort((a, b) => a._dist - b._dist);
 
-    return {
-      name:    nearest.name,
-      address: parts[0]?.trim() || details.address || '',
-      city:    city || details.city || '',
-      state:   courtState,
-      zip:     details.zip || '',
-      dept:    details.dept || 'Civil Division',
-      phone:   details.phone || '',
-      brokerLat, brokerLng, courtLat, courtLng,
-      distanceMiles: distMiles,
-      formattedBrokerAddress,
-      fromGoogleMaps: true,
-    };
-  } catch(e) {
-    console.error('Google Maps courthouse lookup failed:', e.message);
-    return null;
-  }
+  const nearest   = ranked[0];
+  const courtLat  = nearest.geometry.location.lat;
+  const courtLng  = nearest.geometry.location.lng;
+  const distMiles = Math.round(nearest._dist);
+
+  const addrStr    = nearest.formatted_address || '';
+  const stateMatch = addrStr.match(/,\s*([A-Z]{2})\s+\d{5}/);
+  const courtState = stateMatch ? stateMatch[1] : extractState(address);
+  const details    = FEDERAL_COURTS[courtState] || {};
+  const parts      = addrStr.split(',');
+  const city       = parts.length >= 3 ? parts[parts.length - 3].trim() : details.city;
+
+  // Extract zip from formatted address
+  const zipMatch = addrStr.match(/\b(\d{5})\b/);
+  const zip      = zipMatch ? zipMatch[1] : (details.zip || '');
+
+  return {
+    name:    nearest.name,
+    address: parts[0]?.trim() || details.address || '',
+    city:    city || details.city || '',
+    state:   courtState,
+    zip,
+    dept:    details.dept || 'Civil Division',
+    phone:   details.phone || '',
+    brokerLat, brokerLng, courtLat, courtLng,
+    distanceMiles: distMiles,
+    formattedBrokerAddress,
+    fromGoogleMaps: true,
+  };
 }
 
 // ── DAMAGES — FIXED $15,000/TRUCK/MONTH ──────────────────────
@@ -550,11 +566,11 @@ app.get('/api/court', async (req, res) => {
   const { address } = req.query;
   if (!address) return res.status(400).json({ error: 'Address required' });
   try {
-    const googleResult = await findCourthouseViaGoogleMaps(address);
-    res.json(googleResult || getCourtByState(address));
+    const result = await findCourthouseViaGoogleMaps(address);
+    res.json(result);
   } catch(err) {
     console.error('Court lookup error:', err.message);
-    res.json(getCourtByState(address)); // always fall back gracefully
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -571,8 +587,8 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
     const caseRef  = generateCaseRef();
     const damages  = calcDamages(Number(numTrucks));
 
-    // Use Google Maps first, fall back to state-based
-    const court    = (await findCourthouseViaGoogleMaps(brokerAddress)) || getCourtByState(brokerAddress);
+    // Always use Google Maps to find nearest courthouse by broker location
+    const court    = await findCourthouseViaGoogleMaps(brokerAddress);
     const attorneys = await loadAttorneys();
     const attorney  = assignedAttorneyId ? attorneys.find(a => a.id === assignedAttorneyId) : null;
 
@@ -1149,24 +1165,4 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
-// ── 404 CATCH-ALL ─────────────────────────────────────────────
-app.use((req, res) => {
-  if (req.path.startsWith('/api/')) {
-    return res.status(404).json({ error: `API route not found: ${req.method} ${req.path}` });
-  }
-  res.status(404).send('Not found');
-});
-
-// ── GRACEFUL SHUTDOWN ─────────────────────────────────────────
-function shutdown(signal) {
-  console.log(`\n${signal} received. Shutting down gracefully...`);
-    server.close(() => {
-          console.log('HTTP server closed.');
-          if (pgPool) pgPool.end();
-          process.exit(0);
-    });
-    setTimeout(() => process.exit(1), 10000).unref();
-}
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT',  () => shutdown('SIGINT'));
+// ── 404 CATCH-ALL ──────────────────────────────�
