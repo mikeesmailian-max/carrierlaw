@@ -1058,4 +1058,12 @@ async function deleteAttorney(id) {
 function showAlert(id, type, msg) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.innerHTML = `<div class
+  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+}
+
+  // ── INIT ──────────────────────────────────────────────────────
+  checkPaymentReturn();
+  loadGooglePlaces();
+</script>
+</body>
+</html>
