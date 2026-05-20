@@ -390,7 +390,13 @@
         <div class="card">
           <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
           <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="e.g. Swift Eagle Transport LLC" autocomplete="off" /></div>
-          <div class="field"><label>Carrier Address *</label><input id="carrierAddress" placeholder="123 Main St, Dallas, TX 75201" autocomplete="off" /></div>
+          <div class="field">
+            <label>Carrier Address *</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input id="carrierAddress" placeholder="123 Main St, Dallas, TX 75201" autocomplete="off" style="flex:1;" />
+              <button type="button" onclick="activatePlaces('carrierAddress')" title="Search with Google Maps" style="background:var(--navy-mid);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;white-space:nowrap;flex-shrink:0;">📍 Search</button>
+            </div>
+          </div>
           <div class="field-row">
             <div class="field"><label>MC Number *</label><input id="carrierMC" placeholder="1234567" /></div>
             <div class="field"><label>DOT Number *</label><input id="carrierDOT" placeholder="9876543" /></div>
@@ -441,7 +447,10 @@
           <!-- Broker address + autocomplete -->
           <div class="field">
             <label>Broker Full Address (Street, City, State ZIP) *</label>
-            <input id="brokerAddress" placeholder="4500 Commerce Blvd, Dallas, TX 75201" autocomplete="off" />
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input id="brokerAddress" placeholder="4500 Commerce Blvd, Dallas, TX 75201" autocomplete="off" style="flex:1;" />
+              <button type="button" onclick="activatePlaces('brokerAddress')" title="Search with Google Maps" style="background:var(--navy-mid);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;white-space:nowrap;flex-shrink:0;">📍 Search</button>
+            </div>
           </div>
 
           <div class="field-row">
@@ -652,83 +661,83 @@ async function updateCourtPreview() {
   }, 700);
 }
 
-// ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────
-// Safe wrapper — if Places errors for any reason, the input stays usable as plain text
-function safeAutocomplete(inputEl, options, onPlace) {
-  if (!inputEl) return;
-  try {
-    if (!window.google || !window.google.maps || !window.google.maps.places) return;
-    const ac = new google.maps.places.Autocomplete(inputEl, options);
-    ac.addListener('place_changed', () => {
-      try { onPlace(ac.getPlace()); } catch(e) { /* silent */ }
+// ── GOOGLE PLACES — ON-DEMAND (click 📍 Search to activate) ──
+let _placesLoaded  = false;
+let _placesLoading = false;
+const _placesQueue = []; // callbacks waiting for script to load
+
+function loadPlacesScript(callback) {
+  if (_placesLoaded) { callback(); return; }
+  _placesQueue.push(callback);
+  if (_placesLoading) return; // already loading, will fire callback when done
+  _placesLoading = true;
+
+  fetch('/api/maps-key')
+    .then(r => r.ok ? r.json() : {})
+    .then(data => {
+      const key = data && data.key;
+      if (!key) throw new Error('No Maps key configured');
+      const s   = document.createElement('script');
+      s.src     = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places`;
+      s.async   = true;
+      s.defer   = true;
+      s.onload  = () => {
+        _placesLoaded  = true;
+        _placesLoading = false;
+        _placesQueue.forEach(cb => { try { cb(); } catch(e) {} });
+        _placesQueue.length = 0;
+      };
+      s.onerror = () => {
+        _placesLoading = false;
+        _placesQueue.length = 0;
+        alert('Google Maps could not load. Please type your address manually.');
+      };
+      document.head.appendChild(s);
+    })
+    .catch(e => {
+      _placesLoading = false;
+      _placesQueue.length = 0;
+      alert('Google Maps unavailable. Please type your address manually.');
     });
-  } catch(e) {
-    console.warn('Places autocomplete skipped for', inputEl.id, ':', e.message);
-  }
 }
 
-window.initPlacesAutocomplete = function() {
-  try {
-    const carrierNameInput = document.getElementById('carrierName');
-    const carrierAddrInput = document.getElementById('carrierAddress');
-    const nameInput        = document.getElementById('brokerName');
-    const addrInput        = document.getElementById('brokerAddress');
+// Called when user clicks the 📍 Search button next to an address field
+function activatePlaces(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
 
-    // Carrier name → auto-fill carrier address
-    safeAutocomplete(carrierNameInput, { types: ['establishment'], fields: ['name','formatted_address'] }, place => {
-      if (place.name && carrierNameInput)               carrierNameInput.value = place.name;
-      if (place.formatted_address && carrierAddrInput)  carrierAddrInput.value = place.formatted_address;
-    });
+  // If already has an autocomplete attached, just focus
+  if (input._placesAC) { input.focus(); return; }
 
-    // Carrier address
-    safeAutocomplete(carrierAddrInput, { types: ['geocode','establishment'], fields: ['formatted_address'] }, place => {
-      if (place.formatted_address && carrierAddrInput)  carrierAddrInput.value = place.formatted_address;
-    });
+  const btn = input.closest('div')?.querySelector('button');
+  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
 
-    // Broker name → auto-fill broker address
-    safeAutocomplete(nameInput, { types: ['establishment'], fields: ['name','formatted_address'] }, place => {
-      if (place.name && nameInput)              nameInput.value = place.name;
-      if (place.formatted_address && addrInput) addrInput.value = place.formatted_address;
-      updateCourtPreview();
-    });
-
-    // Broker address
-    safeAutocomplete(addrInput, { types: ['geocode','establishment'], fields: ['formatted_address'] }, place => {
-      if (place.formatted_address && addrInput) addrInput.value = place.formatted_address;
-      updateCourtPreview();
-    });
-
-  } catch(e) {
-    console.warn('initPlacesAutocomplete error (inputs still work normally):', e.message);
-  }
-};
+  loadPlacesScript(() => {
+    try {
+      const isBroker = inputId === 'brokerAddress';
+      const ac = new google.maps.places.Autocomplete(input, {
+        types: ['geocode', 'establishment'],
+        fields: ['formatted_address', 'name'],
+      });
+      input._placesAC = ac;
+      ac.addListener('place_changed', () => {
+        try {
+          const place = ac.getPlace();
+          if (place.formatted_address) input.value = place.formatted_address;
+          if (isBroker) updateCourtPreview();
+        } catch(e) {}
+      });
+      if (btn) { btn.textContent = '✅'; btn.disabled = false; }
+      input.focus();
+    } catch(e) {
+      if (btn) { btn.textContent = '📍 Search'; btn.disabled = false; }
+      alert('Could not activate address search. Please type manually.');
+    }
+  });
+}
 
 // Keep court preview live when user types manually (no Places selected)
 document.getElementById('brokerAddress')?.addEventListener('input', updateCourtPreview);
-
-async function loadGooglePlaces() {
-  try {
-    const res = await fetch('/api/maps-key');
-    if (!res.ok) return; // server error — skip autocomplete, inputs work fine
-    const data = await res.json().catch(() => ({}));
-    const key  = data && data.key;
-    if (!key) {
-      console.warn('No Google Maps key configured — autocomplete disabled, inputs work normally');
-      return;
-    }
-    const script  = document.createElement('script');
-    // Use loading=async so the Maps SDK initialises asynchronously
-    script.src    = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&callback=initPlacesAutocomplete&loading=async`;
-    script.async  = true;
-    script.defer  = true;
-    script.onerror = () => {
-      console.warn('Google Places script failed to load — autocomplete disabled, inputs work normally');
-    };
-    document.head.appendChild(script);
-  } catch(e) {
-    console.warn('loadGooglePlaces failed (inputs work normally):', e.message);
-  }
-}
 
 // ── GENERATE LETTER ───────────────────────────────────────────
 async function generateLetter() {
@@ -1116,8 +1125,4 @@ document.getElementById('brokerAddress')?.addEventListener('change', () => {
 checkPaymentReturn();
 loadAttorneys();
 loadCoverage();
-// Google Places autocomplete disabled until API key is verified working
-// loadGooglePlaces();
-</script>
-</body>
-</html>
+// Google Places autocomplete disabled until AP
