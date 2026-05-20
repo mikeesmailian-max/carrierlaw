@@ -1134,4 +1134,19 @@ async function loadCoverage(filterState) {
 // Update coverage when broker address changes
 document.getElementById('brokerAddress')?.addEventListener('change', () => {
   const addr  = document.getElementById('brokerAddress')?.value || '';
-  const m     = addr.match(/\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA
+  const m     = addr.match(/\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/);
+  if (m) loadCoverage(m[1]);
+});
+
+// ── INIT ──────────────────────────────────────────────────────
+window.onerror = function(msg, src, line) {
+  console.error('JS Error:', msg, 'line', line, src);
+  return false;
+};
+checkPaymentReturn();
+loadAttorneys();
+loadCoverage();
+// Google Places loads only on-demand (📍 Search button) — not on page load
+</script>
+</body>
+</html>
