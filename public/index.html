@@ -683,60 +683,9 @@ async function updateCourtPreview() {
 }
 
 // ── GOOGLE PLACES — ON-DEMAND (click 📍 Search to activate) ──
-let _placesLoaded  = false;
-let _placesLoading = false;
-const _placesQueue = [];
-let _acService     = null;
-let _placesService = null;
-
-function loadPlacesScript(callback) {
-  if (_placesLoaded) { callback(); return; }
-  _placesQueue.push(callback);
-  if (_placesLoading) return;
-  _placesLoading = true;
-  fetch('/api/maps-key')
-    .then(r => r.ok ? r.json() : {})
-    .then(data => {
-      const key = data && data.key;
-      if (!key) throw new Error('no key');
-      const s = document.createElement('script');
-      s.src   = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places`;
-      s.async = true; s.defer = true;
-      s.onload = () => {
-        _placesLoaded = true; _placesLoading = false;
-        _placesQueue.forEach(cb => { try { cb(); } catch(e){} });
-        _placesQueue.length = 0;
-      };
-      s.onerror = () => {
-        _placesLoading = false; _placesQueue.length = 0;
-        alert('Google Maps could not load. Please type your address manually.');
-      };
-      document.head.appendChild(s);
-    })
-    .catch(() => {
-      _placesLoading = false; _placesQueue.length = 0;
-      alert('Google Maps unavailable. Please type your address manually.');
-    });
-}
-
-function initPlacesServices() {
-  if (!_acService) _acService = new google.maps.places.AutocompleteService();
-  if (!_placesService) {
-    const anchor = document.createElement('div');
-    _placesService = new google.maps.places.PlacesService(anchor);
-  }
-}
-
-// Google never touches the real input — modal handles everything
+// ── ADDRESS SEARCH — OpenStreetMap Nominatim, no API key needed ──
 function activatePlaces(targetInputId) {
-  loadPlacesScript(() => {
-    try {
-      initPlacesServices();
-      openAddressModal(targetInputId);
-    } catch(e) {
-      alert('Address search unavailable. Please type manually.');
-    }
-  });
+  openAddressModal(targetInputId);
 }
 
 function openAddressModal(targetInputId) {
@@ -753,7 +702,7 @@ function openAddressModal(targetInputId) {
       <input id="addrSearchInput" placeholder="Start typing an address..." autocomplete="off"
         style="width:100%;padding:13px 14px;border:1px solid #2d3f55;border-radius:8px;background:#111e30;color:#e0e6f0;font-size:15px;box-sizing:border-box;outline:none;" />
       <div id="addrResultsList" style="margin-top:6px;border-radius:8px;overflow:hidden;max-height:260px;overflow-y:auto;"></div>
-      <div style="margin-top:14px;font-size:12px;color:#4a5a70;text-align:right;">Powered by Google Maps</div>
+      <div style="margin-top:14px;font-size:12px;color:#4a5a70;text-align:right;">Address search powered by OpenStreetMap</div>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -774,47 +723,41 @@ function openAddressModal(targetInputId) {
     const q = searchInput.value.trim();
     if (q.length < 3) { resultsList.innerHTML = ''; return; }
     resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">Searching...</div>';
-    debounceTimer = setTimeout(() => {
-      _acService.getPlacePredictions(
-        { input: q, types: ['geocode', 'establishment'] },
-        (predictions, status) => {
-          if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions || !predictions.length) {
-            resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">No results. Try a different search.</div>';
-            return;
-          }
-          resultsList.innerHTML = '';
-          predictions.forEach(pred => {
-            const row = document.createElement('div');
-            row.style.cssText = 'padding:11px 14px;cursor:pointer;border-bottom:1px solid #1a2840;color:#d0dbe8;font-size:14px;';
-            row.textContent = pred.description;
-            row.onmouseenter = () => row.style.background = '#1a2840';
-            row.onmouseleave = () => row.style.background = '';
-            row.onclick = () => {
-              resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">Loading address...</div>';
-              _placesService.getDetails(
-                { placeId: pred.place_id, fields: ['formatted_address'] },
-                (place, detailStatus) => {
-                  const addr = (detailStatus === google.maps.places.PlacesServiceStatus.OK && place && place.formatted_address)
-                    ? place.formatted_address : pred.description;
-                  const realInput = document.getElementById(targetInputId);
-                  if (realInput) {
-                    realInput.value = addr;
-                    realInput.dispatchEvent(new Event('input', { bubbles: true }));
-                    realInput.dispatchEvent(new Event('change', { bubbles: true }));
-                    if (targetInputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
-                  }
-                  overlay.remove();
-                }
-              );
-            };
-            resultsList.appendChild(row);
-          });
+    debounceTimer = setTimeout(async () => {
+      try {
+        const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=us&q='
+                  + encodeURIComponent(q);
+        const res  = await fetch(url, { headers: { 'Accept-Language': 'en-US,en' } });
+        const data = await res.json();
+        if (!data || !data.length) {
+          resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">No results — try adding city or state.</div>';
+          return;
         }
-      );
-    }, 280);
+        resultsList.innerHTML = '';
+        data.forEach(item => {
+          const row = document.createElement('div');
+          row.style.cssText = 'padding:11px 14px;cursor:pointer;border-bottom:1px solid #1a2840;color:#d0dbe8;font-size:14px;';
+          row.textContent = item.display_name;
+          row.onmouseenter = () => row.style.background = '#1a2840';
+          row.onmouseleave = () => row.style.background = '';
+          row.onclick = () => {
+            const realInput = document.getElementById(targetInputId);
+            if (realInput) {
+              realInput.value = item.display_name;
+              realInput.dispatchEvent(new Event('input', { bubbles: true }));
+              realInput.dispatchEvent(new Event('change', { bubbles: true }));
+              if (targetInputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
+            }
+            overlay.remove();
+          };
+          resultsList.appendChild(row);
+        });
+      } catch(e) {
+        resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">Search error — please type your address manually.</div>';
+      }
+    }, 400);
   });
 }
-
 // Keep court preview live when user types manually (no Places selected)
 document.getElementById('brokerAddress')?.addEventListener('input', updateCourtPreview);
 
