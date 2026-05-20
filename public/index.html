@@ -1122,7 +1122,5 @@ document.getElementById('brokerAddress')?.addEventListener('change', () => {
 });
 
 // ── INIT ──────────────────────────────────────────────────────
-checkPaymentReturn();
-loadAttorneys();
-loadCoverage();
-// Google Places autocomplete disabled until AP
+// Catch any unhandled JS errors so they don't silently break buttons
+window.onerror = function(msg, s
