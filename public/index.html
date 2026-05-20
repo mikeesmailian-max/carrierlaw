@@ -685,75 +685,133 @@ async function updateCourtPreview() {
 // ── GOOGLE PLACES — ON-DEMAND (click 📍 Search to activate) ──
 let _placesLoaded  = false;
 let _placesLoading = false;
-const _placesQueue = []; // callbacks waiting for script to load
+const _placesQueue = [];
+let _acService     = null;
+let _placesService = null;
 
 function loadPlacesScript(callback) {
   if (_placesLoaded) { callback(); return; }
   _placesQueue.push(callback);
-  if (_placesLoading) return; // already loading, will fire callback when done
+  if (_placesLoading) return;
   _placesLoading = true;
-
   fetch('/api/maps-key')
     .then(r => r.ok ? r.json() : {})
     .then(data => {
       const key = data && data.key;
-      if (!key) throw new Error('No Maps key configured');
-      const s   = document.createElement('script');
-      s.src     = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places`;
-      s.async   = true;
-      s.defer   = true;
-      s.onload  = () => {
-        _placesLoaded  = true;
-        _placesLoading = false;
-        _placesQueue.forEach(cb => { try { cb(); } catch(e) {} });
+      if (!key) throw new Error('no key');
+      const s = document.createElement('script');
+      s.src   = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places`;
+      s.async = true; s.defer = true;
+      s.onload = () => {
+        _placesLoaded = true; _placesLoading = false;
+        _placesQueue.forEach(cb => { try { cb(); } catch(e){} });
         _placesQueue.length = 0;
       };
       s.onerror = () => {
-        _placesLoading = false;
-        _placesQueue.length = 0;
+        _placesLoading = false; _placesQueue.length = 0;
         alert('Google Maps could not load. Please type your address manually.');
       };
       document.head.appendChild(s);
     })
-    .catch(e => {
-      _placesLoading = false;
-      _placesQueue.length = 0;
+    .catch(() => {
+      _placesLoading = false; _placesQueue.length = 0;
       alert('Google Maps unavailable. Please type your address manually.');
     });
 }
 
-// Called when user clicks the 📍 Search button next to an address field
-function activatePlaces(inputId) {
-  const input = document.getElementById(inputId);
-  if (!input) return;
+function initPlacesServices() {
+  if (!_acService) _acService = new google.maps.places.AutocompleteService();
+  if (!_placesService) {
+    const anchor = document.createElement('div');
+    _placesService = new google.maps.places.PlacesService(anchor);
+  }
+}
 
-  // If already has an autocomplete attached, just focus
-  if (input._placesAC) { input.focus(); return; }
-
-  const btn = input.closest('div')?.querySelector('button');
-  if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
-
+// Google never touches the real input — modal handles everything
+function activatePlaces(targetInputId) {
   loadPlacesScript(() => {
     try {
-      const isBroker = inputId === 'brokerAddress';
-      const ac = new google.maps.places.Autocomplete(input, {
-        types: ['geocode', 'establishment'],
-        fields: ['formatted_address', 'name'],
-      });
-      input._placesAC = ac;
-      ac.addListener('place_changed', () => {
-        try {
-          const place = ac.getPlace();
-          if (place.formatted_address) input.value = place.formatted_address;
-          if (isBroker) updateCourtPreview();
-        } catch(e) {}
-      });
-      if (btn) { btn.textContent = '✅'; btn.disabled = false; }
-      input.focus();
+      initPlacesServices();
+      openAddressModal(targetInputId);
     } catch(e) {
-      if (btn) { btn.textContent = '📍 Search'; btn.disabled = false; }
-      alert('Could not activate address search. Please type manually.');
+      alert('Address search unavailable. Please type manually.');
     }
+  });
+}
+
+function openAddressModal(targetInputId) {
+  document.getElementById('addrSearchOverlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'addrSearchOverlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = `
+    <div style="background:#0d1829;border:1px solid #2d3f55;border-radius:14px;padding:28px;width:92%;max-width:520px;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+        <span style="color:#c9a84c;font-weight:700;font-size:16px;">&#x1F4CD; Search Address</span>
+        <button id="addrCloseBtn" style="background:none;border:none;color:#8a9ab5;font-size:26px;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
+      </div>
+      <input id="addrSearchInput" placeholder="Start typing an address..." autocomplete="off"
+        style="width:100%;padding:13px 14px;border:1px solid #2d3f55;border-radius:8px;background:#111e30;color:#e0e6f0;font-size:15px;box-sizing:border-box;outline:none;" />
+      <div id="addrResultsList" style="margin-top:6px;border-radius:8px;overflow:hidden;max-height:260px;overflow-y:auto;"></div>
+      <div style="margin-top:14px;font-size:12px;color:#4a5a70;text-align:right;">Powered by Google Maps</div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const searchInput = document.getElementById('addrSearchInput');
+  const resultsList = document.getElementById('addrResultsList');
+
+  document.getElementById('addrCloseBtn').onclick = () => overlay.remove();
+  overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+  document.addEventListener('keydown', function escClose(e) {
+    if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escClose); }
+  });
+
+  searchInput.focus();
+
+  let debounceTimer;
+  searchInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = searchInput.value.trim();
+    if (q.length < 3) { resultsList.innerHTML = ''; return; }
+    resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">Searching...</div>';
+    debounceTimer = setTimeout(() => {
+      _acService.getPlacePredictions(
+        { input: q, types: ['geocode', 'establishment'] },
+        (predictions, status) => {
+          if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions || !predictions.length) {
+            resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">No results. Try a different search.</div>';
+            return;
+          }
+          resultsList.innerHTML = '';
+          predictions.forEach(pred => {
+            const row = document.createElement('div');
+            row.style.cssText = 'padding:11px 14px;cursor:pointer;border-bottom:1px solid #1a2840;color:#d0dbe8;font-size:14px;';
+            row.textContent = pred.description;
+            row.onmouseenter = () => row.style.background = '#1a2840';
+            row.onmouseleave = () => row.style.background = '';
+            row.onclick = () => {
+              resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">Loading address...</div>';
+              _placesService.getDetails(
+                { placeId: pred.place_id, fields: ['formatted_address'] },
+                (place, detailStatus) => {
+                  const addr = (detailStatus === google.maps.places.PlacesServiceStatus.OK && place && place.formatted_address)
+                    ? place.formatted_address : pred.description;
+                  const realInput = document.getElementById(targetInputId);
+                  if (realInput) {
+                    realInput.value = addr;
+                    realInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    realInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    if (targetInputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
+                  }
+                  overlay.remove();
+                }
+              );
+            };
+            resultsList.appendChild(row);
+          });
+        }
+      );
+    }, 280);
   });
 }
 
