@@ -253,12 +253,22 @@
     <button class="nav-link active" id="navHome" onclick="showScreen('landing')">Home</button>
     <button class="nav-link" id="navAttorneys" onclick="showNavAttorneys()">Our Attorneys</button>
     <button class="nav-link" id="navHistory" onclick="showNavHistory()">📋 Past Letters</button>
+    <button class="nav-link" id="navAnalytics" onclick="showNavAnalytics()">📈 Analytics</button>
     <a href="/login.html" class="nav-link" style="text-decoration:none;">🔐 Client Login</a>
   </div>
 </div>
 
 <!-- ════════════════════════ LANDING ════════════════════════ -->
 <div id="screen-landing" class="screen active">
+
+  <!-- Broker Lookup Widget -->
+  <div id="brokerLookupBar" style="background:linear-gradient(90deg,#0a1520,#0d1f35);border-bottom:1px solid var(--border);padding:12px 40px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;">
+    <span style="font-size:13px;color:var(--text-muted);white-space:nowrap;">🔍 Check a broker before you haul:</span>
+    <input id="landingBrokerMC" placeholder="Enter broker MC number..." autocomplete="off"
+      style="background:var(--navy-mid);border:1px solid var(--border);border-radius:7px;padding:7px 12px;color:#e0e6f0;font-size:13px;width:200px;outline:none;"
+      oninput="triggerLandingBrokerCheck(this.value)" />
+    <div id="landingBrokerResult" style="font-size:13px;"></div>
+  </div>
 
   <div class="urgency-bar">
     🚨 A false FreightGuard report can cost you <strong>$180,000+</strong> per truck in lost revenue. Don't let a broker silence you. <span onclick="scrollToPricing()">Fight back today →</span>
@@ -397,6 +407,14 @@
 
   <div class="form-content">
     <div id="formAlert"></div>
+    <div id="draftRestoreBanner" style="display:none;background:#0d1f10;border:1px solid #1e5a20;border-radius:8px;padding:10px 16px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <span style="font-size:13px;color:#2ecc71;">💾 <strong>Unsaved draft found</strong> — <span id="draftAge" style="color:#27ae60;"></span></span>
+      <div style="display:flex;gap:8px;">
+        <button onclick="restoreDraft()" class="btn btn-navy" style="padding:6px 14px;font-size:12px;color:#2ecc71;border-color:#2ecc71;">↩ Restore Draft</button>
+        <button onclick="clearDraft()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;">Discard</button>
+      </div>
+    </div>
+    <div id="draftSaveIndicator" style="text-align:right;font-size:11px;color:var(--text-muted);margin-bottom:4px;opacity:0;transition:opacity 0.3s;"></div>
 
     <div class="grid-2">
 
@@ -434,6 +452,30 @@
             <div class="damage-row"><span>Re-registration / restructuring</span><span>$5,000</span></div>
             <div class="damage-row"><span>Estimated legal costs</span><span>$15,000</span></div>
             <div class="damage-row"><span><strong>TOTAL WE ARE SUING FOR</strong></span><span id="dp-total">—</span></div>
+          </div>
+
+          <!-- Custom damages override -->
+          <div id="customDamagesToggleRow" style="display:block;margin-top:4px;text-align:right;">
+            <button onclick="toggleCustomDamages()" style="background:none;border:none;color:var(--text-muted);font-size:11px;cursor:pointer;text-decoration:underline;" id="customDmgToggleBtn">✏️ Override damages</button>
+          </div>
+          <div id="customDamagesPanel" style="display:none;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:14px;margin-top:6px;">
+            <div style="font-size:11px;color:var(--gold);margin-bottom:10px;font-weight:700;">✏️ CUSTOM DAMAGES — override auto-calculation</div>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:6px;">
+              <span style="font-size:12px;color:var(--text-muted);">Annual fleet revenue</span>
+              <input id="customFleet" type="number" placeholder="Auto" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()" />
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:6px;">
+              <span style="font-size:12px;color:var(--text-muted);">Re-registration / restructuring</span>
+              <input id="customRereg" type="number" value="5000" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()" />
+            </div>
+            <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:10px;">
+              <span style="font-size:12px;color:var(--text-muted);">Legal costs</span>
+              <input id="customLegal" type="number" value="15000" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()" />
+            </div>
+            <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;font-weight:700;color:#fff;">CUSTOM TOTAL:</span>
+              <span id="customTotal" style="font-size:16px;font-weight:800;color:var(--gold);">—</span>
+            </div>
           </div>
 
           <div class="field" style="margin-top:16px;">
@@ -548,8 +590,9 @@
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button id="copyLetterBtn" class="btn btn-navy" onclick="copyLetterToClipboard()" style="font-weight:700;">📋 Copy Letter</button>
-          <button class="btn btn-navy" onclick="downloadLetter()">⬇️ Download .txt</button>
-          <button class="btn btn-navy" onclick="printLetter()">🖨️ Print / PDF</button>
+          <button class="btn btn-navy" onclick="downloadLetter()">⬇️ .txt</button>
+          <button id="pdfDownloadBtn" class="btn btn-navy" onclick="generatePDF()">⬇ PDF</button>
+          <button class="btn btn-navy" onclick="printLetter()">🖨️ Print</button>
           <button class="btn btn-gold" onclick="openEmailModal()">📧 Email Broker</button>
         </div>
       </div>
@@ -574,6 +617,8 @@
       <input id="historySearch" placeholder="🔍  Search broker, carrier, case ref..." autocomplete="off"
         oninput="filterHistory(this.value)"
         style="background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:#e0e6f0;font-size:13px;width:260px;outline:none;" />
+      <button onclick="loadHistory()" class="btn btn-navy" style="font-size:12px;padding:8px 14px;">↻ Refresh</button>
+      <button id="csvExportBtn" onclick="exportCSV()" class="btn btn-navy" style="font-size:12px;padding:8px 14px;">⬇ Export CSV</button>
     </div>
   </div>
 
@@ -653,7 +698,15 @@
     <p>Sends the letter to the broker via Resend (our legal network domain) with you CC'd — creating an official timestamped delivery record.</p>
     <div id="emailAlert"></div>
     <div class="field"><label>Broker's Email Address *</label><input id="emailBroker" type="email" placeholder="broker@company.com" /></div>
-    <div class="field"><label>Your Email (CC) *</label><input id="emailCarrier" type="email" placeholder="you@yourcompany.com" /></div>
+    <div class="field">
+      <label>Your Email (CC) *</label>
+      <input id="emailCarrier" type="email" placeholder="you@yourcompany.com" />
+    </div>
+    <div class="field">
+      <label>Additional CC Recipients <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(optional)</span></label>
+      <div id="extraCCList"></div>
+      <button onclick="addCCField()" style="background:none;border:1px dashed var(--border);color:var(--text-muted);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;width:100%;margin-top:4px;">+ Add CC recipient</button>
+    </div>
     <div class="field"><label>Subject Line</label><input id="emailSubject" /></div>
     <div class="btn-row">
       <button class="btn btn-red" id="sendEmailBtn" onclick="sendEmail()">📤 Send Now</button>
@@ -875,6 +928,7 @@ async function generateLetter() {
     evidenceDescription: v('evidenceDescription'),
     assignedAttorneyId:  document.getElementById('assignedAttorney').value,
     attachedFiles:       uploadedFiles.map(f => ({ name: f.name, type: f.type, size: f.size, data: f.data })),
+    customDamages:       getCustomDamagesPayload(),
   };
 
   const required = ['carrierName','carrierMC','carrierDOT','carrierEmail','numTrucks',
@@ -1116,6 +1170,8 @@ async function sendEmail() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({
         brokerEmail, carrierEmail, subject,
+        ccEmails:    getAllCCEmails().filter(e => e !== carrierEmail && e !== brokerEmail),
+        senderName:  v('senderName') || '',
         brokerName:  v('brokerName'),
         carrierName: v('carrierName'),
         letterText:  document.getElementById('letterText').textContent,
@@ -1644,6 +1700,8 @@ function renderHistoryTable(letters) {
     const date = l.ts ? new Date(l.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
     const dmg  = l.totalDamages ? '$'+Number(l.totalDamages).toLocaleString() : '—';
     const words = l.letterText ? l.letterText.split(/\s+/).length : 0;
+    const st = getStatus(l.caseRef);
+    const sc = STATUS_COLORS[st] || STATUS_COLORS.new;
     return `<tr style="cursor:pointer;" onmouseenter="this.style.background='rgba(255,255,255,0.03)'" onmouseleave="this.style.background=''" onclick="openHistoryModal(${i})">
       <td style="padding:12px 16px;font-size:12px;color:var(--gold);font-family:monospace;white-space:nowrap;">${l.caseRef||'—'}</td>
       <td style="padding:12px 16px;font-size:12px;color:var(--text-muted);white-space:nowrap;">${date}</td>
@@ -1651,8 +1709,11 @@ function renderHistoryTable(letters) {
       <td style="padding:12px 16px;font-size:13px;color:#d0dbe8;">${esc(l.brokerName||'—')}</td>
       <td style="padding:12px 16px;font-size:12px;color:var(--text-muted);">MC-${l.brokerMC||'—'}</td>
       <td style="padding:12px 16px;font-size:13px;color:#e74c3c;font-weight:700;">${dmg}</td>
+      <td style="padding:12px 16px;" onclick="event.stopPropagation();cycleStatus('${l.caseRef}');loadHistory();" title="Click to cycle status">
+        <span style="background:${sc.bg};color:${sc.text};padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">${sc.label}</span>
+      </td>
       <td style="padding:12px 16px;font-size:11px;color:var(--text-muted);">${words ? words+' words' : '—'}</td>
-      <td style="padding:12px 16px;font-size:11px;color:var(--gold);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${getNotePreview(l.caseRef) || ''}</td>
+      <td style="padding:12px 16px;font-size:11px;color:var(--gold);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${getNotePreview(l.caseRef) || ''}</td>
       <td style="padding:12px 16px;">
         <div style="display:flex;gap:6px;">
           <button class="btn btn-navy" style="padding:5px 12px;font-size:12px;" onclick="event.stopPropagation();openHistoryModal(${i})">View →</button>
@@ -1673,6 +1734,7 @@ function renderHistoryTable(letters) {
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Broker</th>
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Broker MC</th>
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Damages</th>
+            <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Status</th>
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Length</th>
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Notes</th>
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;"></th>
@@ -1850,6 +1912,604 @@ function updateLetterStats() {
   stats.textContent = `${words.toLocaleString()} words · ~${chars.toLocaleString()} chars · ${pages} page${pages!==1?'s':''}`;
 }
 
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 1 — AUTO-SAVE DRAFT
+// ══════════════════════════════════════════════════════════════════════
+const DRAFT_KEY = 'carrierlaw_draft';
+let draftTimer = null;
+
+function saveDraft() {
+  const fields = ['carrierName','carrierMC','carrierDOT','carrierAddress','injuredName',
+    'injuredDOB','accidentDate','accidentLocation','claimNumber','brokerCompany',
+    'brokerMC','brokerName','totalDamages','injuryDescription','assignedAttorney',
+    'senderName','senderEmail','recipientEmails','additionalContext'];
+  const data = {};
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  // extra CCs
+  data._extraCCs = Array.from(document.querySelectorAll('.extra-cc-input')).map(i => i.value);
+  data._ts = Date.now();
+  localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+  // flash indicator
+  const ind = document.getElementById('draftSaveIndicator');
+  if (ind) {
+    ind.textContent = '✓ Draft saved';
+    ind.style.opacity = '1';
+    setTimeout(() => { ind.style.opacity = '0'; }, 2000);
+  }
+}
+
+function checkForDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    if (!data._ts) return;
+    const mins = Math.round((Date.now() - data._ts) / 60000);
+    const label = mins < 2 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins/60)}h ago`;
+    const banner = document.getElementById('draftRestoreBanner');
+    if (banner) {
+      document.getElementById('draftAge').textContent = label;
+      banner.style.display = 'block';
+    }
+  } catch(e) {}
+}
+
+function restoreDraft() {
+  const raw = localStorage.getItem(DRAFT_KEY);
+  if (!raw) return;
+  try {
+    const data = JSON.parse(raw);
+    Object.entries(data).forEach(([k, v]) => {
+      if (k.startsWith('_')) return;
+      const el = document.getElementById(k);
+      if (el) el.value = v;
+    });
+    // restore extra CCs
+    if (data._extraCCs && data._extraCCs.length) {
+      data._extraCCs.forEach(email => {
+        if (email) addCCField(email);
+      });
+    }
+    hideDraftBanner();
+    showToast('Draft restored ✓', 'success');
+  } catch(e) { console.error('Draft restore error', e); }
+}
+
+function clearDraft() {
+  localStorage.removeItem(DRAFT_KEY);
+  hideDraftBanner();
+  showToast('Draft cleared', 'info');
+}
+
+function hideDraftBanner() {
+  const banner = document.getElementById('draftRestoreBanner');
+  if (banner) banner.style.display = 'none';
+}
+
+function startDraftAutoSave() {
+  // Save on every input change with 3s debounce
+  const form = document.getElementById('screen-form');
+  if (!form) return;
+  form.addEventListener('input', () => {
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(saveDraft, 3000);
+  });
+}
+
+function showToast(msg, type='info') {
+  const t = document.createElement('div');
+  const colors = { success:'#27ae60', info:'#2980b9', warn:'#e67e22', error:'#e74c3c' };
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;background:${colors[type]||colors.info};color:#fff;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;z-index:99999;opacity:0;transition:opacity 0.3s;pointer-events:none;`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  requestAnimationFrame(() => { t.style.opacity = '1'; });
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2800);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 2 — CASE STATUS BADGES
+// ══════════════════════════════════════════════════════════════════════
+const STATUS_COLORS = {
+  'new':       { bg:'#1a3a5c', text:'#74b4f7', label:'🆕 New' },
+  'open':      { bg:'#1a3a1a', text:'#5dba60', label:'🟢 Open' },
+  'pending':   { bg:'#3a2a0a', text:'#f0a830', label:'🟡 Pending' },
+  'sent':      { bg:'#1a2a4a', text:'#7ab3ff', label:'📤 Sent' },
+  'resolved':  { bg:'#0a2a1a', text:'#40c070', label:'✅ Resolved' },
+  'escalated': { bg:'#3a1a1a', text:'#f07060', label:'🔺 Escalated' },
+  'closed':    { bg:'#1a1a2a', text:'#8888aa', label:'🔒 Closed' }
+};
+
+function setStatus(caseRef, status) {
+  if (!caseRef) return;
+  localStorage.setItem('status_' + caseRef, status);
+  // re-render history if visible
+  const screen = document.getElementById('screen-history');
+  if (screen && screen.classList.contains('active')) loadHistory();
+}
+
+function getStatus(caseRef) {
+  return localStorage.getItem('status_' + caseRef) || 'new';
+}
+
+function renderStatusBadge(caseRef) {
+  const s = getStatus(caseRef);
+  const c = STATUS_COLORS[s] || STATUS_COLORS['new'];
+  return `<span style="background:${c.bg};color:${c.text};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"
+    onclick="cycleStatus('${caseRef}')" title="Click to change status">${c.label}</span>`;
+}
+
+function cycleStatus(caseRef) {
+  const order = ['new','open','pending','sent','resolved','escalated','closed'];
+  const cur = getStatus(caseRef);
+  const idx = order.indexOf(cur);
+  const next = order[(idx + 1) % order.length];
+  setStatus(caseRef, next);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 3 — REAL PDF DOWNLOAD (jsPDF)
+// ══════════════════════════════════════════════════════════════════════
+function generatePDF() {
+  const letterDiv = document.getElementById('letterText');
+  if (!letterDiv || !letterDiv.textContent.trim()) {
+    showToast('No letter to export. Generate a letter first.', 'warn');
+    return;
+  }
+  const btn = document.getElementById('pdfDownloadBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Building PDF…'; }
+
+  function buildPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit:'pt', format:'letter' });
+    const margin = 60;
+    const pageW = doc.internal.pageSize.getWidth();
+    const usableW = pageW - margin * 2;
+
+    // Header bar
+    doc.setFillColor(10, 20, 50);
+    doc.rect(0, 0, pageW, 56, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('MegaFleetCorp — Carrier Demand Letter', margin, 34);
+
+    doc.setTextColor(40, 40, 40);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+
+    const lines = doc.splitTextToSize(letterDiv.textContent, usableW);
+    let y = 80;
+    const lineH = 14;
+    lines.forEach(line => {
+      if (y + lineH > doc.internal.pageSize.getHeight() - 50) {
+        doc.addPage();
+        y = 60;
+      }
+      doc.text(line, margin, y);
+      y += lineH;
+    });
+
+    // Footer on each page
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(140, 140, 140);
+      doc.text(`Page ${i} of ${totalPages}  |  Generated ${new Date().toLocaleDateString()}  |  CONFIDENTIAL`, margin, doc.internal.pageSize.getHeight() - 24);
+    }
+
+    const caseRef = window._caseRef || 'demand-letter';
+    doc.save(`demand_letter_${caseRef}.pdf`);
+    if (btn) { btn.disabled = false; btn.textContent = '⬇ Download PDF'; }
+    showToast('PDF downloaded ✓', 'success');
+  }
+
+  if (window.jspdf) {
+    buildPDF();
+  } else {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+    s.onload = buildPDF;
+    s.onerror = () => {
+      showToast('Could not load PDF library. Check connection.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '⬇ Download PDF'; }
+    };
+    document.head.appendChild(s);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 4 — CSV EXPORT
+// ══════════════════════════════════════════════════════════════════════
+function exportCSV() {
+  const btn = document.getElementById('csvExportBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Exporting…'; }
+
+  fetch('/api/letters-history')
+    .then(r => r.json())
+    .then(data => {
+      const letters = data.letters || data || [];
+      if (!letters.length) {
+        showToast('No letters to export.', 'warn');
+        if (btn) { btn.disabled = false; btn.textContent = '⬇ Export CSV'; }
+        return;
+      }
+      const headers = ['Case Ref','Date','Carrier Name','Carrier MC','Carrier DOT','Injured Name',
+        'Accident Date','Accident Location','Broker Company','Broker MC','Broker Name',
+        'Total Damages','Claim Number','Attorney','Status'];
+      const rows = letters.map(l => [
+        l.caseRef || '',
+        l.createdAt ? new Date(l.createdAt).toLocaleDateString() : '',
+        l.carrierName || '',
+        l.carrierMC || '',
+        l.carrierDOT || '',
+        l.injuredName || '',
+        l.accidentDate || '',
+        l.accidentLocation || '',
+        l.brokerCompany || '',
+        l.brokerMC || '',
+        l.brokerName || '',
+        l.totalDamages || '',
+        l.claimNumber || '',
+        l.attorney ? (l.attorney.name || '') : '',
+        getStatus(l.caseRef)
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`));
+
+      const csv = [headers.map(h => `"${h}"`).join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `carrierlaw_export_${new Date().toISOString().split('T')[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast(`Exported ${letters.length} letters to CSV ✓`, 'success');
+      if (btn) { btn.disabled = false; btn.textContent = '⬇ Export CSV'; }
+    })
+    .catch(e => {
+      console.error('CSV export error', e);
+      showToast('Export failed. Try again.', 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '⬇ Export CSV'; }
+    });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 5 — BROKER LOOKUP ON LANDING PAGE
+// ══════════════════════════════════════════════════════════════════════
+let landingBrokerTimer = null;
+
+function triggerLandingBrokerCheck(mc) {
+  clearTimeout(landingBrokerTimer);
+  const res = document.getElementById('landingBrokerResult');
+  if (!mc || mc.trim().length < 3) {
+    if (res) res.innerHTML = '';
+    return;
+  }
+  if (res) res.innerHTML = '<div style="color:var(--text-muted);font-size:12px;padding:4px 0;">Searching…</div>';
+  landingBrokerTimer = setTimeout(() => {
+    fetch('/api/broker-intel?mc=' + encodeURIComponent(mc.trim()))
+      .then(r => r.json())
+      .then(data => {
+        if (!res) return;
+        if (!data.count || data.count === 0) {
+          res.innerHTML = '<div style="color:#5dba60;font-size:12px;padding:6px 0;">✓ No complaints on record for MC# ' + mc + '</div>';
+          return;
+        }
+        const lvl = data.count >= 5 ? { color:'#e74c3c', icon:'🔴', label:'HIGH THREAT' }
+                  : data.count >= 2 ? { color:'#e67e22', icon:'🟡', label:'ELEVATED' }
+                  : { color:'#f0a830', icon:'⚠️', label:'FLAGGED' };
+        const dmg = data.totalDamages ? '$' + Number(data.totalDamages).toLocaleString() : 'N/A';
+        res.innerHTML = `<div style="background:#1a1a2a;border:1px solid ${lvl.color};border-radius:8px;padding:10px 14px;margin-top:6px;">
+          <div style="color:${lvl.color};font-weight:700;font-size:13px;">${lvl.icon} ${lvl.label} — ${data.count} complaint${data.count!==1?'s':''} on file</div>
+          <div style="color:var(--text-muted);font-size:11px;margin-top:4px;">Total damages filed: ${dmg} · Last seen: ${data.lastSeen ? new Date(data.lastSeen).toLocaleDateString() : 'N/A'}</div>
+          <div style="color:var(--text-muted);font-size:11px;">Carriers involved: ${data.reports ? [...new Set(data.reports.map(r => r.carrierName).filter(Boolean))].slice(0,3).join(', ') : 'N/A'}</div>
+        </div>`;
+      })
+      .catch(() => {
+        if (res) res.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">Lookup unavailable</div>';
+      });
+  }, 600);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 6 — ESCALATION LETTER
+// ══════════════════════════════════════════════════════════════════════
+function generateEscalation(caseRef, carrierName, brokerMC) {
+  // Switch to form, pre-fill escalation context
+  showNavForm();
+  setTimeout(() => {
+    // Set escalation type in additionalContext
+    const ctx = document.getElementById('additionalContext');
+    if (ctx) ctx.value = `ESCALATION NOTICE: This letter is a follow-up escalation for Case ${caseRef}. Prior demand letter was sent and no satisfactory response was received within the required response window. We are now escalating to formal legal proceedings and regulatory complaint if not resolved within 10 days.`;
+    showToast('Escalation context loaded. Complete carrier/broker fields and generate.', 'info');
+    // Scroll to top of form
+    document.querySelector('.screen.active')?.scrollTo(0, 0);
+  }, 200);
+}
+
+function addEscalateButtons() {
+  // Called after history loads — adds Escalate button on overdue/sent cases
+  document.querySelectorAll('[data-escalate]').forEach(btn => {
+    const cr = btn.dataset.escalate;
+    const carrier = btn.dataset.carrier || '';
+    const brokermc = btn.dataset.brokermc || '';
+    btn.onclick = () => generateEscalation(cr, carrier, brokermc);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 7 — PIN PROTECTION
+// ══════════════════════════════════════════════════════════════════════
+const PIN_SESSION_KEY = 'carrierlaw_unlocked';
+const PIN_FORM_KEY    = 'carrierlaw_form_pin_required';
+
+function checkPinOnLoad() {
+  // Show PIN gate unless already verified this session
+  if (sessionStorage.getItem(PIN_SESSION_KEY) === '1') return;
+  showPinModal();
+}
+
+function showPinModal() {
+  const m = document.getElementById('pinModal');
+  if (m) { m.style.display = 'flex'; document.getElementById('pinInput').focus(); }
+}
+
+function hidePinModal() {
+  const m = document.getElementById('pinModal');
+  if (m) m.style.display = 'none';
+}
+
+function verifyPin() {
+  const pin = document.getElementById('pinInput')?.value?.trim();
+  if (!pin) return;
+  const errEl = document.getElementById('pinError');
+  if (errEl) errEl.textContent = 'Checking…';
+  fetch('/api/verify-pin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.ok) {
+      sessionStorage.setItem(PIN_SESSION_KEY, '1');
+      hidePinModal();
+      if (errEl) errEl.textContent = '';
+      showToast('Access granted ✓', 'success');
+    } else {
+      if (errEl) errEl.textContent = '✗ Incorrect PIN. Try again.';
+      document.getElementById('pinInput').value = '';
+      document.getElementById('pinInput').focus();
+      // Shake animation
+      const box = document.getElementById('pinInput');
+      box.style.borderColor = '#e74c3c';
+      setTimeout(() => { box.style.borderColor = 'var(--border)'; }, 1500);
+    }
+  })
+  .catch(() => {
+    if (errEl) errEl.textContent = 'Server error. Try again.';
+  });
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 8 — ANALYTICS SCREEN
+// ══════════════════════════════════════════════════════════════════════
+let analyticsLoaded = false;
+
+function showNavAnalytics() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(t => t.classList.remove('active'));
+  const screen = document.getElementById('screen-analytics');
+  if (screen) screen.classList.add('active');
+  const tab = document.getElementById('navAnalytics');
+  if (tab) tab.classList.add('active');
+  if (!analyticsLoaded) loadAnalytics();
+}
+
+function refreshAnalytics() {
+  analyticsLoaded = false;
+  loadAnalytics();
+}
+
+function loadAnalytics() {
+  fetch('/api/letters-history')
+    .then(r => r.json())
+    .then(data => {
+      const letters = data.letters || data || [];
+      renderAnalyticsStats(letters);
+      if (window.Chart) {
+        renderAnalyticsCharts(letters);
+        analyticsLoaded = true;
+      } else {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+        s.onload = () => { renderAnalyticsCharts(letters); analyticsLoaded = true; };
+        document.head.appendChild(s);
+      }
+    })
+    .catch(e => console.error('Analytics load error', e));
+}
+
+function renderAnalyticsStats(letters) {
+  const el = document.getElementById('analyticsStats');
+  if (!el) return;
+  const totalDmg = letters.reduce((s, l) => s + (parseFloat(l.totalDamages || 0) || 0), 0);
+  const uniqueBrokers = new Set(letters.map(l => l.brokerMC).filter(Boolean)).size;
+  const thisMonth = letters.filter(l => {
+    if (!l.createdAt) return false;
+    const d = new Date(l.createdAt);
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+
+  const stats = [
+    { label: 'Total Letters', value: letters.length, icon: '📄' },
+    { label: 'Total Damages Filed', value: '$' + totalDmg.toLocaleString(), icon: '💰' },
+    { label: 'Unique Brokers Targeted', value: uniqueBrokers, icon: '🎯' },
+    { label: 'Letters This Month', value: thisMonth, icon: '📅' }
+  ];
+  el.innerHTML = stats.map(s => `
+    <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:18px 22px;flex:1;min-width:160px;">
+      <div style="font-size:24px;margin-bottom:6px;">${s.icon}</div>
+      <div style="font-size:22px;font-weight:800;color:#fff;">${s.value}</div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">${s.label}</div>
+    </div>`).join('');
+}
+
+function renderAnalyticsCharts(letters) {
+  const chartDefaults = {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#c0cce0', font: { size: 11 } } } },
+    scales: { x: { ticks: { color: '#8090a8' }, grid: { color: '#1e2a3a' } },
+               y: { ticks: { color: '#8090a8' }, grid: { color: '#1e2a3a' } } }
+  };
+
+  // Chart 1: Letters per month
+  const monthMap = {};
+  letters.forEach(l => {
+    if (!l.createdAt) return;
+    const k = new Date(l.createdAt).toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    monthMap[k] = (monthMap[k] || 0) + 1;
+  });
+  const mLabels = Object.keys(monthMap).slice(-12);
+  const mData   = mLabels.map(k => monthMap[k]);
+  destroyChart('chartLettersPerMonth');
+  new Chart(document.getElementById('chartLettersPerMonth'), {
+    type: 'bar',
+    data: { labels: mLabels, datasets: [{ label: 'Letters', data: mData, backgroundColor: '#3a7fd5', borderRadius: 5 }] },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } } }
+  });
+
+  // Chart 2: Cumulative damages
+  const sorted = [...letters].filter(l => l.createdAt && l.totalDamages).sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+  let cum = 0;
+  const cumLabels = [], cumData = [];
+  sorted.forEach(l => {
+    cum += parseFloat(l.totalDamages || 0) || 0;
+    cumLabels.push(new Date(l.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+    cumData.push(Math.round(cum));
+  });
+  destroyChart('chartCumulativeDamages');
+  new Chart(document.getElementById('chartCumulativeDamages'), {
+    type: 'line',
+    data: { labels: cumLabels.slice(-20), datasets: [{ label: 'Total Damages ($)', data: cumData.slice(-20), borderColor: '#f0a830', backgroundColor: 'rgba(240,168,48,0.15)', fill: true, tension: 0.3, pointRadius: 3 }] },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } } }
+  });
+
+  // Chart 3: Top 8 brokers by complaint count
+  const brokerCount = {};
+  letters.forEach(l => {
+    const key = (l.brokerCompany || l.brokerMC || 'Unknown').substring(0, 24);
+    brokerCount[key] = (brokerCount[key] || 0) + 1;
+  });
+  const top8 = Object.entries(brokerCount).sort((a,b) => b[1]-a[1]).slice(0,8);
+  destroyChart('chartTopBrokers');
+  new Chart(document.getElementById('chartTopBrokers'), {
+    type: 'bar',
+    data: { labels: top8.map(x=>x[0]), datasets: [{ data: top8.map(x=>x[1]), backgroundColor: top8.map((_,i) => `hsl(${i*32+200},70%,50%)`), borderRadius: 5 }] },
+    options: { ...chartDefaults, indexAxis: 'y', plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: chartDefaults.scales.x, y: { ticks: { color:'#8090a8' }, grid: { color:'#1e2a3a' } } } }
+  });
+
+  // Chart 4: Status breakdown
+  const statusCount = {};
+  letters.forEach(l => {
+    const s = getStatus(l.caseRef);
+    statusCount[s] = (statusCount[s] || 0) + 1;
+  });
+  const sLabels = Object.keys(statusCount);
+  const sColors = sLabels.map(s => (STATUS_COLORS[s] || STATUS_COLORS.new).text);
+  destroyChart('chartStatusBreakdown');
+  new Chart(document.getElementById('chartStatusBreakdown'), {
+    type: 'doughnut',
+    data: { labels: sLabels.map(s => STATUS_COLORS[s]?.label || s), datasets: [{ data: sLabels.map(s => statusCount[s]), backgroundColor: sColors.map(c => c + 'bb'), borderColor: sColors, borderWidth: 2 }] },
+    options: { responsive: true, plugins: { legend: { labels: { color:'#c0cce0', font:{size:11} }, position:'right' } } }
+  });
+}
+
+const _chartInstances = {};
+function destroyChart(id) {
+  if (_chartInstances[id]) { try { _chartInstances[id].destroy(); } catch(e){} }
+  const c = document.getElementById(id);
+  if (c) {
+    const existing = Chart.getChart(c);
+    if (existing) existing.destroy();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 9 — CUSTOM DAMAGES OVERRIDE
+// ══════════════════════════════════════════════════════════════════════
+let useCustomDamages = false;
+
+function toggleCustomDamages() {
+  useCustomDamages = !useCustomDamages;
+  const panel = document.getElementById('customDamagesPanel');
+  const row   = document.getElementById('customDamagesToggleRow');
+  const btn   = document.getElementById('customDmgToggleBtn');
+  if (panel) panel.style.display = useCustomDamages ? 'block' : 'none';
+  if (row)   row.style.display = 'block'; // always show toggle row
+  if (btn)   btn.textContent = useCustomDamages ? '✕ Use auto damages' : '✏️ Override damages';
+}
+
+function recalcCustomDamages() {
+  const fleet  = parseFloat(document.getElementById('customFleet')?.value  || 0) || 0;
+  const rereg  = parseFloat(document.getElementById('customRereg')?.value  || 5000) || 5000;
+  const legal  = parseFloat(document.getElementById('customLegal')?.value  || 15000) || 15000;
+  const total  = fleet + rereg + legal;
+  const el = document.getElementById('customTotal');
+  if (el) el.textContent = '$' + total.toLocaleString();
+}
+
+function getCustomDamagesPayload() {
+  if (!useCustomDamages) return null;
+  const fleet  = parseFloat(document.getElementById('customFleet')?.value  || 0) || 0;
+  const rereg  = parseFloat(document.getElementById('customRereg')?.value  || 5000) || 5000;
+  const legal  = parseFloat(document.getElementById('customLegal')?.value  || 15000) || 15000;
+  return { fleet, rereg, legal, total: fleet + rereg + legal };
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// FEATURE 10 — MULTIPLE CC EMAILS
+// ══════════════════════════════════════════════════════════════════════
+let ccCount = 0;
+
+function addCCField(prefillValue) {
+  const container = document.getElementById('extraCCList');
+  if (!container) return;
+  if (container.children.length >= 5) {
+    showToast('Maximum 5 CC recipients allowed.', 'warn');
+    return;
+  }
+  ccCount++;
+  const id = 'extraCC_' + ccCount;
+  const row = document.createElement('div');
+  row.id = 'ccRow_' + ccCount;
+  row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:6px;';
+  row.innerHTML = `
+    <input id="${id}" type="email" class="extra-cc-input" placeholder="cc@example.com" value="${prefillValue || ''}"
+      style="flex:1;background:var(--navy-mid);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:#e0e6f0;font-size:13px;outline:none;" />
+    <button onclick="removeCCField('ccRow_${ccCount}')" style="background:none;border:none;color:#e74c3c;font-size:18px;cursor:pointer;padding:0 4px;line-height:1;" title="Remove">×</button>`;
+  container.appendChild(row);
+}
+
+function removeCCField(rowId) {
+  const row = document.getElementById(rowId);
+  if (row) row.remove();
+}
+
+function getAllCCEmails() {
+  const primary = document.getElementById('recipientEmails')?.value?.trim() || '';
+  const extras = Array.from(document.querySelectorAll('.extra-cc-input'))
+    .map(i => i.value.trim())
+    .filter(v => v && v.includes('@'));
+  return [primary, ...extras].filter(Boolean);
+}
+
+
 // ── INIT ──────────────────────────────────────────────────────
 window.onerror = function(msg, src, line) {
   console.error('JS Error:', msg, 'line', line, src);
@@ -1859,6 +2519,9 @@ checkPaymentReturn();
 loadAttorneys();
 loadCoverage();
 loadLandingStats();
+checkForDraft();
+startDraftAutoSave();
+checkPinOnLoad();
 // Google Places loads only on-demand (📍 Search button) — not on page load
 </script>
 
@@ -1896,6 +2559,51 @@ loadLandingStats();
       <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
         <button onclick="closeNotesModal()" class="btn btn-navy" style="padding:9px 18px;">Cancel</button>
         <button onclick="saveNotes()" class="btn btn-red" style="padding:9px 22px;font-weight:700;">💾 Save Notes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PIN PROTECTION MODAL ══════════════════════════════════════════════════ -->
+<div id="pinModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--navy-dark);border:1px solid var(--border);border-radius:14px;padding:36px;width:94%;max-width:380px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,0.8);">
+    <div style="font-size:36px;margin-bottom:10px;">🔐</div>
+    <div style="font-weight:700;color:#fff;font-size:18px;margin-bottom:6px;">Enter Access PIN</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:22px;">This tool is access-restricted. Enter your PIN to continue.</div>
+    <input id="pinInput" type="password" maxlength="10" placeholder="Enter PIN"
+      style="width:100%;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:12px;color:#e0e6f0;font-size:18px;text-align:center;letter-spacing:4px;box-sizing:border-box;outline:none;margin-bottom:10px;"
+      onkeydown="if(event.key==='Enter') verifyPin()" />
+    <div id="pinError" style="font-size:12px;color:#e74c3c;min-height:18px;margin-bottom:10px;"></div>
+    <button onclick="verifyPin()" class="btn btn-red" style="width:100%;padding:12px;font-size:15px;font-weight:700;">Unlock →</button>
+  </div>
+</div>
+
+<!-- ══ ANALYTICS SCREEN ═══════════════════════════════════════════════════════ -->
+<div id="screen-analytics" class="screen">
+  <div class="form-header">
+    <div><h2>📈 Analytics</h2><p>Letter activity, damages filed, and broker patterns across all cases.</p></div>
+    <button onclick="refreshAnalytics()" class="btn btn-navy" style="font-size:12px;padding:8px 14px;">↻ Refresh</button>
+  </div>
+  <div style="padding:28px 40px;max-width:1100px;margin:0 auto;">
+    <div id="analyticsStats" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:28px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">Letters Generated / Month</div>
+        <canvas id="chartLettersPerMonth" height="200"></canvas>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">Cumulative Damages Filed ($)</div>
+        <canvas id="chartCumulativeDamages" height="200"></canvas>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">Top 8 Most-Targeted Brokers</div>
+        <canvas id="chartTopBrokers" height="220"></canvas>
+      </div>
+      <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;">
+        <div style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">Cases by Status</div>
+        <canvas id="chartStatusBreakdown" height="220"></canvas>
       </div>
     </div>
   </div>

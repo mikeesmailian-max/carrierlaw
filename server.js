@@ -556,6 +556,18 @@ app.get('/api/maps-key', (req, res) => {
 
 // ── BROKER REPEAT-OFFENDER CHECK ─────────────────────────────
 
+
+// ── FORM PIN PROTECTION ───────────────────────────────────────────────────────
+app.post('/api/verify-pin', (req, res) => {
+  const { pin } = req.body;
+  const correctPin = process.env.FORM_PIN || '1234';
+  if (String(pin).trim() === String(correctPin).trim()) {
+    res.json({ ok: true });
+  } else {
+    res.status(401).json({ ok: false, error: 'Incorrect PIN' });
+  }
+});
+
 // ── PUBLIC LETTER HISTORY (admin tool — no external auth needed) ─────────────
 app.get('/api/letters-history', async (req, res) => {
   try {
@@ -778,14 +790,17 @@ ${attorneyBlock}`;
 // ── EMAIL SENDING ─────────────────────────────────────────────
 app.post('/api/send-email', rateLimit(60000, 10), async (req, res) => {
   try {
-    const { brokerEmail, carrierEmail, brokerName, carrierName, letterText, subject } = req.body;
+    const { brokerEmail, carrierEmail, brokerName, carrierName, letterText, subject, ccEmails = [] } = req.body;
 
     const emailSubject = subject || `FORMAL LEGAL DEMAND — ${brokerName} — FreightGuard Report Retraction Required`;
     const html = buildEmailHtml(letterText);
 
+    // Build CC list: primary carrier + any extras, deduplicated
+    const allCC = [...new Set([carrierEmail, ...ccEmails].filter(Boolean))];
+
     await dispatchEmail({
       to:      brokerEmail,
-      cc:      carrierEmail,
+      cc:      allCC.join(','),
       subject: emailSubject,
       text:    letterText,
       html,
