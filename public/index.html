@@ -245,23 +245,32 @@
   margin-top: 4px !important;
   box-shadow: 0 16px 48px rgba(0,0,0,0.7) !important;
   font-family: inherit !important;
-  overflow: hidden;
+  overflow: hidden !important;
+  z-index: 99999 !important;
 }
 .pac-item {
-  padding: 10px 16px !important;
+  padding: 10px 14px 10px 12px !important;
   color: #d0dbe8 !important;
   font-size: 13px !important;
+  line-height: 1.5 !important;
   border-top: 1px solid #1a2840 !important;
   cursor: pointer !important;
+  background: #0d1829 !important;
 }
 .pac-item:first-child { border-top: none !important; }
 .pac-item:hover, .pac-item-selected {
-  background: #1a2840 !important;
+  background: #162236 !important;
   color: #fff !important;
 }
-.pac-item-query { color: #c9a84c !important; font-weight: 600; }
-.pac-icon { filter: invert(0.7) sepia(1) hue-rotate(180deg) brightness(1.2); }
+.pac-item-query { color: #c9a84c !important; font-weight: 600; font-style: normal !important; }
+.pac-matched { color: #c9a84c !important; font-weight: 700; }
+.pac-icon {
+  display: none !important;   /* hide the map pin icon — avoids broken-image circles */
+}
 .pac-logo:after { display: none !important; }
+/* Hide browser's own autofill dropdown icons on address inputs */
+input::-webkit-contacts-auto-fill-button,
+input::-webkit-credentials-auto-fill-button { display: none !important; visibility: hidden !important; }
 
 </style>
 </head>
@@ -449,11 +458,11 @@
       <div>
         <div class="card">
           <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
-          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="Start typing company name…" autocomplete="off" /><div id="carrierNameHint" style="font-size:11px;color:var(--text-muted);margin-top:3px;display:none;">Suggestions will appear as you type</div></div>
+          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="Start typing company name…" autocomplete="companyname-x" /><div id="carrierNameHint" style="font-size:11px;color:var(--text-muted);margin-top:3px;display:none;">Suggestions will appear as you type</div></div>
           <div class="field">
             <label>Carrier Address *</label>
             <div style="display:flex;gap:8px;align-items:center;">
-              <input id="carrierAddress" placeholder="Start typing your address…" autocomplete="off" style="flex:1;" />
+              <input id="carrierAddress" placeholder="Start typing your address…" autocomplete="carrieraddress-x" style="flex:1;" />
             </div>
           </div>
           <div class="field-row">
@@ -544,7 +553,7 @@
           <div class="field">
             <label>Broker Full Address (Street, City, State ZIP) *</label>
             <div style="display:flex;gap:8px;align-items:center;">
-              <input id="brokerAddress" placeholder="4500 Commerce Blvd, Dallas, TX 75201" autocomplete="off" style="flex:1;" />
+              <input id="brokerAddress" autocomplete="brokeraddress-x" placeholder="4500 Commerce Blvd, Dallas, TX 75201" autocomplete="off" style="flex:1;" />
 
             </div>
           </div>
@@ -896,17 +905,7 @@ function attachAddressAutocomplete(inputId) {
     }
     if (inputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
   });
-  // Style the dropdown to match dark theme
-  input.addEventListener('focus', () => {
-    const pacs = document.querySelectorAll('.pac-container');
-    pacs.forEach(p => {
-      p.style.background    = '#0d1829';
-      p.style.border        = '1px solid #2d3f55';
-      p.style.borderRadius  = '8px';
-      p.style.marginTop     = '4px';
-      p.style.boxShadow     = '0 12px 40px rgba(0,0,0,0.6)';
-    });
-  });
+
 }
 
 function attachCompanyAutocomplete(nameInputId, addressInputId) {
