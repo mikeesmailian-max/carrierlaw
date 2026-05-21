@@ -422,11 +422,11 @@
           </div>
 
           <div class="field" style="margin-top:16px;">
-            <label>Law Office / Assigned Attorney *</label>
-            <select id="assignedAttorney" style="border-color:var(--gold);">
-              <option value="">— Select a Law Office (required) —</option>
+            <label>Law Office / Assigned Attorney <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(optional — adds letterhead signature)</span></label>
+            <select id="assignedAttorney">
+              <option value="">— None / Generate without attorney letterhead —</option>
             </select>
-            <div style="font-size:11px;color:var(--gold);margin-top:5px;">⚠️ You must select a law office before generating a letter.</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Add attorneys in the Attorney Database tab. If none selected, letter uses a generic legal signature.</div>
           </div>
         </div>
 
@@ -480,6 +480,23 @@
             <label>Evidence in Your Possession (describe)</label>
             <textarea id="evidenceDescription" rows="4" placeholder="e.g. Signed Bill of Lading, Proof of Delivery (signed by consignee), GPS tracking logs, dashcam footage of delivery, email chain disputing payment, text messages with broker dispatcher..."></textarea>
           </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><span class="dot"></span>Supporting Documents <span style="font-size:12px;color:var(--text-muted);font-weight:400;">(optional)</span></div>
+          <p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">Upload your evidence files — BOL, Proof of Delivery, emails, GPS logs, etc. These are saved with your case. Max 3 files, 5 MB each. PDF, JPG, PNG accepted.</p>
+          <div id="uploadZone"
+            style="border:2px dashed var(--border);border-radius:10px;padding:28px 20px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;"
+            onclick="document.getElementById('fileInput').click()"
+            ondragover="event.preventDefault();this.style.borderColor='var(--gold)';this.style.background='rgba(201,168,76,0.05)'"
+            ondragleave="this.style.borderColor='var(--border)';this.style.background=''"
+            ondrop="handleFileDrop(event)">
+            <div style="font-size:36px;margin-bottom:8px;">📎</div>
+            <div style="color:#d0dbe8;font-size:14px;font-weight:600;">Click to upload or drag &amp; drop files here</div>
+            <div style="color:var(--text-muted);font-size:12px;margin-top:6px;">PDF · JPG · PNG — up to 3 files, 5 MB each</div>
+          </div>
+          <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleFileSelect(event)" />
+          <div id="fileList" style="margin-top:10px;"></div>
         </div>
 
         <div class="card" style="background:linear-gradient(135deg,rgba(192,57,43,0.12) 0%,var(--card) 100%);border-color:rgba(192,57,43,0.35);">
@@ -779,6 +796,7 @@ async function generateLetter() {
     carrierNarrative:  v('carrierNarrative'),
     evidenceDescription: v('evidenceDescription'),
     assignedAttorneyId:  document.getElementById('assignedAttorney').value,
+    attachedFiles:       uploadedFiles.map(f => ({ name: f.name, type: f.type, size: f.size, data: f.data })),
   };
 
   const required = ['carrierName','carrierMC','carrierDOT','carrierEmail','numTrucks',
@@ -789,11 +807,7 @@ async function generateLetter() {
     return;
   }
 
-  if (!f.assignedAttorneyId) {
-    showAlert('formAlert', 'red', '⚠️ You must select a Law Office before generating the letter. The letterhead requires an assigned attorney.');
-    document.getElementById('assignedAttorney').focus();
-    return;
-  }
+  // Attorney is optional — server handles null attorney gracefully
 
   const btn = document.getElementById('generateBtn');
   btn.disabled = true;
@@ -829,6 +843,24 @@ async function generateLetter() {
       .replace(/<br\s*\/?>/gi, '\n')
       .replace(/<[^>]+>/g, '');
     document.getElementById('letterText').textContent = cleanLetter;
+
+    // Show attached evidence files below the letter
+    const existingEvidBar = document.getElementById('evidenceFilesBar');
+    if (existingEvidBar) existingEvidBar.remove();
+    if (uploadedFiles.length > 0) {
+      const evidBar = document.createElement('div');
+      evidBar.id = 'evidenceFilesBar';
+      evidBar.style.cssText = 'margin-top:16px;padding:14px 18px;background:#0f1e2e;border:1px solid #2d3f55;border-radius:8px;';
+      evidBar.innerHTML = `<div style="font-size:12px;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">📎 Supporting Evidence Filed With This Case</div>`
+        + uploadedFiles.map(f => {
+          const ext  = f.name.split('.').pop().toLowerCase();
+          const icon = (ext==='pdf') ? '📄' : '🖼️';
+          const kb   = f.size < 102400 ? `${(f.size/1024).toFixed(0)} KB` : `${(f.size/1048576).toFixed(1)} MB`;
+          return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;font-size:13px;color:#d0dbe8;">${icon} ${f.name} <span style="color:var(--text-muted);font-size:11px;">(${kb})</span></div>`;
+        }).join('');
+      document.getElementById('letterOutput').appendChild(evidBar);
+    }
+
     // Store attorney + court for professional print
     window._attorney  = data.attorney  || null;
     window._courtData = data.court     || null;
@@ -1034,14 +1066,19 @@ function populateAttorneySelect() {
   const sel = document.getElementById('assignedAttorney');
   if (!sel) return;
   const cur = sel.value;
-  sel.innerHTML = '<option value="">— No attorney assigned yet —</option>';
+  sel.innerHTML = '<option value="">— None / Generate without attorney letterhead —</option>';
   attorneys.forEach(a => {
     const opt = document.createElement('option');
     opt.value = a.id;
     opt.textContent = `${a.name}${a.firmName ? ' — ' + a.firmName : ''} (Bar #${a.barNumber})`;
     sel.appendChild(opt);
   });
-  if (cur) sel.value = cur;
+  // Restore prior selection, or auto-select if only one attorney exists
+  if (cur && attorneys.find(a => a.id === cur)) {
+    sel.value = cur;
+  } else if (attorneys.length === 1) {
+    sel.value = attorneys[0].id;
+  }
 }
 
 function renderAttorneys() {
@@ -1138,6 +1175,75 @@ document.getElementById('brokerAddress')?.addEventListener('change', () => {
   const m     = addr.match(/\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC)\b/);
   if (m) loadCoverage(m[1]);
 });
+
+// ── DOCUMENT UPLOAD ─────────────────────────────────────────────────────────
+let uploadedFiles = []; // [{name, type, size, data (base64 string)}]
+
+function handleFileDrop(event) {
+  event.preventDefault();
+  const zone = document.getElementById('uploadZone');
+  if (zone) { zone.style.borderColor = 'var(--border)'; zone.style.background = ''; }
+  processFiles(Array.from(event.dataTransfer.files));
+}
+
+function handleFileSelect(event) {
+  processFiles(Array.from(event.target.files));
+  event.target.value = '';
+}
+
+function processFiles(files) {
+  const MAX_FILES = 3;
+  const MAX_SIZE  = 5 * 1024 * 1024; // 5 MB
+  const allowed   = ['application/pdf','image/jpeg','image/png','image/jpg'];
+  for (const file of files) {
+    if (uploadedFiles.length >= MAX_FILES) {
+      showAlert('formAlert','red','⚠️ Maximum 3 files allowed. Remove a file to add another.');
+      break;
+    }
+    if (!allowed.includes(file.type) && !file.name.match(/\.(pdf|jpg|jpeg|png)$/i)) {
+      showAlert('formAlert','red',`⚠️ "${file.name}" — only PDF, JPG, and PNG files are accepted.`);
+      continue;
+    }
+    if (file.size > MAX_SIZE) {
+      showAlert('formAlert','red',`⚠️ "${file.name}" exceeds the 5 MB limit (${(file.size/1048576).toFixed(1)} MB).`);
+      continue;
+    }
+    if (uploadedFiles.some(f => f.name === file.name)) continue; // skip duplicate
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      uploadedFiles.push({ name: file.name, type: file.type, size: file.size, data: e.target.result.split(',')[1] });
+      renderFileList();
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function removeFile(name) {
+  uploadedFiles = uploadedFiles.filter(f => f.name !== name);
+  renderFileList();
+}
+
+function renderFileList() {
+  const list = document.getElementById('fileList');
+  if (!list) return;
+  if (!uploadedFiles.length) { list.innerHTML = ''; return; }
+  const icons = { pdf: '📄', jpg: '🖼️', jpeg: '🖼️', png: '🖼️' };
+  list.innerHTML = uploadedFiles.map(f => {
+    const ext  = f.name.split('.').pop().toLowerCase();
+    const icon = icons[ext] || '📎';
+    const kb   = f.size < 1024 * 100 ? `${(f.size/1024).toFixed(0)} KB` : `${(f.size/1048576).toFixed(1)} MB`;
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:20px;">${icon}</span>
+        <div>
+          <div style="font-size:13px;color:#d0dbe8;font-weight:500;">${f.name}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${kb}</div>
+        </div>
+      </div>
+      <button onclick="removeFile('${f.name.replace(/'/g,'\'')}')" title="Remove" style="background:none;border:none;color:#c0392b;cursor:pointer;font-size:20px;line-height:1;padding:0 4px;">×</button>
+    </div>`;
+  }).join('');
+}
 
 // ── INIT ──────────────────────────────────────────────────────
 window.onerror = function(msg, src, line) {

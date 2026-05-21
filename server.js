@@ -66,7 +66,8 @@ const app    = express();
 const PORT   = process.env.PORT || 3000;
 const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -116,6 +117,7 @@ const DATA_DIR = process.env.NODE_ENV === 'production'
   : path.join(__dirname, 'data');
 
 const ATTORNEYS_FILE    = path.join(DATA_DIR, 'attorneys.json');
+const UPLOADS_DIR       = path.join(DATA_DIR, 'uploads');
 const REPORTS_FILE      = path.join(DATA_DIR, 'broker-reports.json');
 const FOLLOWUPS_FILE    = path.join(DATA_DIR, 'followups.json');
 const USERS_FILE        = path.join(DATA_DIR, 'users.json');
@@ -582,6 +584,7 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
       numTrucks, carrierNarrative, evidenceDescription,
       brokerName, brokerMC, brokerAddress, brokerPOC,
       reporterName, reportContent, assignedAttorneyId,
+      attachedFiles = [],
     } = req.body;
 
     const caseRef  = generateCaseRef();
@@ -593,6 +596,20 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
     const attorney  = assignedAttorneyId ? attorneys.find(a => a.id === assignedAttorneyId) : null;
 
     await recordBrokerReportDB(brokerMC, brokerName, carrierName, caseRef);
+    // Save uploaded evidence files to disk
+    let savedFiles = [];
+    if (attachedFiles && attachedFiles.length > 0) {
+      const caseUploadsDir = path.join(UPLOADS_DIR, caseRef);
+      if (!fs.existsSync(caseUploadsDir)) fs.mkdirSync(caseUploadsDir, { recursive: true });
+      for (const file of attachedFiles) {
+        try {
+          if (!file.name || !file.data) continue;
+          const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+          fs.writeFileSync(path.join(caseUploadsDir, safeName), Buffer.from(file.data, 'base64'));
+          savedFiles.push(safeName);
+        } catch (fe) { console.warn('File save failed:', file.name, fe.message); }
+      }
+    }
 
     const today    = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
     const deadline = new Date();
@@ -701,7 +718,7 @@ ${attorneyBlock}`;
       ts: new Date().toISOString(),
     });
 
-    res.json({ letter: letterText, damages, court, attorney: attorney || null, caseRef });
+    res.json({ letter: letterText, damages, court, attorney: attorney || null, caseRef, savedFiles });
   } catch(err) {
     console.error('Letter generation error:', err);
     res.status(500).json({ error: 'Letter generation failed: ' + err.message });
@@ -1165,4 +1182,4 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'Internal server error' });
 });
 
-// ── 404 CATCH-ALL ──────────────────────────────�
+// ── 404 CATCH-ALL ──────────────────────────────�
