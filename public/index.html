@@ -268,9 +268,27 @@
   display: none !important;   /* hide the map pin icon — avoids broken-image circles */
 }
 .pac-logo:after { display: none !important; }
-/* Hide browser's own autofill dropdown icons on address inputs */
+
+/* ── Kill browser autofill overlay icons ── */
 input::-webkit-contacts-auto-fill-button,
-input::-webkit-credentials-auto-fill-button { display: none !important; visibility: hidden !important; }
+input::-webkit-credentials-auto-fill-button,
+input::-webkit-caps-lock-indicator { display: none !important; visibility: hidden !important; pointer-events: none !important; }
+
+/* Kill password manager injected overlays (Dashlane, 1Password, LastPass, Bitwarden) */
+[data-lastpass-icon-root], [data-lastpass-root],
+[data-dashlane-rid], [data-dashlane-label],
+div[id^="dashlane"], span[id^="dashlane"],
+[data-1password], [id^="onepassword"],
+[id^="bw-"], [class*="bw-autofill"],
+.__lpform_icon, .lpbubble,
+[data-lpignore-button] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 
 </style>
 </head>
@@ -302,7 +320,7 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
     <span style="font-size:13px;color:var(--text-muted);white-space:nowrap;">🔍 Check a broker before you haul:</span>
     <input id="landingBrokerMC" placeholder="Enter broker MC number..." autocomplete="off"
       style="background:var(--navy-mid);border:1px solid var(--border);border-radius:7px;padding:7px 12px;color:#e0e6f0;font-size:13px;width:200px;outline:none;"
-      oninput="triggerLandingBrokerCheck(this.value)" />
+      oninput="triggerLandingBrokerCheck(this.value)"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
     <div id="landingBrokerResult" style="font-size:13px;"></div>
   </div>
 
@@ -458,23 +476,23 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
       <div>
         <div class="card">
           <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
-          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="Start typing company name…" autocomplete="companyname-x" /><div id="carrierNameHint" style="font-size:11px;color:var(--text-muted);margin-top:3px;display:none;">Suggestions will appear as you type</div></div>
+          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="Start typing company name…" autocomplete="companyname-x"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/><div id="carrierNameHint" style="font-size:11px;color:var(--text-muted);margin-top:3px;display:none;">Suggestions will appear as you type</div></div>
           <div class="field">
             <label>Carrier Address *</label>
             <div style="display:flex;gap:8px;align-items:center;">
-              <input id="carrierAddress" placeholder="Start typing your address…" autocomplete="carrieraddress-x" style="flex:1;" />
+              <input id="carrierAddress" placeholder="Start typing your address…" autocomplete="carrieraddress-x" style="flex:1;"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
             </div>
           </div>
           <div class="field-row">
-            <div class="field"><label>MC Number *</label><input id="carrierMC" placeholder="1234567" /></div>
-            <div class="field"><label>DOT Number *</label><input id="carrierDOT" placeholder="9876543" /></div>
+            <div class="field"><label>MC Number *</label><input id="carrierMC" placeholder="1234567"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+            <div class="field"><label>DOT Number *</label><input id="carrierDOT" placeholder="9876543"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
           </div>
-          <div class="field"><label>Your Contact Email *</label><input id="carrierEmail" type="email" placeholder="owner@yourcompany.com" /></div>
+          <div class="field"><label>Your Contact Email *</label><input id="carrierEmail" type="email" placeholder="owner@yourcompany.com"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
 
           <!-- TRUCKS — fixed $15k/month rate -->
           <div class="field">
             <label>Number of Trucks Affected *</label>
-            <input id="numTrucks" type="number" min="1" placeholder="e.g. 5" oninput="recalcDamages()" />
+            <input id="numTrucks" type="number" min="1" placeholder="e.g. 5" oninput="recalcDamages()"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
             <div style="font-size:11px;color:var(--text-muted);margin-top:5px;">Damages calculated at industry standard of <strong style="color:var(--gold);">$15,000/truck/month</strong></div>
           </div>
 
@@ -497,15 +515,15 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
             <div style="font-size:11px;color:var(--gold);margin-bottom:10px;font-weight:700;">✏️ CUSTOM DAMAGES — override auto-calculation</div>
             <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:6px;">
               <span style="font-size:12px;color:var(--text-muted);">Annual fleet revenue</span>
-              <input id="customFleet" type="number" placeholder="Auto" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()" />
+              <input id="customFleet" type="number" placeholder="Auto" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
             </div>
             <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:6px;">
               <span style="font-size:12px;color:var(--text-muted);">Re-registration / restructuring</span>
-              <input id="customRereg" type="number" value="5000" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()" />
+              <input id="customRereg" type="number" value="5000" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
             </div>
             <div style="display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:10px;">
               <span style="font-size:12px;color:var(--text-muted);">Legal costs</span>
-              <input id="customLegal" type="number" value="15000" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()" />
+              <input id="customLegal" type="number" value="15000" style="width:130px;background:#0d1829;border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:#e0e6f0;font-size:12px;text-align:right;" oninput="recalcCustomDamages()"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
             </div>
             <div style="border-top:1px solid var(--border);padding-top:10px;display:flex;justify-content:space-between;align-items:center;">
               <span style="font-size:13px;font-weight:700;color:#fff;">CUSTOM TOTAL:</span>
@@ -524,11 +542,11 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
 
         <div class="card">
           <div class="card-title"><span class="dot"></span>Broker Who Filed the Report</div>
-          <div class="field"><label>Broker Company Name *</label><input id="brokerName" placeholder="e.g. Apex Freight Solutions Inc." autocomplete="off" /></div>
+          <div class="field"><label>Broker Company Name *</label><input id="brokerName" placeholder="e.g. Apex Freight Solutions Inc." autocomplete="off"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
           <div class="field-row">
             <div class="field">
               <label>Broker MC Number *</label>
-              <input id="brokerMC" placeholder="7654321" oninput="checkBrokerRepeat(this.value)" />
+              <input id="brokerMC" placeholder="7654321" oninput="checkBrokerRepeat(this.value)"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
               <div id="brokerIntelCard" style="display:none;margin-top:10px;border-radius:10px;overflow:hidden;border:1px solid #7b2020;">
                 <div id="brokerIntelHeader" style="padding:10px 14px;background:#3d1a1a;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleBrokerIntel()">
                   <div style="display:flex;align-items:center;gap:10px;">
@@ -546,21 +564,21 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
                 </div>
               </div>
             </div>
-            <div class="field"><label>Broker Email Address *</label><input id="brokerEmail" type="email" placeholder="billing@broker.com" /></div>
+            <div class="field"><label>Broker Email Address *</label><input id="brokerEmail" type="email" placeholder="billing@broker.com"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
           </div>
 
           <!-- Broker address + autocomplete -->
           <div class="field">
             <label>Broker Full Address (Street, City, State ZIP) *</label>
             <div style="display:flex;gap:8px;align-items:center;">
-              <input id="brokerAddress" autocomplete="brokeraddress-x" placeholder="4500 Commerce Blvd, Dallas, TX 75201" autocomplete="off" style="flex:1;" />
+              <input id="brokerAddress" autocomplete="brokeraddress-x" placeholder="4500 Commerce Blvd, Dallas, TX 75201" style="flex:1;"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
 
             </div>
           </div>
 
           <div class="field-row">
-            <div class="field"><label>Point of Contact Name *</label><input id="brokerPOC" placeholder="John Martinez" /></div>
-            <div class="field"><label>Person Who Filed the Report *</label><input id="reporterName" placeholder="Sarah Thompson" /></div>
+            <div class="field"><label>Point of Contact Name *</label><input id="brokerPOC" placeholder="John Martinez"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+            <div class="field"><label>Person Who Filed the Report *</label><input id="reporterName" placeholder="Sarah Thompson"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
           </div>
           <div class="field"><label>Exact FreightGuard Report Text * (copy/paste verbatim)</label><textarea id="reportContent" rows="4" placeholder='Paste the exact wording of their report. e.g. "Carrier abandoned load. Driver unresponsive. Do not use."'></textarea></div>
 
@@ -600,7 +618,7 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
             <div style="color:#d0dbe8;font-size:14px;font-weight:600;">Click to upload or drag &amp; drop files here</div>
             <div style="color:var(--text-muted);font-size:12px;margin-top:6px;">PDF · JPG · PNG — up to 3 files, 5 MB each</div>
           </div>
-          <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleFileSelect(event)" />
+          <input type="file" id="fileInput" multiple accept=".pdf,.jpg,.jpeg,.png" style="display:none;" onchange="handleFileSelect(event)"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
           <div id="fileList" style="margin-top:10px;"></div>
         </div>
 
@@ -651,7 +669,7 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
     <div style="display:flex;gap:10px;align-items:center;">
       <input id="historySearch" placeholder="🔍  Search broker, carrier, case ref..." autocomplete="off"
         oninput="filterHistory(this.value)"
-        style="background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:#e0e6f0;font-size:13px;width:260px;outline:none;" />
+        style="background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:#e0e6f0;font-size:13px;width:260px;outline:none;"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
       <button onclick="loadHistory()" class="btn btn-navy" style="font-size:12px;padding:8px 14px;">↻ Refresh</button>
       <button id="csvExportBtn" onclick="exportCSV()" class="btn btn-navy" style="font-size:12px;padding:8px 14px;">⬇ Export CSV</button>
     </div>
@@ -699,19 +717,19 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
       <div class="card-title"><span class="dot"></span>Add New Attorney</div>
       <div id="attorneyAlert"></div>
       <div class="field-row">
-        <div class="field"><label>Full Name *</label><input id="attyName" placeholder="Robert J. Harrington" /></div>
-        <div class="field"><label>Firm Name</label><input id="attyFirm" placeholder="Harrington & Associates, P.C." /></div>
+        <div class="field"><label>Full Name *</label><input id="attyName" placeholder="Robert J. Harrington"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+        <div class="field"><label>Firm Name</label><input id="attyFirm" placeholder="Harrington & Associates, P.C."  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
       </div>
       <div class="field-row-3">
-        <div class="field"><label>Bar Number *</label><input id="attyBar" placeholder="47821" /></div>
-        <div class="field"><label>Bar State</label><input id="attyBarState" placeholder="TX" maxlength="2" /></div>
-        <div class="field"><label>Licensed States (comma-sep)</label><input id="attyStates" placeholder="TX, LA, OK, AR" /></div>
+        <div class="field"><label>Bar Number *</label><input id="attyBar" placeholder="47821"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+        <div class="field"><label>Bar State</label><input id="attyBarState" placeholder="TX" maxlength="2"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+        <div class="field"><label>Licensed States (comma-sep)</label><input id="attyStates" placeholder="TX, LA, OK, AR"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Email *</label><input id="attyEmail" type="email" placeholder="attorney@firm.com" /></div>
-        <div class="field"><label>Phone</label><input id="attyPhone" placeholder="(555) 000-0000" /></div>
+        <div class="field"><label>Email *</label><input id="attyEmail" type="email" placeholder="attorney@firm.com"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+        <div class="field"><label>Phone</label><input id="attyPhone" placeholder="(555) 000-0000"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
       </div>
-      <div class="field"><label>Specialty / Notes</label><input id="attySpecialty" placeholder="Transportation law, FMCSA disputes, cargo claims, defamation" /></div>
+      <div class="field"><label>Specialty / Notes</label><input id="attySpecialty" placeholder="Transportation law, FMCSA disputes, cargo claims, defamation"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
       <div class="btn-row">
         <button class="btn btn-red" onclick="addAttorney()">+ Save Attorney</button>
         <button class="btn btn-navy" onclick="document.getElementById('attyFormCard').style.display='none'">Cancel</button>
@@ -732,17 +750,17 @@ input::-webkit-credentials-auto-fill-button { display: none !important; visibili
     <h3>📧 Send Demand Letter by Email</h3>
     <p>Sends the letter to the broker via Resend (our legal network domain) with you CC'd — creating an official timestamped delivery record.</p>
     <div id="emailAlert"></div>
-    <div class="field"><label>Broker's Email Address *</label><input id="emailBroker" type="email" placeholder="broker@company.com" /></div>
+    <div class="field"><label>Broker's Email Address *</label><input id="emailBroker" type="email" placeholder="broker@company.com"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
     <div class="field">
       <label>Your Email (CC) *</label>
-      <input id="emailCarrier" type="email" placeholder="you@yourcompany.com" />
+      <input id="emailCarrier" type="email" placeholder="you@yourcompany.com"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
     </div>
     <div class="field">
       <label>Additional CC Recipients <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(optional)</span></label>
       <div id="extraCCList"></div>
       <button onclick="addCCField()" style="background:none;border:1px dashed var(--border);color:var(--text-muted);border-radius:6px;padding:6px 14px;font-size:12px;cursor:pointer;width:100%;margin-top:4px;">+ Add CC recipient</button>
     </div>
-    <div class="field"><label>Subject Line</label><input id="emailSubject" /></div>
+    <div class="field"><label>Subject Line</label><input id="emailSubject"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
     <div class="btn-row">
       <button class="btn btn-red" id="sendEmailBtn" onclick="sendEmail()">📤 Send Now</button>
       <button class="btn btn-navy" onclick="closeEmailModal()">Cancel</button>
@@ -948,7 +966,7 @@ function openAddressModal(targetInputId) {
         <button id="addrCloseBtn" style="background:none;border:none;color:#8a9ab5;font-size:26px;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
       </div>
       <input id="addrSearchInput" placeholder="Start typing an address..." autocomplete="off"
-        style="width:100%;padding:13px 14px;border:1px solid #2d3f55;border-radius:8px;background:#111e30;color:#e0e6f0;font-size:15px;box-sizing:border-box;outline:none;" />
+        style="width:100%;padding:13px 14px;border:1px solid #2d3f55;border-radius:8px;background:#111e30;color:#e0e6f0;font-size:15px;box-sizing:border-box;outline:none;"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
       <div id="addrResultsList" style="margin-top:6px;border-radius:8px;overflow:hidden;max-height:260px;overflow-y:auto;"></div>
       <div style="margin-top:14px;font-size:12px;color:#4a5a70;text-align:right;">Powered by OpenStreetMap (fallback)</div>
     </div>`;
@@ -2577,7 +2595,7 @@ function addCCField(prefillValue) {
   row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:6px;';
   row.innerHTML = `
     <input id="${id}" type="email" class="extra-cc-input" placeholder="cc@example.com" value="${prefillValue || ''}"
-      style="flex:1;background:var(--navy-mid);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:#e0e6f0;font-size:13px;outline:none;" />
+      style="flex:1;background:var(--navy-mid);border:1px solid var(--border);border-radius:6px;padding:8px 12px;color:#e0e6f0;font-size:13px;outline:none;"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
     <button onclick="removeCCField('ccRow_${ccCount}')" style="background:none;border:none;color:#e74c3c;font-size:18px;cursor:pointer;padding:0 4px;line-height:1;" title="Remove">×</button>`;
   container.appendChild(row);
 }
@@ -2611,6 +2629,33 @@ checkPinOnLoad();
 // Load Google Places API using server-side key
 fetch('/api/maps-key').then(r=>r.json()).then(d=>{ if(d.key) loadGooglePlaces(d.key); }).catch(()=>{});
 // Google Places loads only on-demand (📍 Search button) — not on page load
+
+// ── Kill password manager injected overlays at runtime ────────
+(function() {
+  const PM_SELECTORS = [
+    '[data-lastpass-icon-root]','[data-lastpass-root]',
+    '[data-dashlane-rid]','[data-dashlane-label]',
+    '[id^="dashlane-"]','[class*="dashlane"]',
+    '[data-1password-filled]','[id^="onepassword"]',
+    '[id^="bw-"]','[class*="bitwarden"]',
+    '.__lpform_icon','.lpbubble',
+    '[aria-roledescription="autofill"]'
+  ];
+  function cleanPM() {
+    PM_SELECTORS.forEach(sel => {
+      try { document.querySelectorAll(sel).forEach(el => el.remove()); } catch(e) {}
+    });
+    // Also hide any elements injected INTO inputs (some extensions do this)
+    document.querySelectorAll('input').forEach(inp => {
+      inp.style.backgroundImage = 'none';
+    });
+  }
+  // Run immediately + watch for injections
+  cleanPM();
+  const obs = new MutationObserver(cleanPM);
+  obs.observe(document.body, { childList: true, subtree: true, attributes: false });
+})();
+
 </script>
 
 <!-- ══ PRE-FILL MODAL ══════════════════════════════════════════════════════ -->
@@ -2625,7 +2670,7 @@ fetch('/api/maps-key').then(r=>r.json()).then(d=>{ if(d.key) loadGooglePlaces(d.
     </div>
     <div style="padding:14px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
       <input id="prefillSearch" placeholder="Search carrier name, MC, case ref..." autocomplete="off" oninput="filterPrefill(this.value)"
-        style="width:100%;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:#e0e6f0;font-size:13px;box-sizing:border-box;outline:none;" />
+        style="width:100%;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:#e0e6f0;font-size:13px;box-sizing:border-box;outline:none;"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
     </div>
     <div id="prefillList" style="overflow-y:auto;flex:1;padding:8px 0;"></div>
   </div>
@@ -2660,7 +2705,7 @@ fetch('/api/maps-key').then(r=>r.json()).then(d=>{ if(d.key) loadGooglePlaces(d.
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:22px;">This tool is access-restricted. Enter your PIN to continue.</div>
     <input id="pinInput" type="password" maxlength="10" placeholder="Enter PIN"
       style="width:100%;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:12px;color:#e0e6f0;font-size:18px;text-align:center;letter-spacing:4px;box-sizing:border-box;outline:none;margin-bottom:10px;"
-      onkeydown="if(event.key==='Enter') verifyPin()" />
+      onkeydown="if(event.key==='Enter') verifyPin()"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
     <div id="pinError" style="font-size:12px;color:#e74c3c;min-height:18px;margin-bottom:10px;"></div>
     <button onclick="verifyPin()" class="btn btn-red" style="width:100%;padding:12px;font-size:15px;font-weight:700;">Unlock →</button>
   </div>
