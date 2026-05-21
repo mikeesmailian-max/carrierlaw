@@ -272,6 +272,17 @@
     <div class="hero-sub">One-time fee · No subscription · <span>Letter delivered in minutes</span></div>
   </div>
 
+  <!-- Live system stats (loaded from DB) -->
+  <div id="liveStatsBanner" style="display:none;background:linear-gradient(90deg,#0a1520,#0d1f35);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:10px 40px;display:none;align-items:center;gap:32px;flex-wrap:wrap;justify-content:center;">
+    <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;white-space:nowrap;">📊 System Activity:</div>
+    <div style="display:flex;gap:28px;flex-wrap:wrap;">
+      <div><span id="lsLetters" style="font-weight:700;color:var(--gold);font-size:15px;">—</span> <span style="font-size:12px;color:var(--text-muted);">letters sent</span></div>
+      <div><span id="lsDamages" style="font-weight:700;color:#e74c3c;font-size:15px;">—</span> <span style="font-size:12px;color:var(--text-muted);">total damages filed</span></div>
+      <div><span id="lsBrokers" style="font-weight:700;color:#fff;font-size:15px;">—</span> <span style="font-size:12px;color:var(--text-muted);">brokers targeted</span></div>
+      <div id="lsTopBrokerWrap" style="display:none;"><span style="font-size:12px;color:var(--text-muted);">Most reported: </span><span id="lsTopBroker" style="font-weight:700;color:#f39c12;font-size:12px;"></span></div>
+    </div>
+  </div>
+
   <div class="stats-bar">
     <div class="stat-item"><div class="stat-num">$180K+</div><div class="stat-label">Avg. Annual Revenue Lost / Truck</div></div>
     <div class="stat-item"><div class="stat-num">72 hrs</div><div class="stat-label">Avg. Time Until Blacklisted</div></div>
@@ -378,7 +389,10 @@
       <h2>FreightGuard Defense — Demand Letter Generator</h2>
       <p>Fill in all sections below to generate your federal demand letter.</p>
     </div>
-    <div class="paid-badge">✓ Access Granted</div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <button class="btn btn-navy" onclick="openPrefillModal()" style="font-size:12px;padding:8px 14px;">📂 Load Previous Case</button>
+      <div class="paid-badge">✓ Access Granted</div>
+    </div>
   </div>
 
   <div class="form-content">
@@ -534,6 +548,7 @@
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button id="copyLetterBtn" class="btn btn-navy" onclick="copyLetterToClipboard()" style="font-weight:700;">📋 Copy Letter</button>
+          <button class="btn btn-navy" onclick="downloadLetter()">⬇️ Download .txt</button>
           <button class="btn btn-navy" onclick="printLetter()">🖨️ Print / PDF</button>
           <button class="btn btn-gold" onclick="openEmailModal()">📧 Email Broker</button>
         </div>
@@ -574,6 +589,10 @@
           <div id="histModalMeta" style="font-size:12px;color:var(--text-muted);margin-top:2px;"></div>
         </div>
         <div style="display:flex;gap:10px;align-items:center;">
+          <button onclick="openNotesModal(document.getElementById('histModalTitle').dataset.caseRef||'')" 
+            style="background:var(--navy-mid);border:1px solid var(--border);color:#d0dbe8;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;font-weight:600;">
+            📝 Notes
+          </button>
           <button id="histModalCopyBtn" onclick="copyHistoryLetter()"
             style="background:var(--navy-mid);border:1px solid var(--border);color:#d0dbe8;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;font-weight:600;">
             📋 Copy
@@ -962,6 +981,8 @@ async function generateLetter() {
     document.getElementById('emailCarrier').value = f.carrierEmail || '';
     document.getElementById('emailSubject').value = `FORMAL LEGAL DEMAND — ${f.brokerName} — FreightGuard Report Retraction Required`;
 
+    // Inject deadline tracker
+    injectDeadlineTracker(data.caseRef);
     showAlert('formAlert', 'green', '✅ Your demand letter is ready. Review it below, then print or email the broker directly.');
     document.getElementById('letterOutput').scrollIntoView({ behavior: 'smooth' });
   } catch(err) {
@@ -1306,6 +1327,253 @@ function renderFileList() {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 1 — DEADLINE TRACKER
+// ══════════════════════════════════════════════════════════════════════════════
+function injectDeadlineTracker(caseRef) {
+  const existing = document.getElementById('deadlineTracker');
+  if (existing) existing.remove();
+
+  const genTime = Date.now();
+  if (caseRef) localStorage.setItem('deadline_' + caseRef, genTime);
+
+  const deadline = new Date(genTime + 14 * 24 * 60 * 60 * 1000);
+  const tracker  = document.createElement('div');
+  tracker.id     = 'deadlineTracker';
+  tracker.style.cssText = 'margin-top:16px;border-radius:10px;overflow:hidden;border:1px solid #1e4a1e;';
+  tracker.innerHTML = `
+    <div style="background:#0a1f0a;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:22px;">⏱️</span>
+        <div>
+          <div style="font-weight:700;color:#2ecc71;font-size:14px;">Response Deadline: ${deadline.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}</div>
+          <div style="font-size:12px;color:#27ae60;margin-top:2px;">Broker must respond or retract within 14 days of receiving this letter</div>
+        </div>
+      </div>
+      <div id="deadlineCountdown" style="background:#0d2a0d;border:1px solid #1e6a1e;border-radius:8px;padding:8px 16px;text-align:center;min-width:120px;">
+        <div style="font-size:18px;font-weight:800;color:#2ecc71;font-family:monospace;" id="deadlineDays">—</div>
+        <div style="font-size:10px;color:#27ae60;text-transform:uppercase;letter-spacing:0.5px;">days remaining</div>
+      </div>
+    </div>
+    <div style="background:#061406;padding:8px 18px;display:flex;gap:6px;align-items:center;">
+      <span id="deadlineStatus" style="display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;"></span>
+      <span style="font-size:12px;color:#4a6a4a;">If no response by deadline → escalate to federal court filing</span>
+    </div>`;
+  document.getElementById('letterOutput').appendChild(tracker);
+  tickDeadline(deadline);
+  if (window._deadlineInterval) clearInterval(window._deadlineInterval);
+  window._deadlineInterval = setInterval(() => tickDeadline(deadline), 60000);
+}
+
+function tickDeadline(deadline) {
+  const now     = Date.now();
+  const msLeft  = deadline - now;
+  const daysEl  = document.getElementById('deadlineDays');
+  const statEl  = document.getElementById('deadlineStatus');
+  const tracker = document.getElementById('deadlineTracker');
+  if (!daysEl) return;
+
+  if (msLeft <= 0) {
+    daysEl.textContent  = '0';
+    daysEl.style.color  = '#e74c3c';
+    if (statEl) { statEl.textContent = '🔴 DEADLINE PASSED — File Now'; statEl.style.background='#3d1a1a'; statEl.style.color='#e74c3c'; }
+    if (tracker) tracker.style.borderColor = '#7b2020';
+    return;
+  }
+
+  const days    = Math.floor(msLeft / (1000*60*60*24));
+  const hours   = Math.floor((msLeft % (1000*60*60*24)) / (1000*60*60));
+  daysEl.textContent  = days > 0 ? days : `<1`;
+
+  if (days <= 2) {
+    daysEl.style.color = '#e74c3c';
+    if (statEl) { statEl.textContent = '🔴 URGENT — Deadline in ' + (days>0?days+'d ':'')+hours+'h'; statEl.style.background='#3d1a1a'; statEl.style.color='#e74c3c'; }
+    if (tracker) tracker.style.borderColor = '#7b2020';
+  } else if (days <= 5) {
+    daysEl.style.color = '#f39c12';
+    if (statEl) { statEl.textContent = '🟠 APPROACHING — '+days+' days left'; statEl.style.background='#2a1a00'; statEl.style.color='#f39c12'; }
+    if (tracker) tracker.style.borderColor = '#5a3a00';
+  } else {
+    daysEl.style.color = '#2ecc71';
+    if (statEl) { statEl.textContent = '🟢 ACTIVE — Awaiting response'; statEl.style.background='#0a1f0a'; statEl.style.color='#2ecc71'; }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 2 — LIVE DASHBOARD STATS BANNER
+// ══════════════════════════════════════════════════════════════════════════════
+async function loadLandingStats() {
+  try {
+    const res  = await fetch('/api/letters-history');
+    const data = await res.json();
+    const ltrs = data.letters || [];
+    if (!ltrs.length) return;
+
+    const totalDmg = ltrs.reduce((s,l) => s+(Number(l.totalDamages)||0), 0);
+    const brokers  = new Set(ltrs.map(l=>l.brokerMC)).size;
+
+    // Find top repeat broker by count
+    const brokerCount = {};
+    ltrs.forEach(l => { const b=l.brokerMC||''; brokerCount[b]=(brokerCount[b]||0)+1; });
+    const topMC  = Object.entries(brokerCount).sort((a,b)=>b[1]-a[1])[0];
+    const topLtr = topMC ? ltrs.find(l=>l.brokerMC===topMC[0]) : null;
+
+    const el = document.getElementById('liveStatsBanner');
+    if (!el) return;
+    document.getElementById('lsLetters').textContent = ltrs.length.toLocaleString();
+    document.getElementById('lsDamages').textContent = '$'+totalDmg.toLocaleString();
+    document.getElementById('lsBrokers').textContent = brokers.toLocaleString();
+    if (topLtr && topMC[1] > 1) {
+      document.getElementById('lsTopBroker').textContent = (topLtr.brokerName||'MC-'+topMC[0]) + ' ('+topMC[1]+'x)';
+      document.getElementById('lsTopBrokerWrap').style.display = 'block';
+    }
+    el.style.display = 'flex';
+  } catch {}
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 3 — PRE-FILL FROM PAST CASE
+// ══════════════════════════════════════════════════════════════════════════════
+let _prefillLetters = [];
+
+async function openPrefillModal() {
+  const modal = document.getElementById('prefillModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  document.getElementById('prefillSearch').value = '';
+
+  if (!_prefillLetters.length) {
+    document.getElementById('prefillList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);"><div class="spinner" style="margin:0 auto 10px;"></div>Loading...</div>';
+    try {
+      const res  = await fetch('/api/letters-history');
+      const data = await res.json();
+      _prefillLetters = data.letters || [];
+    } catch {
+      document.getElementById('prefillList').innerHTML = '<div style="padding:20px;color:#ff6b6b;">Failed to load history.</div>';
+      return;
+    }
+  }
+  renderPrefillList(_prefillLetters);
+  document.addEventListener('keydown', _prefillEsc);
+}
+
+function _prefillEsc(e) { if (e.key==='Escape') closePrefillModal(); }
+function closePrefillModal() {
+  const m = document.getElementById('prefillModal');
+  if (m) m.style.display = 'none';
+  document.removeEventListener('keydown', _prefillEsc);
+}
+
+function filterPrefill(q) {
+  const term = (q||'').toLowerCase();
+  const filtered = term
+    ? _prefillLetters.filter(l =>
+        (l.carrierName||'').toLowerCase().includes(term) ||
+        (l.carrierMC||'').toLowerCase().includes(term) ||
+        (l.caseRef||'').toLowerCase().includes(term))
+    : _prefillLetters;
+  renderPrefillList(filtered);
+}
+
+function renderPrefillList(letters) {
+  const el = document.getElementById('prefillList');
+  if (!el) return;
+  if (!letters.length) { el.innerHTML = '<div style="padding:20px;color:var(--text-muted);text-align:center;">No cases found.</div>'; return; }
+  const unique = [];
+  const seenMC = new Set();
+  for (const l of letters) { if (!seenMC.has(l.carrierMC)) { seenMC.add(l.carrierMC); unique.push(l); } }
+  el.innerHTML = unique.map((l,i) => {
+    const date = l.ts ? new Date(l.ts).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '';
+    return `<div onclick="applyPrefill(${_prefillLetters.indexOf(l)})"
+      style="padding:14px 24px;cursor:pointer;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;transition:background 0.15s;"
+      onmouseenter="this.style.background='rgba(255,255,255,0.04)'" onmouseleave="this.style.background=''">
+      <div>
+        <div style="font-weight:600;color:#fff;font-size:14px;">${esc(l.carrierName||'Unknown Carrier')}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">MC-${l.carrierMC||'—'} · DOT: ${l.carrierDOT||'—'} · ${l.numTrucks||'?'} trucks</div>
+        <div style="font-size:11px;color:var(--gold);margin-top:2px;font-family:monospace;">${l.caseRef||''} · ${date}</div>
+      </div>
+      <button class="btn btn-navy" style="padding:6px 14px;font-size:12px;flex-shrink:0;">Use This →</button>
+    </div>`;
+  }).join('');
+}
+
+function applyPrefill(idx) {
+  const l = _prefillLetters[idx];
+  if (!l) return;
+  const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  setVal('carrierName',    l.carrierName);
+  setVal('carrierMC',      l.carrierMC);
+  setVal('carrierDOT',     l.carrierDOT||'');
+  setVal('carrierEmail',   l.carrierEmail||'');
+  setVal('numTrucks',      l.numTrucks||'');
+  // Trigger damage recalc
+  try { recalcDamages(); } catch {}
+  closePrefillModal();
+  showAlert('formAlert','green','✅ Carrier info loaded from case ' + (l.caseRef||'') + '. Fill in the broker details below.');
+  // Scroll to broker section
+  setTimeout(() => { document.getElementById('brokerName')?.scrollIntoView({behavior:'smooth',block:'center'}); }, 400);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 4 — CASE NOTES (localStorage, shown in Past Letters modal + table)
+// ══════════════════════════════════════════════════════════════════════════════
+let _notesCurrentRef = '';
+
+function openNotesModal(caseRef) {
+  _notesCurrentRef = caseRef;
+  const modal = document.getElementById('notesModal');
+  if (!modal) return;
+  document.getElementById('notesModalRef').textContent = caseRef;
+  document.getElementById('notesModalText').value = localStorage.getItem('notes_' + caseRef) || '';
+  modal.style.display = 'flex';
+  document.getElementById('notesModalText').focus();
+  document.addEventListener('keydown', _notesEsc);
+}
+
+function _notesEsc(e) { if (e.key==='Escape') closeNotesModal(); }
+function closeNotesModal() {
+  const m = document.getElementById('notesModal');
+  if (m) m.style.display = 'none';
+  document.removeEventListener('keydown', _notesEsc);
+}
+
+function saveNotes() {
+  const text = document.getElementById('notesModalText').value.trim();
+  if (text) {
+    localStorage.setItem('notes_' + _notesCurrentRef, text);
+  } else {
+    localStorage.removeItem('notes_' + _notesCurrentRef);
+  }
+  closeNotesModal();
+  // Refresh history table to show note indicator
+  filterHistory(document.getElementById('historySearch')?.value || '');
+}
+
+function getNotePreview(caseRef) {
+  const n = localStorage.getItem('notes_' + caseRef);
+  if (!n) return '';
+  return n.length > 50 ? n.substring(0,50) + '…' : n;
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// FEATURE 5 — DOWNLOAD LETTER AS .TXT
+// ══════════════════════════════════════════════════════════════════════════════
+function downloadLetter() {
+  const text = document.getElementById('letterText').textContent;
+  if (!text) return;
+  const caseRef  = window._caseRef || 'demand-letter';
+  const filename = `${caseRef}-demand-letter.txt`;
+  const blob     = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const url      = URL.createObjectURL(blob);
+  const a        = document.createElement('a');
+  a.href         = url;
+  a.download     = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
 // FEATURE 1 — PAST LETTERS HISTORY
 // ══════════════════════════════════════════════════════════════════════════════
 let _allHistoryLetters = [];
@@ -1384,8 +1652,12 @@ function renderHistoryTable(letters) {
       <td style="padding:12px 16px;font-size:12px;color:var(--text-muted);">MC-${l.brokerMC||'—'}</td>
       <td style="padding:12px 16px;font-size:13px;color:#e74c3c;font-weight:700;">${dmg}</td>
       <td style="padding:12px 16px;font-size:11px;color:var(--text-muted);">${words ? words+' words' : '—'}</td>
+      <td style="padding:12px 16px;font-size:11px;color:var(--gold);max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${getNotePreview(l.caseRef) || ''}</td>
       <td style="padding:12px 16px;">
-        <button class="btn btn-navy" style="padding:5px 12px;font-size:12px;" onclick="event.stopPropagation();openHistoryModal(${i})">View →</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-navy" style="padding:5px 12px;font-size:12px;" onclick="event.stopPropagation();openHistoryModal(${i})">View →</button>
+          <button class="btn btn-navy" style="padding:5px 10px;font-size:12px;" onclick="event.stopPropagation();openNotesModal('${l.caseRef}')" title="Case Notes">📝</button>
+        </div>
       </td>
     </tr>`;
   }).join('');
@@ -1402,6 +1674,7 @@ function renderHistoryTable(letters) {
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Broker MC</th>
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Damages</th>
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Length</th>
+            <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;text-transform:uppercase;letter-spacing:0.5px;">Notes</th>
             <th style="padding:10px 16px;font-size:11px;color:var(--text-muted);text-align:left;"></th>
           </tr>
         </thead>
@@ -1431,7 +1704,9 @@ function openHistoryModal(idx) {
   if (!letter) return;
   const modal = document.getElementById('historyModal');
   const date  = letter.ts ? new Date(letter.ts).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : '';
-  document.getElementById('histModalTitle').textContent = `${letter.carrierName || 'Carrier'} vs. ${letter.brokerName || 'Broker'}`;
+  const titleEl = document.getElementById('histModalTitle');
+  titleEl.textContent = `${letter.carrierName || 'Carrier'} vs. ${letter.brokerName || 'Broker'}`;
+  titleEl.dataset.caseRef = letter.caseRef || '';
   document.getElementById('histModalMeta').textContent  = `Case ${letter.caseRef} · ${date} · ${letter.totalDamages ? '$'+Number(letter.totalDamages).toLocaleString()+' claimed' : ''}`;
   document.getElementById('histModalBody').textContent  = letter.letterText || '(Letter text not available)';
   modal.style.display = 'flex';
@@ -1583,7 +1858,48 @@ window.onerror = function(msg, src, line) {
 checkPaymentReturn();
 loadAttorneys();
 loadCoverage();
+loadLandingStats();
 // Google Places loads only on-demand (📍 Search button) — not on page load
 </script>
+
+<!-- ══ PRE-FILL MODAL ══════════════════════════════════════════════════════ -->
+<div id="prefillModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9100;align-items:center;justify-content:center;">
+  <div style="background:var(--navy-dark);border:1px solid var(--border);border-radius:14px;width:94%;max-width:680px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.7);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <div>
+        <div style="font-weight:700;color:#fff;font-size:16px;">📂 Load Carrier Info From Past Case</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">Select a previous letter to pre-fill your carrier details. Broker fields will be cleared.</div>
+      </div>
+      <button onclick="closePrefillModal()" style="background:none;border:none;color:var(--text-muted);font-size:28px;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
+    </div>
+    <div style="padding:14px 24px;border-bottom:1px solid var(--border);flex-shrink:0;">
+      <input id="prefillSearch" placeholder="Search carrier name, MC, case ref..." autocomplete="off" oninput="filterPrefill(this.value)"
+        style="width:100%;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:9px 14px;color:#e0e6f0;font-size:13px;box-sizing:border-box;outline:none;" />
+    </div>
+    <div id="prefillList" style="overflow-y:auto;flex:1;padding:8px 0;"></div>
+  </div>
+</div>
+
+<!-- ══ NOTES MODAL ════════════════════════════════════════════════════════ -->
+<div id="notesModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:9200;align-items:center;justify-content:center;">
+  <div style="background:var(--navy-dark);border:1px solid var(--border);border-radius:14px;width:94%;max-width:520px;box-shadow:0 24px 64px rgba(0,0,0,0.7);">
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 24px;border-bottom:1px solid var(--border);">
+      <div>
+        <div style="font-weight:700;color:#fff;font-size:16px;">📝 Case Notes</div>
+        <div id="notesModalRef" style="font-size:12px;color:var(--gold);margin-top:2px;font-family:monospace;"></div>
+      </div>
+      <button onclick="closeNotesModal()" style="background:none;border:none;color:var(--text-muted);font-size:28px;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
+    </div>
+    <div style="padding:20px 24px;">
+      <textarea id="notesModalText" rows="7" placeholder="Track case status, attorney notes, outcome, next steps, dates of contact..."
+        style="width:100%;background:var(--navy-mid);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:#e0e6f0;font-size:14px;box-sizing:border-box;resize:vertical;outline:none;line-height:1.6;"></textarea>
+      <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
+        <button onclick="closeNotesModal()" class="btn btn-navy" style="padding:9px 18px;">Cancel</button>
+        <button onclick="saveNotes()" class="btn btn-red" style="padding:9px 22px;font-weight:700;">💾 Save Notes</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
