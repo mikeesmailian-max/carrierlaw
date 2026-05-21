@@ -236,6 +236,33 @@
     .topbar { padding: 0 20px; }
     .atty-content { padding: 20px; }
   }
+
+/* ── Google Places Autocomplete dark theme ── */
+.pac-container {
+  background: #0d1829 !important;
+  border: 1px solid #2d3f55 !important;
+  border-radius: 10px !important;
+  margin-top: 4px !important;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.7) !important;
+  font-family: inherit !important;
+  overflow: hidden;
+}
+.pac-item {
+  padding: 10px 16px !important;
+  color: #d0dbe8 !important;
+  font-size: 13px !important;
+  border-top: 1px solid #1a2840 !important;
+  cursor: pointer !important;
+}
+.pac-item:first-child { border-top: none !important; }
+.pac-item:hover, .pac-item-selected {
+  background: #1a2840 !important;
+  color: #fff !important;
+}
+.pac-item-query { color: #c9a84c !important; font-weight: 600; }
+.pac-icon { filter: invert(0.7) sepia(1) hue-rotate(180deg) brightness(1.2); }
+.pac-logo:after { display: none !important; }
+
 </style>
 </head>
 <body>
@@ -422,12 +449,11 @@
       <div>
         <div class="card">
           <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
-          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="e.g. Swift Eagle Transport LLC" autocomplete="off" /></div>
+          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="Start typing company name…" autocomplete="off" /><div id="carrierNameHint" style="font-size:11px;color:var(--text-muted);margin-top:3px;display:none;">Suggestions will appear as you type</div></div>
           <div class="field">
             <label>Carrier Address *</label>
             <div style="display:flex;gap:8px;align-items:center;">
-              <input id="carrierAddress" placeholder="123 Main St, Dallas, TX 75201" autocomplete="off" style="flex:1;" />
-              <button type="button" onclick="activatePlaces('carrierAddress')" title="Search with Google Maps" style="background:var(--navy-mid);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;white-space:nowrap;flex-shrink:0;">📍 Search</button>
+              <input id="carrierAddress" placeholder="Start typing your address…" autocomplete="off" style="flex:1;" />
             </div>
           </div>
           <div class="field-row">
@@ -519,7 +545,7 @@
             <label>Broker Full Address (Street, City, State ZIP) *</label>
             <div style="display:flex;gap:8px;align-items:center;">
               <input id="brokerAddress" placeholder="4500 Commerce Blvd, Dallas, TX 75201" autocomplete="off" style="flex:1;" />
-              <button type="button" onclick="activatePlaces('brokerAddress')" title="Search with Google Maps" style="background:var(--navy-mid);border:1px solid var(--border);color:var(--gold);border-radius:8px;padding:8px 12px;cursor:pointer;font-size:14px;white-space:nowrap;flex-shrink:0;">📍 Search</button>
+
             </div>
           </div>
 
@@ -830,9 +856,84 @@ async function updateCourtPreview() {
   }, 700);
 }
 
-// ── GOOGLE PLACES — ON-DEMAND (click 📍 Search to activate) ──
-// ── ADDRESS SEARCH — OpenStreetMap Nominatim, no API key needed ──
+// ── GOOGLE PLACES AUTOCOMPLETE ────────────────────────────────
+// Loaded once on init using key from /api/maps-key
+// Provides: inline address autocomplete + company name suggestions
+
+let _googlePlacesReady = false;
+
+function loadGooglePlaces(key) {
+  if (!key) { console.warn('No Google Maps key — address search unavailable'); return; }
+  if (window.google?.maps?.places) { initGooglePlaces(); return; }
+  const s = document.createElement('script');
+  s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&callback=initGooglePlaces`;
+  s.async = true; s.defer = true;
+  document.head.appendChild(s);
+}
+
+window.initGooglePlaces = function() {
+  _googlePlacesReady = true;
+  attachAddressAutocomplete('carrierAddress');
+  attachAddressAutocomplete('brokerAddress');
+  attachCompanyAutocomplete('carrierName', 'carrierAddress');
+  // Keep court preview live when address changes
+  document.getElementById('brokerAddress')?.addEventListener('change', updateCourtPreview);
+};
+
+function attachAddressAutocomplete(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input || !window.google?.maps?.places) return;
+  const ac = new google.maps.places.Autocomplete(input, {
+    types:              ['address'],
+    componentRestrictions: { country: 'us' },
+    fields:             ['formatted_address', 'geometry', 'address_components']
+  });
+  ac.addListener('place_changed', () => {
+    const place = ac.getPlace();
+    if (place.formatted_address) {
+      input.value = place.formatted_address;
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (inputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
+  });
+  // Style the dropdown to match dark theme
+  input.addEventListener('focus', () => {
+    const pacs = document.querySelectorAll('.pac-container');
+    pacs.forEach(p => {
+      p.style.background    = '#0d1829';
+      p.style.border        = '1px solid #2d3f55';
+      p.style.borderRadius  = '8px';
+      p.style.marginTop     = '4px';
+      p.style.boxShadow     = '0 12px 40px rgba(0,0,0,0.6)';
+    });
+  });
+}
+
+function attachCompanyAutocomplete(nameInputId, addressInputId) {
+  const input = document.getElementById(nameInputId);
+  if (!input || !window.google?.maps?.places) return;
+  const ac = new google.maps.places.Autocomplete(input, {
+    types:              ['establishment'],
+    componentRestrictions: { country: 'us' },
+    fields:             ['name', 'formatted_address', 'address_components', 'types']
+  });
+  ac.addListener('place_changed', () => {
+    const place = ac.getPlace();
+    if (place.name) input.value = place.name;
+    // Auto-fill address field when a company is selected
+    if (place.formatted_address) {
+      const addrInput = document.getElementById(addressInputId);
+      if (addrInput && !addrInput.value) {
+        addrInput.value = place.formatted_address;
+        addrInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+  });
+}
+
+// Fallback: if Google Places unavailable, use OpenStreetMap Nominatim via modal
 function activatePlaces(targetInputId) {
+  if (_googlePlacesReady) return; // Google handles it inline — no modal needed
   openAddressModal(targetInputId);
 }
 
@@ -850,21 +951,17 @@ function openAddressModal(targetInputId) {
       <input id="addrSearchInput" placeholder="Start typing an address..." autocomplete="off"
         style="width:100%;padding:13px 14px;border:1px solid #2d3f55;border-radius:8px;background:#111e30;color:#e0e6f0;font-size:15px;box-sizing:border-box;outline:none;" />
       <div id="addrResultsList" style="margin-top:6px;border-radius:8px;overflow:hidden;max-height:260px;overflow-y:auto;"></div>
-      <div style="margin-top:14px;font-size:12px;color:#4a5a70;text-align:right;">Address search powered by OpenStreetMap</div>
+      <div style="margin-top:14px;font-size:12px;color:#4a5a70;text-align:right;">Powered by OpenStreetMap (fallback)</div>
     </div>`;
   document.body.appendChild(overlay);
-
   const searchInput = document.getElementById('addrSearchInput');
   const resultsList = document.getElementById('addrResultsList');
-
   document.getElementById('addrCloseBtn').onclick = () => overlay.remove();
   overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
   document.addEventListener('keydown', function escClose(e) {
     if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escClose); }
   });
-
   searchInput.focus();
-
   let debounceTimer;
   searchInput.addEventListener('input', () => {
     clearTimeout(debounceTimer);
@@ -873,14 +970,10 @@ function openAddressModal(targetInputId) {
     resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">Searching...</div>';
     debounceTimer = setTimeout(async () => {
       try {
-        const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=us&q='
-                  + encodeURIComponent(q);
+        const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=6&countrycodes=us&q=' + encodeURIComponent(q);
         const res  = await fetch(url, { headers: { 'Accept-Language': 'en-US,en' } });
         const data = await res.json();
-        if (!data || !data.length) {
-          resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">No results — try adding city or state.</div>';
-          return;
-        }
+        if (!data || !data.length) { resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">No results.</div>'; return; }
         resultsList.innerHTML = '';
         data.forEach(item => {
           const row = document.createElement('div');
@@ -890,23 +983,17 @@ function openAddressModal(targetInputId) {
           row.onmouseleave = () => row.style.background = '';
           row.onclick = () => {
             const realInput = document.getElementById(targetInputId);
-            if (realInput) {
-              realInput.value = item.display_name;
-              realInput.dispatchEvent(new Event('input', { bubbles: true }));
-              realInput.dispatchEvent(new Event('change', { bubbles: true }));
-              if (targetInputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
-            }
+            if (realInput) { realInput.value = item.display_name; realInput.dispatchEvent(new Event('input', { bubbles: true })); }
+            if (targetInputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
             overlay.remove();
           };
           resultsList.appendChild(row);
         });
-      } catch(e) {
-        resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">Search error — please type your address manually.</div>';
-      }
+      } catch(e) { resultsList.innerHTML = '<div style="padding:10px;color:#8a9ab5;font-size:13px;">Search error.</div>'; }
     }, 400);
   });
 }
-// Keep court preview live when user types manually (no Places selected)
+// Keep court preview live when user types manually
 document.getElementById('brokerAddress')?.addEventListener('input', updateCourtPreview);
 
 // ── GENERATE LETTER ───────────────────────────────────────────
@@ -2522,6 +2609,8 @@ loadLandingStats();
 checkForDraft();
 startDraftAutoSave();
 checkPinOnLoad();
+// Load Google Places API using server-side key
+fetch('/api/maps-key').then(r=>r.json()).then(d=>{ if(d.key) loadGooglePlaces(d.key); }).catch(()=>{});
 // Google Places loads only on-demand (📍 Search button) — not on page load
 </script>
 
