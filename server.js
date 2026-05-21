@@ -422,8 +422,12 @@ async function findCourthouseViaGoogleMaps(address) {
   // Step 1 — geocode the broker's address
   const geoRes  = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${key}`);
   const geoData = await geoRes.json();
-  if (geoData.status !== 'OK' || !geoData.results[0])
-    throw new Error(`Could not geocode broker address "${address}". Google status: ${geoData.status}`);
+  if (geoData.status !== 'OK' || !geoData.results[0]) {
+    const msg = geoData.status === 'REQUEST_DENIED'
+      ? `Google Maps Geocoding API not enabled or key restricted (REQUEST_DENIED)`
+      : `Could not geocode broker address "${address}". Google status: ${geoData.status}`;
+    throw new Error(msg);
+  }
 
   const { lat: brokerLat, lng: brokerLng } = geoData.results[0].geometry.location;
   const formattedBrokerAddress = geoData.results[0].formatted_address;
@@ -652,8 +656,35 @@ app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
     const caseRef  = generateCaseRef();
     const damages  = calcDamages(Number(numTrucks));
 
-    // Always use Google Maps to find nearest courthouse by broker location
-    const court    = await findCourthouseViaGoogleMaps(brokerAddress);
+    // Courthouse lookup — non-blocking. Falls back gracefully if Google API unavailable.
+    let court = { name: null, address: null, distanceMiles: null };
+    try {
+      court = await findCourthouseViaGoogleMaps(brokerAddress);
+    } catch (courtErr) {
+      console.warn('Courthouse lookup skipped:', courtErr.message);
+      // Determine state from broker address for static fallback
+      const stateMatch = brokerAddress?.match(/\b([A-Z]{2})\b(?=\s*\d{5}|\s*,|\s*$)/);
+      const state = stateMatch ? stateMatch[1] : null;
+      const fallbacks = {
+        MD:'U.S. District Court for the District of Maryland, 101 W. Lombard St, Baltimore, MD 21201',
+        TX:'U.S. District Court for the Northern District of Texas, 1100 Commerce St, Dallas, TX 75242',
+        CA:'U.S. District Court for the Central District of California, 350 W. 1st St, Los Angeles, CA 90012',
+        FL:'U.S. District Court for the Middle District of Florida, 801 N. Florida Ave, Tampa, FL 33602',
+        IL:'U.S. District Court for the Northern District of Illinois, 219 S. Dearborn St, Chicago, IL 60604',
+        NY:'U.S. District Court for the Southern District of New York, 500 Pearl St, New York, NY 10007',
+        OH:'U.S. District Court for the Northern District of Ohio, 801 W. Superior Ave, Cleveland, OH 44113',
+        GA:'U.S. District Court for the Northern District of Georgia, 75 Ted Turner Dr SW, Atlanta, GA 30303',
+        PA:'U.S. District Court for the Eastern District of Pennsylvania, 601 Market St, Philadelphia, PA 19106',
+        NC:'U.S. District Court for the Middle District of North Carolina, 324 W. Market St, Greensboro, NC 27401',
+        TN:'U.S. District Court for the Middle District of Tennessee, 801 Broadway, Nashville, TN 37203',
+        MO:'U.S. District Court for the Eastern District of Missouri, 111 S. 10th St, St. Louis, MO 63102',
+        AZ:'U.S. District Court for the District of Arizona, 401 W. Washington St, Phoenix, AZ 85003',
+        CO:'U.S. District Court for the District of Colorado, 901 19th St, Denver, CO 80294',
+        WA:'U.S. District Court for the Western District of Washington, 700 Stewart St, Seattle, WA 98101',
+      };
+      const fb = state && fallbacks[state] ? fallbacks[state] : 'U.S. District Court (jurisdiction based on defendant registered address)';
+      court = { name: fb.split(',')[0], address: fb.split(',').slice(1).join(',').trim(), distanceMiles: null };
+    }
     const attorneys = await loadAttorneys();
     const attorney  = assignedAttorneyId ? attorneys.find(a => a.id === assignedAttorneyId) : null;
 
