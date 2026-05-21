@@ -555,6 +555,56 @@ app.get('/api/maps-key', (req, res) => {
 });
 
 // ── BROKER REPEAT-OFFENDER CHECK ─────────────────────────────
+
+// ── PUBLIC LETTER HISTORY (admin tool — no external auth needed) ─────────────
+app.get('/api/letters-history', async (req, res) => {
+  try {
+    const letters = await loadLetters();
+    const attorneys = await loadAttorneys();
+    const attyMap = Object.fromEntries(attorneys.map(a => [a.id, a]));
+    res.json({
+      letters: letters.map(l => ({
+        caseRef:     l.caseRef,
+        carrierName: l.carrierName,
+        carrierMC:   l.carrierMC,
+        brokerName:  l.brokerName,
+        brokerMC:    l.brokerMC,
+        numTrucks:   l.numTrucks,
+        totalDamages:l.totalDamages,
+        court:       l.court,
+        letterText:  l.letterText,
+        attorney:    l.attorneyId ? (attyMap[l.attorneyId] || null) : null,
+        ts:          l.ts || l.createdAt,
+      }))
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── PUBLIC BROKER INTELLIGENCE (for the form's live broker lookup) ────────────
+app.get('/api/broker-intel', async (req, res) => {
+  const { mc } = req.query;
+  if (!mc) return res.json({ count: 0, reports: [], totalDamages: 0 });
+  const mc_clean = String(mc).trim().replace(/^MC-?/i, '');
+  const allLetters = await loadLetters();
+  const allReports = (await loadReports()).filter(r => String(r.brokerMC).replace(/^MC-?/i, '') === mc_clean);
+  // Find matching letters for damages + dates
+  const matchingLetters = allLetters.filter(l => String(l.brokerMC||'').replace(/^MC-?/i,'') === mc_clean);
+  const totalDamages = matchingLetters.reduce((sum, l) => sum + (Number(l.totalDamages)||0), 0);
+  res.json({
+    count:        allReports.length,
+    reports:      allReports.slice(0,10).map(r => ({
+                    carrierName: r.carrierName,
+                    caseRef:     r.caseRef,
+                    ts:          r.ts,
+                  })),
+    totalDamages,
+    firstSeen:    allReports.length ? allReports[allReports.length-1].ts : null,
+    lastSeen:     allReports.length ? allReports[0].ts : null,
+  });
+});
+
 app.get('/api/check-broker', async (req, res) => {
   const { mc } = req.query;
   if (!mc) return res.json({ count: 0, reports: [] });
