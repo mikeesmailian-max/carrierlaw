@@ -269,25 +269,45 @@
 }
 .pac-logo:after { display: none !important; }
 
-/* ── Kill browser autofill overlay icons ── */
+/* ── Nuclear kill: browser autofill & password manager icons ── */
 input::-webkit-contacts-auto-fill-button,
 input::-webkit-credentials-auto-fill-button,
-input::-webkit-caps-lock-indicator { display: none !important; visibility: hidden !important; pointer-events: none !important; }
-
-/* Kill password manager injected overlays (Dashlane, 1Password, LastPass, Bitwarden) */
-[data-lastpass-icon-root], [data-lastpass-root],
-[data-dashlane-rid], [data-dashlane-label],
-div[id^="dashlane"], span[id^="dashlane"],
-[data-1password], [id^="onepassword"],
-[id^="bw-"], [class*="bw-autofill"],
-.__lpform_icon, .lpbubble,
-[data-lpignore-button] {
+input::-webkit-caps-lock-indicator,
+input::-webkit-textfield-decoration-container,
+input::-ms-reveal,
+input::-ms-clear {
   display: none !important;
   visibility: hidden !important;
   opacity: 0 !important;
   pointer-events: none !important;
   width: 0 !important;
   height: 0 !important;
+}
+
+/* CRITICAL: Block background-image injection (Dashlane/1Password inject icons this way) */
+input, input:focus, input:hover, input:active, input:not([type="submit"]) {
+  background-image: none !important;
+  -webkit-appearance: none !important;
+}
+
+/* Kill password manager injected DOM nodes */
+[data-lastpass-icon-root], [data-lastpass-root], [data-lp-icon],
+[data-dashlane-rid], [data-dashlane-label], [data-dashlane-frameid],
+div[id^="dashlane"], span[id^="dashlane"], iframe[id^="dashlane"],
+[data-1password], [data-1password-visible], [id^="onepassword"], [class*="onepassword"],
+[id^="bw-"], [class*="bw-autofill"], [class*="bitwarden"],
+.__lpform_icon, .lpbubble, .__lpform_input_anchor,
+[aria-roledescription="autofill"],
+[data-lpignore-button],
+div[style*="z-index: 2147483647"][style*="position: absolute"],
+div[style*="z-index:2147483647"][style*="position:absolute"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
 }
 
 </style>
@@ -484,7 +504,14 @@ div[id^="dashlane"], span[id^="dashlane"],
             </div>
           </div>
           <div class="field-row">
-            <div class="field"><label>MC Number *</label><input id="carrierMC" placeholder="1234567"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+            <div class="field">
+              <label>MC Number *</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="carrierMC" placeholder="1234567" oninput="fmcsaLookupDebounced('carrier',this.value)" autocomplete="mc-x" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other" style="flex:1;"/>
+                <button type="button" onclick="fmcsaLookup('carrier',document.getElementById('carrierMC').value,true)" style="white-space:nowrap;padding:8px 12px;background:#1a2f4a;border:1px solid #2d5a8a;border-radius:8px;color:#6ab0f5;font-size:12px;cursor:pointer;">🔍 Lookup</button>
+              </div>
+              <div id="carrierFmcsaStatus" style="font-size:11px;margin-top:4px;min-height:16px;"></div>
+            </div>
             <div class="field"><label>DOT Number *</label><input id="carrierDOT" placeholder="9876543"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
           </div>
           <div class="field"><label>Your Contact Email *</label><input id="carrierEmail" type="email" placeholder="owner@yourcompany.com"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
@@ -542,11 +569,15 @@ div[id^="dashlane"], span[id^="dashlane"],
 
         <div class="card">
           <div class="card-title"><span class="dot"></span>Broker Who Filed the Report</div>
-          <div class="field"><label>Broker Company Name *</label><input id="brokerName" placeholder="e.g. Apex Freight Solutions Inc." autocomplete="off"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+          <div class="field"><label>Broker Company Name *</label><input id="brokerName" placeholder="e.g. Apex Freight Solutions Inc." autocomplete="brokername-x"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
           <div class="field-row">
             <div class="field">
               <label>Broker MC Number *</label>
-              <input id="brokerMC" placeholder="7654321" oninput="checkBrokerRepeat(this.value)"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="brokerMC" placeholder="7654321" oninput="checkBrokerRepeat(this.value);fmcsaLookupDebounced('broker',this.value)" autocomplete="mc-x" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other" style="flex:1;"/>
+                <button type="button" onclick="fmcsaLookup('broker',document.getElementById('brokerMC').value,true)" style="white-space:nowrap;padding:8px 12px;background:#1a2f4a;border:1px solid #2d5a8a;border-radius:8px;color:#6ab0f5;font-size:12px;cursor:pointer;">🔍 Lookup</button>
+              </div>
+              <div id="brokerFmcsaStatus" style="font-size:11px;margin-top:4px;min-height:16px;"></div>
               <div id="brokerIntelCard" style="display:none;margin-top:10px;border-radius:10px;overflow:hidden;border:1px solid #7b2020;">
                 <div id="brokerIntelHeader" style="padding:10px 14px;background:#3d1a1a;display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="toggleBrokerIntel()">
                   <div style="display:flex;align-items:center;gap:10px;">
@@ -2619,6 +2650,47 @@ window.onerror = function(msg, src, line) {
   console.error('JS Error:', msg, 'line', line, src);
   return false;
 };
+
+// ── FMCSA SAFER Auto-Lookup ────────────────────────────────────────
+let _fmcsaTimer = {};
+function fmcsaLookupDebounced(type, mc) {
+  clearTimeout(_fmcsaTimer[type]);
+  if (!mc || mc.replace(/\D/g,'').length < 5) return;
+  _fmcsaTimer[type] = setTimeout(() => fmcsaLookup(type, mc), 900);
+}
+async function fmcsaLookup(type, mc, forced) {
+  const clean = mc ? mc.replace(/\D/g,'') : '';
+  if (clean.length < 5) return;
+  const statusEl = document.getElementById(type === 'carrier' ? 'carrierFmcsaStatus' : 'brokerFmcsaStatus');
+  if (statusEl) statusEl.innerHTML = '<span style="color:#8a9ab5;">⏳ Looking up MC-' + clean + ' on FMCSA…</span>';
+  try {
+    const res  = await fetch('/api/fmcsa-lookup?mc=' + encodeURIComponent(clean));
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      if (statusEl) statusEl.innerHTML = '<span style="color:#e67e22;">⚠️ ' + (data.error || 'Lookup failed') + '</span>';
+      return;
+    }
+    const legalName = data.legalName || data.dbaName || '';
+    const addr      = data.address   || '';
+    const dot       = data.dotNumber || '';
+    const status    = data.status    || '';
+    if (type === 'carrier') {
+      if (legalName && !document.getElementById('carrierName').value)    document.getElementById('carrierName').value    = legalName;
+      if (dot       && !document.getElementById('carrierDOT').value)     document.getElementById('carrierDOT').value     = dot;
+      if (addr      && !document.getElementById('carrierAddress').value) document.getElementById('carrierAddress').value = addr;
+    } else {
+      if (legalName && !document.getElementById('brokerName').value)    document.getElementById('brokerName').value    = legalName;
+      if (addr      && !document.getElementById('brokerAddress').value) document.getElementById('brokerAddress').value = addr;
+    }
+    const statusColor = (status||'').toLowerCase().includes('active') ? '#2ecc71' : '#e67e22';
+    if (statusEl) statusEl.innerHTML =
+      '<span style="color:' + statusColor + ';">✓ ' + (legalName || 'Found') +
+      (status ? ' · ' + status : '') + '</span>';
+  } catch(e) {
+    if (statusEl) statusEl.innerHTML = '<span style="color:#e74c3c;">✗ FMCSA lookup error</span>';
+  }
+}
+
 checkPaymentReturn();
 loadAttorneys();
 loadCoverage();
@@ -2630,30 +2702,56 @@ checkPinOnLoad();
 fetch('/api/maps-key').then(r=>r.json()).then(d=>{ if(d.key) loadGooglePlaces(d.key); }).catch(()=>{});
 // Google Places loads only on-demand (📍 Search button) — not on page load
 
-// ── Kill password manager injected overlays at runtime ────────
+// ── NUCLEAR: Kill password manager injected overlays at runtime ────────
 (function() {
   const PM_SELECTORS = [
-    '[data-lastpass-icon-root]','[data-lastpass-root]',
-    '[data-dashlane-rid]','[data-dashlane-label]',
-    '[id^="dashlane-"]','[class*="dashlane"]',
-    '[data-1password-filled]','[id^="onepassword"]',
-    '[id^="bw-"]','[class*="bitwarden"]',
-    '.__lpform_icon','.lpbubble',
-    '[aria-roledescription="autofill"]'
+    '[data-lastpass-icon-root]','[data-lastpass-root]','[data-lp-icon]',
+    '[data-dashlane-rid]','[data-dashlane-label]','[data-dashlane-frameid]',
+    '[id^="dashlane-"]','[class*="dashlane"]','iframe[id^="dashlane"]',
+    '[data-1password]','[data-1password-visible]','[id^="onepassword"]','[class*="onepassword"]',
+    '[id^="bw-"]','[class*="bw-autofill"]','[class*="bitwarden"]',
+    '.__lpform_icon','.lpbubble','.__lpform_input_anchor',
+    '[aria-roledescription="autofill"]','[data-lpignore-button]'
   ];
-  function cleanPM() {
+  // Nuke all matching DOM nodes
+  function removePMNodes() {
     PM_SELECTORS.forEach(sel => {
       try { document.querySelectorAll(sel).forEach(el => el.remove()); } catch(e) {}
     });
-    // Also hide any elements injected INTO inputs (some extensions do this)
+  }
+  // Strip background-image and PM-added inline styles from every input
+  function cleanInputStyles() {
     document.querySelectorAll('input').forEach(inp => {
-      inp.style.backgroundImage = 'none';
+      // Force remove background-image (the main vector for PM icon injection)
+      inp.style.setProperty('background-image', 'none', 'important');
+      inp.style.setProperty('-webkit-background-image', 'none', 'important');
+      // Remove any padding-right extension added to make room for their icon
+      const pr = window.getComputedStyle(inp).paddingRight;
+      if (parseInt(pr) > 30) inp.style.setProperty('padding-right', '14px', 'important');
     });
   }
-  // Run immediately + watch for injections
-  cleanPM();
-  const obs = new MutationObserver(cleanPM);
-  obs.observe(document.body, { childList: true, subtree: true, attributes: false });
+  function cleanAll() { removePMNodes(); cleanInputStyles(); }
+  // Run immediately
+  cleanAll();
+  // MutationObserver: watch childList AND attribute changes
+  const obs = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      // If style attribute changed on an input, fix it immediately
+      if (m.type === 'attributes' && m.target.tagName === 'INPUT') {
+        m.target.style.setProperty('background-image', 'none', 'important');
+      }
+    }
+    // Always run full cleanup
+    cleanAll();
+  });
+  obs.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['style', 'class', 'data-dashlane-rid', 'data-1password', 'data-lpignore']
+  });
+  // Belt-and-suspenders: interval cleanup every 750ms catches anything the observer misses
+  setInterval(cleanAll, 750);
 })();
 
 </script>

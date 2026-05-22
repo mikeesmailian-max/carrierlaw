@@ -554,6 +554,84 @@ app.delete('/api/attorneys/:id', requireAdmin, async (req, res) => {
 });
 
 // ── PUBLIC CONFIG — maps key for client-side Places API ───────
+
+// ── FMCSA SAFER LOOKUP ───────────────────────────────────────────────────────
+app.get('/api/fmcsa-lookup', async (req, res) => {
+  const mc = (req.query.mc || '').replace(/\D/g, '');
+  if (!mc || mc.length < 5) return res.status(400).json({ error: 'Invalid MC number' });
+
+  // Try FMCSA REST API first (requires FMCSA_WEB_KEY env var)
+  const apiKey = process.env.FMCSA_WEB_KEY;
+  if (apiKey) {
+    try {
+      const apiUrl = 'https://mobile.fmcsa.dot.gov/qc/services/carriers/docket-number/' + mc + '?webKey=' + apiKey;
+      const r = await fetch(apiUrl, { timeout: 8000 });
+      if (r.ok) {
+        const j = await r.json();
+        const c = j.content && j.content[0] && j.content[0].carrier;
+        if (c) {
+          return res.json({
+            legalName:  c.legalName || '',
+            dbaName:    c.dbaName   || '',
+            dotNumber:  (c.dotNumber || '').toString(),
+            mcNumber:   mc,
+            address:    [c.phyStreet, c.phyCity, c.phyState, c.phyZipcode].filter(Boolean).join(', '),
+            phone:      c.telephone || '',
+            status:     c.statusCode === 'A' ? 'Active' : (c.statusCode || ''),
+            entityType: c.carrierOperation || ''
+          });
+        }
+      }
+    } catch (e) { /* fall through to SAFER scrape */ }
+  }
+
+  // Fallback: scrape FMCSA SAFER web
+  try {
+    const url = 'https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=' + mc;
+    const r = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarrierLaw/1.0)' },
+      signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined
+    });
+    if (!r.ok) return res.status(502).json({ error: 'FMCSA unreachable' });
+    const html = await r.text();
+
+    function extractSafer(label) {
+      const re = new RegExp(label + '[^<]*</td>\s*<td[^>]*>([^<]*)', 'i');
+      const m = html.match(re);
+      return m ? m[1].trim() : '';
+    }
+
+    const legalName = extractSafer('Legal Name') || extractSafer('Entity Name');
+    const dbaName   = extractSafer('DBA Name');
+    const dotNum    = extractSafer('USDOT Number');
+    const street    = extractSafer('Physical Address');
+    const city      = extractSafer('City');
+    const state     = extractSafer('State');
+    const zip       = extractSafer('Zip');
+    const phone     = extractSafer('Phone');
+    const opStatus  = extractSafer('Operating Status') || extractSafer('Status');
+
+    if (!legalName && !dotNum) {
+      return res.status(404).json({ error: 'MC-' + mc + ' not found on FMCSA' });
+    }
+
+    const addrParts = [street, city, state, zip].filter(Boolean);
+    return res.json({
+      legalName,
+      dbaName,
+      dotNumber: dotNum,
+      mcNumber:  mc,
+      address:   addrParts.join(', '),
+      phone,
+      status:    opStatus,
+      entityType: ''
+    });
+  } catch (e) {
+    console.error('FMCSA lookup error:', e.message);
+    return res.status(500).json({ error: 'Lookup failed: ' + e.message });
+  }
+});
+
 app.get('/api/maps-key', (req, res) => {
   res.json({ key: cfg('GOOGLE_MAPS_API_KEY') || '' });
 });
