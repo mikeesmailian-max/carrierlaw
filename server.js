@@ -643,8 +643,9 @@ app.get('/api/fmcsa-lookup', async (req, res) => {
 
     // Debug: return raw HTML snippet to diagnose server-side SAFER response
     if (req.query.debug === '1') {
-      const snippet = html.substring(0, 3000);
-      return res.json({ debug: true, htmlSnippet: snippet, legalName, dotNum });
+      const qfIdx = html.toLowerCase().indexOf('queryfield');
+      const snippet = qfIdx >= 0 ? html.substring(Math.max(0, qfIdx-300), qfIdx+3000) : html.substring(0, 4000);
+      return res.json({ debug: true, qfIdx, totalLen: html.length, htmlSnippet: snippet, legalName, dotNum });
     }
 
     if (!legalName && !dotNum) {
