@@ -715,8 +715,9 @@ app.get('/api/court', async (req, res) => {
     const result = await findCourthouseViaGoogleMaps(address);
     res.json(result);
   } catch(err) {
-    console.error('Court lookup error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.error('Court lookup error (using state fallback):', err.message);
+    const fallback = getCourtByState(address);
+    res.json({ ...fallback, fromStateFallback: true });
   }
 });
 

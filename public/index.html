@@ -902,6 +902,10 @@ async function updateCourtPreview() {
     try {
       const res = await fetch('/api/court?address=' + encodeURIComponent(addr));
       const c   = await res.json();
+      if (!res.ok || c.error || !c.name) {
+        document.getElementById('courtPreview').style.display = 'none';
+        return;
+      }
       window._courtData = c;
       document.getElementById('courtPreview').style.display = 'block';
       let html = `<strong>${c.name}</strong><br>${c.address}, ${c.city}, ${c.state} ${c.zip}<br>${c.dept} &nbsp;·&nbsp; ${c.phone}`;
