@@ -498,11 +498,11 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
       <div>
         <div class="card">
           <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
-          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="Start typing company name…" autocomplete="companyname-x"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/><div id="carrierNameHint" style="font-size:11px;color:var(--text-muted);margin-top:3px;display:none;">Suggestions will appear as you type</div></div>
+          <div class="field"><label>Carrier Company Name *</label><input id="carrierName" placeholder="e.g. ABC Trucking LLC" autocomplete="companyname-x"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/><div id="carrierNameHint" style="font-size:11px;color:var(--text-muted);margin-top:3px;display:none;">Suggestions will appear as you type</div></div>
           <div class="field">
             <label>Carrier Address *</label>
             <div style="display:flex;gap:8px;align-items:center;">
-              <input id="carrierAddress" placeholder="Start typing your address…" autocomplete="carrieraddress-x" style="flex:1;"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
+              <input id="carrierAddress" placeholder="e.g. 123 Main St, Dallas, TX 75201" autocomplete="carrieraddress-x" style="flex:1;"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
             </div>
           </div>
           <div class="field-row">
@@ -968,10 +968,12 @@ function loadGooglePlaces(key) {
 
 window.initGooglePlaces = function() {
   _googlePlacesReady = true;
-  attachAddressAutocomplete('carrierAddress');
-  attachAddressAutocomplete('brokerAddress');
-  attachCompanyAutocomplete('carrierName', 'carrierAddress');
-  // Keep court preview live when address changes
+  // NOTE: We intentionally do NOT attach Places Autocomplete to address inputs.
+  // The Places API may not be enabled on the key / may have browser restrictions,
+  // which causes "Oops! Something went wrong." to appear and locks the input.
+  // Address fields stay as plain text — always typeable.
+  // Company name autocomplete also skipped to avoid lockups.
+  // The Maps key is still used server-side for court-finding / geocoding.
   document.getElementById('brokerAddress')?.addEventListener('change', updateCourtPreview);
 };
 
