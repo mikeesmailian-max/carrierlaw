@@ -628,7 +628,7 @@ app.get('/api/fmcsa-lookup', async (req, res) => {
       const re = /USDOT Status:<\/A>[\s\S]*?<TD[^>]*class=["']queryfield["'][^>]*>([\s\S]*?)<\/TD>/i;
       const m = html.match(re);
       if (!m) return '';
-      let val = m[1].replace(/<!--([\s\S]*?)-->/g, '$1');
+      let val = m[1].replace(/<!--[\s\S]*?-->/g, ''); // strip HTML comments, use visible text
       return val.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
