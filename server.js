@@ -641,6 +641,12 @@ app.get('/api/fmcsa-lookup', async (req, res) => {
     const entityType = extractSafer('Entity Type');
     const mcNumSafer = extractSafer('Docket Number') || mc;
 
+    // Debug: return raw HTML snippet to diagnose server-side SAFER response
+    if (req.query.debug === '1') {
+      const snippet = html.substring(0, 3000);
+      return res.json({ debug: true, htmlSnippet: snippet, legalName, dotNum });
+    }
+
     if (!legalName && !dotNum) {
       return res.status(404).json({ error: (lookupType==='dot'?'DOT-':'MC-') + lookupVal + ' not found on FMCSA' });
     }
