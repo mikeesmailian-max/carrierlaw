@@ -606,36 +606,54 @@ app.get('/api/fmcsa-lookup', async (req, res) => {
     if (!r.ok) return res.status(502).json({ error: 'FMCSA unreachable' });
     const html = await r.text();
 
+    // SAFER HTML: labels in <TH class="querylabelbkg"><A>Label:</A></TH> <TD class="queryfield">value</TD>
     function extractSafer(label) {
-      const re = new RegExp(label + '[^<]*</td>\s*<td[^>]*>([^<]*)', 'i');
+      const re = new RegExp(
+        label + '[^<]*<\/[Aa]>[^<]*<\/[Tt][Hh]>\s*<[Tt][Dd][^>]*class=["\'"]queryfield["\'"][^>]*>([\s\S]*?)<\/[Tt][Dd]>',
+        'i'
+      );
       const m = html.match(re);
-      return m ? m[1].trim() : '';
+      if (!m) return '';
+      return m[1].replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    function extractPhysicalAddr() {
+      // SAFER uses id="physicaladdressvalue" on the address TD
+      const re = /id=["']physicaladdressvalue["'][^>]*>([\s\S]*?)<\/[Tt][Dd]>/i;
+      const m = html.match(re);
+      if (!m) return '';
+      return m[1].replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    function extractStatus() {
+      // Status value is wrapped in an HTML comment: <!--ACTIVE-->
+      const re = /USDOT Status:<\/A>[\s\S]*?<TD[^>]*class=["']queryfield["'][^>]*>([\s\S]*?)<\/TD>/i;
+      const m = html.match(re);
+      if (!m) return '';
+      let val = m[1].replace(/<!--([\s\S]*?)-->/g, '$1');
+      return val.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
     }
 
-    const legalName = extractSafer('Legal Name') || extractSafer('Entity Name');
-    const dbaName   = extractSafer('DBA Name');
-    const dotNum    = extractSafer('USDOT Number');
-    const street    = extractSafer('Physical Address');
-    const city      = extractSafer('City');
-    const state     = extractSafer('State');
-    const zip       = extractSafer('Zip');
-    const phone     = extractSafer('Phone');
-    const opStatus  = extractSafer('Operating Status') || extractSafer('Status');
+    const legalName  = extractSafer('Legal Name') || extractSafer('Entity\/DBA Name');
+    const dbaName    = extractSafer('DBA Name');
+    const dotNum     = extractSafer('USDOT Number');
+    const address    = extractPhysicalAddr() || extractSafer('Physical Address');
+    const phone      = extractSafer('Phone');
+    const opStatus   = extractStatus() || extractSafer('Operating Status') || extractSafer('Status');
+    const entityType = extractSafer('Entity Type');
+    const mcNumSafer = extractSafer('Docket Number') || mc;
 
     if (!legalName && !dotNum) {
       return res.status(404).json({ error: (lookupType==='dot'?'DOT-':'MC-') + lookupVal + ' not found on FMCSA' });
     }
 
-    const addrParts = [street, city, state, zip].filter(Boolean);
     return res.json({
       legalName,
       dbaName,
-      dotNumber: dotNum,
-      mcNumber:  mc,
-      address:   addrParts.join(', '),
+      dotNumber:  dotNum,
+      mcNumber:   mcNumSafer || mc,
+      address,
       phone,
-      status:    opStatus,
-      entityType: ''
+      status:     opStatus,
+      entityType
     });
   } catch (e) {
     console.error('FMCSA lookup error:', e.message);
