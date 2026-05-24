@@ -557,14 +557,19 @@ app.delete('/api/attorneys/:id', requireAdmin, async (req, res) => {
 
 // ── FMCSA SAFER LOOKUP ───────────────────────────────────────────────────────
 app.get('/api/fmcsa-lookup', async (req, res) => {
-  const mc = (req.query.mc || '').replace(/\D/g, '');
-  if (!mc || mc.length < 5) return res.status(400).json({ error: 'Invalid MC number' });
+  const mc  = (req.query.mc  || '').replace(/\D/g, '');
+  const dot = (req.query.dot || '').replace(/\D/g, '');
+  const lookupType = dot ? 'dot' : 'mc';
+  const lookupVal  = dot || mc;
+  if (!lookupVal || lookupVal.length < 5) return res.status(400).json({ error: 'Enter at least 5 digits' });
 
   // Try FMCSA REST API first (requires FMCSA_WEB_KEY env var)
   const apiKey = process.env.FMCSA_WEB_KEY;
   if (apiKey) {
     try {
-      const apiUrl = 'https://mobile.fmcsa.dot.gov/qc/services/carriers/docket-number/' + mc + '?webKey=' + apiKey;
+      const apiUrl = lookupType === 'dot'
+        ? 'https://mobile.fmcsa.dot.gov/qc/services/carriers/' + lookupVal + '?webKey=' + apiKey
+        : 'https://mobile.fmcsa.dot.gov/qc/services/carriers/docket-number/' + lookupVal + '?webKey=' + apiKey;
       const r = await fetch(apiUrl, { timeout: 8000 });
       if (r.ok) {
         const j = await r.json();
@@ -587,7 +592,8 @@ app.get('/api/fmcsa-lookup', async (req, res) => {
 
   // Fallback: scrape FMCSA SAFER web
   try {
-    const url = 'https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=' + mc;
+    const saferParam = lookupType === 'dot' ? 'USDOT' : 'MC_MX';
+    const url = 'https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=' + saferParam + '&query_string=' + lookupVal;
     const r = await fetch(url, {
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CarrierLaw/1.0)' },
       signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined
@@ -612,7 +618,7 @@ app.get('/api/fmcsa-lookup', async (req, res) => {
     const opStatus  = extractSafer('Operating Status') || extractSafer('Status');
 
     if (!legalName && !dotNum) {
-      return res.status(404).json({ error: 'MC-' + mc + ' not found on FMCSA' });
+      return res.status(404).json({ error: (lookupType==='dot'?'DOT-':'MC-') + lookupVal + ' not found on FMCSA' });
     }
 
     const addrParts = [street, city, state, zip].filter(Boolean);
@@ -642,12 +648,17 @@ app.get('/api/maps-key', (req, res) => {
 // ── FORM PIN PROTECTION ───────────────────────────────────────────────────────
 app.post('/api/verify-pin', (req, res) => {
   const { pin } = req.body;
-  const correctPin = process.env.FORM_PIN || '1234';
-  if (String(pin).trim() === String(correctPin).trim()) {
-    res.json({ ok: true });
-  } else {
-    res.status(401).json({ ok: false, error: 'Incorrect PIN' });
+  const correctPin  = process.env.FORM_PIN     || '1234';
+  const adminPass   = process.env.ADMIN_PASSWORD || 'mikee@megafleetcorp.com';
+  const pinStr      = String(pin).trim();
+  if (pinStr === String(adminPass).trim()) {
+    // Admin access — return admin token so UI can show admin controls
+    return res.json({ ok: true, isAdmin: true, adminToken: adminPass });
   }
+  if (pinStr === String(correctPin).trim()) {
+    return res.json({ ok: true, isAdmin: false });
+  }
+  res.status(401).json({ ok: false, error: 'Incorrect PIN' });
 });
 
 // ── PUBLIC LETTER HISTORY (admin tool — no external auth needed) ─────────────

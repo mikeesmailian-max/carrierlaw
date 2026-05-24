@@ -514,7 +514,13 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
               </div>
               <div id="carrierFmcsaStatus" style="font-size:11px;margin-top:4px;min-height:16px;"></div>
             </div>
-            <div class="field"><label>DOT Number *</label><input id="carrierDOT" placeholder="9876543"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+            <div class="field">
+              <label>DOT Number *</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="carrierDOT" placeholder="9876543" oninput="fmcsaLookupDotDebounced('carrier',this.value)" autocomplete="dot-x" data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other" style="flex:1;"/>
+                <button type="button" onclick="fmcsaLookupByDot('carrier',document.getElementById('carrierDOT').value,true)" style="white-space:nowrap;padding:8px 12px;background:#1a2f4a;border:1px solid #2d5a8a;border-radius:8px;color:#6ab0f5;font-size:12px;cursor:pointer;">🔍 Lookup</button>
+              </div>
+            </div>
           </div>
           <div class="field"><label>Your Contact Email *</label><input id="carrierEmail" type="email" placeholder="owner@yourcompany.com"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
 
@@ -743,7 +749,7 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
 <div id="screen-attorneys" class="screen">
   <div class="form-header">
     <div><h2>Attorney Database</h2><p>Manage your network of in-house and partner attorneys.</p></div>
-    <button class="btn btn-red" onclick="document.getElementById('attyFormCard').style.display='block'">+ Add Attorney</button>
+    <button id="addAttyBtn" class="btn btn-red" style="display:none;" onclick="document.getElementById('attyFormCard').style.display='block'">+ Add Attorney</button>
   </div>
   <div class="atty-content">
     <div id="attyFormCard" class="card" style="display:none;">
@@ -1415,7 +1421,7 @@ function renderAttorneys() {
       <td>${(a.licenseStates||'').split(',').map(s=>`<span class="tag">${s.trim()}</span>`).join('')}</td>
       <td><div style="font-size:12px;">${a.email}</div><div style="font-size:12px;color:var(--text-muted);">${a.phone||''}</div></td>
       <td style="font-size:12px;color:var(--text-muted);">${a.specialty||'—'}</td>
-      <td><button class="btn btn-navy" style="padding:6px 14px;font-size:12px;" onclick="deleteAttorney('${a.id}')">Remove</button></td>
+      <td>${isAdminUser() ? `<button class="btn btn-navy" style="padding:6px 14px;font-size:12px;" onclick="deleteAttorney('${a.id}')">Remove</button>` : ''}</td>
     </tr>`).join('')}</tbody></table>`;
 }
 
@@ -1428,7 +1434,7 @@ async function addAttorney() {
   };
   if (!data.name || !data.barNumber || !data.email) { showAlert('attorneyAlert','red','Name, bar number, and email are required.'); return; }
   try {
-    const res = await fetch('/api/attorneys', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(data) });
+    const res = await fetch('/api/attorneys', { method:'POST', headers:{'Content-Type':'application/json','x-admin-token':sessionStorage.getItem('adminToken')||''}, body: JSON.stringify(data) });
     if (!res.ok) throw new Error('Failed');
     ['attyName','attyFirm','attyBar','attyBarState','attyStates','attyEmail','attyPhone','attySpecialty'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
     showAlert('attorneyAlert','green','✅ Attorney added successfully.');
@@ -1439,8 +1445,18 @@ async function addAttorney() {
 
 async function deleteAttorney(id) {
   if (!confirm('Remove this attorney?')) return;
-  await fetch('/api/attorneys/'+id, { method:'DELETE' });
+  await fetch('/api/attorneys/'+id, { method:'DELETE', headers:{'x-admin-token':sessionStorage.getItem('adminToken')||''} });
   loadAttorneys();
+}
+
+// ── ADMIN HELPERS ─────────────────────────────────────────────
+function isAdminUser() {
+  return sessionStorage.getItem('isAdmin') === '1';
+}
+function refreshAdminUI() {
+  const addBtn = document.getElementById('addAttyBtn');
+  if (addBtn) addBtn.style.display = isAdminUser() ? 'inline-flex' : 'none';
+  renderAttorneys(); // re-render to show/hide Remove buttons
 }
 
 // ── UTILS ─────────────────────────────────────────────────────
@@ -2459,9 +2475,14 @@ function verifyPin() {
   .then(d => {
     if (d.ok) {
       sessionStorage.setItem(PIN_SESSION_KEY, '1');
+      if (d.isAdmin && d.adminToken) {
+        sessionStorage.setItem('adminToken', d.adminToken);
+        sessionStorage.setItem('isAdmin', '1');
+      }
       hidePinModal();
+      refreshAdminUI();
       if (errEl) errEl.textContent = '';
-      showToast('Access granted ✓', 'success');
+      showToast(d.isAdmin ? '🔐 Admin access granted ✓' : 'Access granted ✓', 'success');
     } else {
       if (errEl) errEl.textContent = '✗ Incorrect PIN. Try again.';
       document.getElementById('pinInput').value = '';
@@ -2700,18 +2721,35 @@ window.onerror = function(msg, src, line) {
 
 // ── FMCSA SAFER Auto-Lookup ────────────────────────────────────────
 let _fmcsaTimer = {};
+
 function fmcsaLookupDebounced(type, mc) {
-  clearTimeout(_fmcsaTimer[type]);
+  clearTimeout(_fmcsaTimer[type + '_mc']);
   if (!mc || mc.replace(/\D/g,'').length < 5) return;
-  _fmcsaTimer[type] = setTimeout(() => fmcsaLookup(type, mc), 900);
+  _fmcsaTimer[type + '_mc'] = setTimeout(() => fmcsaLookup(type, mc), 900);
 }
+function fmcsaLookupDotDebounced(type, dot) {
+  clearTimeout(_fmcsaTimer[type + '_dot']);
+  if (!dot || dot.replace(/\D/g,'').length < 5) return;
+  _fmcsaTimer[type + '_dot'] = setTimeout(() => fmcsaLookupByDot(type, dot), 900);
+}
+
 async function fmcsaLookup(type, mc, forced) {
   const clean = mc ? mc.replace(/\D/g,'') : '';
   if (clean.length < 5) return;
+  await _doFmcsaLookup(type, { mc: clean }, 'MC-' + clean);
+}
+async function fmcsaLookupByDot(type, dot, forced) {
+  const clean = dot ? dot.replace(/\D/g,'') : '';
+  if (clean.length < 5) return;
+  await _doFmcsaLookup(type, { dot: clean }, 'DOT-' + clean);
+}
+
+async function _doFmcsaLookup(type, params, label) {
   const statusEl = document.getElementById(type === 'carrier' ? 'carrierFmcsaStatus' : 'brokerFmcsaStatus');
-  if (statusEl) statusEl.innerHTML = '<span style="color:#8a9ab5;">⏳ Looking up MC-' + clean + ' on FMCSA…</span>';
+  if (statusEl) statusEl.innerHTML = '<span style="color:#8a9ab5;">⏳ Looking up ' + label + ' on FMCSA…</span>';
   try {
-    const res  = await fetch('/api/fmcsa-lookup?mc=' + encodeURIComponent(clean));
+    const qs  = new URLSearchParams(params).toString();
+    const res  = await fetch('/api/fmcsa-lookup?' + qs);
     const data = await res.json();
     if (!res.ok || data.error) {
       if (statusEl) statusEl.innerHTML = '<span style="color:#e67e22;">⚠️ ' + (data.error || 'Lookup failed') + '</span>';
@@ -2720,19 +2758,23 @@ async function fmcsaLookup(type, mc, forced) {
     const legalName = data.legalName || data.dbaName || '';
     const addr      = data.address   || '';
     const dot       = data.dotNumber || '';
+    const mcNum     = data.mcNumber  || '';
     const status    = data.status    || '';
     if (type === 'carrier') {
       if (legalName && !document.getElementById('carrierName').value)    document.getElementById('carrierName').value    = legalName;
       if (dot       && !document.getElementById('carrierDOT').value)     document.getElementById('carrierDOT').value     = dot;
+      if (mcNum     && !document.getElementById('carrierMC').value)      document.getElementById('carrierMC').value      = mcNum;
       if (addr      && !document.getElementById('carrierAddress').value) document.getElementById('carrierAddress').value = addr;
     } else {
       if (legalName && !document.getElementById('brokerName').value)    document.getElementById('brokerName').value    = legalName;
+      if (mcNum     && !document.getElementById('brokerMC').value)      document.getElementById('brokerMC').value      = mcNum;
       if (addr      && !document.getElementById('brokerAddress').value) document.getElementById('brokerAddress').value = addr;
     }
     const statusColor = (status||'').toLowerCase().includes('active') ? '#2ecc71' : '#e67e22';
     if (statusEl) statusEl.innerHTML =
       '<span style="color:' + statusColor + ';">✓ ' + (legalName || 'Found') +
-      (status ? ' · ' + status : '') + '</span>';
+      (status ? ' · <b>' + status + '</b>' : '') +
+      (dot    ? ' · DOT ' + dot : '') + '</span>';
   } catch(e) {
     if (statusEl) statusEl.innerHTML = '<span style="color:#e74c3c;">✗ FMCSA lookup error</span>';
   }
