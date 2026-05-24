@@ -730,6 +730,14 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
             style="background:var(--navy-mid);border:1px solid var(--border);color:#d0dbe8;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;font-weight:600;">
             📝 Notes
           </button>
+          <button onclick="printHistoryLetter()"
+            style="background:var(--navy-mid);border:1px solid var(--border);color:#d0dbe8;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;font-weight:600;">
+            🖨️ Print
+          </button>
+          <button onclick="downloadHistoryPDF()"
+            style="background:#1a4a2a;border:1px solid #2a6a3a;color:#4ade80;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;font-weight:600;">
+            ⬇️ Download PDF
+          </button>
           <button id="histModalCopyBtn" onclick="copyHistoryLetter()"
             style="background:var(--navy-mid);border:1px solid var(--border);color:#d0dbe8;border-radius:8px;padding:7px 16px;font-size:13px;cursor:pointer;font-weight:600;">
             📋 Copy
@@ -1263,7 +1271,6 @@ function printLetter() {
   const text = document.getElementById('letterText').textContent;
   const atty = window._attorney  || null;
   const ct   = window._courtData || null;
-  const esc  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   const today = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
 
   // ── ATTORNEY INFO ONLY — no platform branding ──
@@ -1448,6 +1455,9 @@ async function deleteAttorney(id) {
   await fetch('/api/attorneys/'+id, { method:'DELETE', headers:{'x-admin-token':sessionStorage.getItem('adminToken')||''} });
   loadAttorneys();
 }
+
+// ── GLOBAL HELPERS ────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── ADMIN HELPERS ─────────────────────────────────────────────
 function isAdminUser() {
@@ -1915,6 +1925,7 @@ function renderHistoryTable(letters) {
       <td style="padding:12px 16px;">
         <div style="display:flex;gap:6px;">
           <button class="btn btn-navy" style="padding:5px 12px;font-size:12px;" onclick="event.stopPropagation();openHistoryModal(${i})">View →</button>
+          <button style="padding:5px 10px;font-size:11px;background:#1a4a2a;border:1px solid #2a6a3a;color:#4ade80;border-radius:6px;cursor:pointer;" onclick="event.stopPropagation();downloadLetterPDFByRef('${l.caseRef}','${(l.carrierName||'').replace(/'/g,'')}','${(l.brokerName||'').replace(/'/g,'')}')" title="Download PDF">⬇️ PDF</button>
           <button class="btn btn-navy" style="padding:5px 10px;font-size:12px;" onclick="event.stopPropagation();openNotesModal('${l.caseRef}')" title="Case Notes">📝</button>
         </div>
       </td>
@@ -1979,6 +1990,79 @@ function closeHistoryModal() {
   const m = document.getElementById('historyModal');
   if (m) m.style.display = 'none';
   document.removeEventListener('keydown', _histModalEsc);
+}
+
+function printHistoryLetter() {
+  const text = document.getElementById('histModalBody').textContent;
+  const title = document.getElementById('histModalTitle').textContent;
+  const meta  = document.getElementById('histModalMeta').textContent;
+  const win = window.open('', '_blank', 'width=900,height=700');
+  win.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
+    <style>body{font-family:'Courier New',monospace;font-size:11pt;line-height:1.8;color:#000;padding:48px;max-width:760px;margin:0 auto;}
+    h2{font-family:serif;font-size:14pt;margin-bottom:4px;} p{color:#555;margin-bottom:24px;font-family:sans-serif;font-size:10pt;}
+    pre{white-space:pre-wrap;word-break:break-word;}</style>
+    </head><body><h2>${title}</h2><p>${meta}</p><pre>${text.replace(/</g,'&lt;')}</pre></body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 400);
+}
+
+async function downloadHistoryPDF() {
+  const text     = document.getElementById('histModalBody').textContent;
+  const titleEl  = document.getElementById('histModalTitle');
+  const caseRef  = titleEl.dataset.caseRef || 'letter';
+  const title    = titleEl.textContent;
+  const meta     = document.getElementById('histModalMeta').textContent;
+  _generateAndDownloadPDF(text, title, meta, caseRef);
+}
+
+async function downloadLetterPDFByRef(caseRef, carrierName, brokerName) {
+  // Use already-loaded history (includes letterText from server)
+  const letter = (_allHistoryLetters || []).find(l => l.caseRef === caseRef);
+  if (!letter || !letter.letterText) {
+    // Re-fetch as fallback
+    try {
+      const res  = await fetch('/api/letters-history');
+      const data = await res.json();
+      const l2   = (data.letters || []).find(l => l.caseRef === caseRef);
+      if (!l2 || !l2.letterText) { alert('Letter text not available. Please open the letter first using View →'); return; }
+      _generateAndDownloadPDF(l2.letterText, `${carrierName||'Carrier'} vs. ${brokerName||'Broker'}`, `Case ${caseRef}`, caseRef);
+    } catch(e) { alert('Failed to fetch letter: ' + e.message); }
+    return;
+  }
+  const title = `${carrierName || 'Carrier'} vs. ${brokerName || 'Broker'}`;
+  _generateAndDownloadPDF(letter.letterText, title, `Case ${caseRef}`, caseRef);
+}
+
+function _generateAndDownloadPDF(text, title, meta, filename) {
+  // Build a print-ready HTML page and trigger browser print-to-PDF
+  const html = `<!DOCTYPE html><html><head><title>${esc(title)}</title>
+    <style>
+      @page { margin: 1in; }
+      body { font-family: 'Courier New', monospace; font-size: 11pt; line-height: 1.85;
+             color: #000; max-width: 7in; margin: 0 auto; }
+      .hdr { font-family: Georgia, serif; border-bottom: 2px solid #000; padding-bottom: 12px; margin-bottom: 24px; }
+      .hdr h1 { font-size: 16pt; margin: 0 0 4px; }
+      .hdr p  { font-size: 9pt; color: #555; margin: 0; }
+      pre { white-space: pre-wrap; word-break: break-word; font-size: 11pt; }
+      @media print { button { display:none; } }
+    </style></head><body>
+    <div class="hdr"><h1>${esc(title)}</h1><p>${esc(meta)}</p></div>
+    <pre>${text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+    <script>window.onload=()=>{window.print();}<\/script>
+    </body></html>`;
+  const blob = new Blob([html], { type: 'text/html' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = (filename || 'letter') + '.html'; // Browser prints to PDF from the opened window
+  // Better: open in new window for print dialog
+  const win = window.open(url, '_blank');
+  if (!win) {
+    // Popup blocked — fallback to download
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
 }
 
 async function copyHistoryLetter() {

@@ -46,6 +46,11 @@ if (process.env.DATABASE_URL) {
       CREATE TABLE IF NOT EXISTS app_config (
         key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS password_reset_tokens (
+        id SERIAL PRIMARY KEY, user_id INT NOT NULL, token TEXT UNIQUE NOT NULL,
+        expires_at TIMESTAMPTZ NOT NULL, used BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
     `).then(() => console.log('  🗄️  PostgreSQL connected and tables ready'))
       .catch(e => { console.error('PG schema error:', e.message); pgPool = null; });
   } catch(e) {
@@ -1118,6 +1123,115 @@ app.get('/api/auth/me', requireClient, async (req, res) => {
 // Google client ID (public — needed by login.html)
 app.get('/api/auth/google-client-id', (req, res) => {
   res.json({ clientId: cfg('GOOGLE_CLIENT_ID') || process.env.GOOGLE_CLIENT_ID || '' });
+});
+
+// ── PASSWORD RESET ────────────────────────────────────────────
+const crypto = require('crypto');
+
+app.post('/api/auth/forgot-password', rateLimit(60000, 5), async (req, res) => {
+  // Always return success to prevent email enumeration
+  const { email } = req.body;
+  if (!email) return res.json({ ok: true });
+  try {
+    const user = await dbGetUserByEmail(email.toLowerCase().trim());
+    if (!user) return res.json({ ok: true }); // don't reveal non-existence
+    if (user.google_id && !user.password_hash) {
+      // Google-only account — send guidance email
+      await sendEmail(
+        user.email,
+        'FreightGuard Defense — Password Reset',
+        `Hi ${user.name||'there'},
+
+Your FreightGuard Defense account uses Google Sign-In. Please click "Continue with Google" on the login page to access your account.
+
+If you need help, reply to this email.
+
+FreightGuard Defense Team`
+      ).catch(() => {});
+      return res.json({ ok: true });
+    }
+    // Generate a secure reset token (valid 1 hour)
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 3600000); // 1 hour
+    if (pgPool) {
+      // Expire any previous tokens for this user
+      await pgPool.query('UPDATE password_reset_tokens SET used=TRUE WHERE user_id=$1 AND used=FALSE', [user.id]).catch(() => {});
+      await pgPool.query(
+        'INSERT INTO password_reset_tokens(user_id,token,expires_at) VALUES($1,$2,$3)',
+        [user.id, token, expires]
+      );
+    } else {
+      // File fallback: store in a simple JSON file
+      const tokensFile = './data/reset_tokens.json';
+      const tokens = loadJSON(tokensFile);
+      // Remove old tokens for this user
+      const filtered = tokens.filter(t => String(t.userId) !== String(user.id) || t.used);
+      filtered.push({ userId: user.id, token, expiresAt: expires.toISOString(), used: false });
+      saveJSON(tokensFile, filtered);
+    }
+    const siteUrl = process.env.SITE_URL || 'https://freightguarddefense.com';
+    const resetUrl = siteUrl + '/login.html?reset=' + token;
+    await sendEmail(
+      user.email,
+      'Reset Your FreightGuard Defense Password',
+      `Hi ${user.name||'there'},\n\nYou requested a password reset for your FreightGuard Defense account.\n\nClick the link below to reset your password (valid for 1 hour):\n\n${resetUrl}\n\nIf you did not request this, you can safely ignore this email.\n\nFreightGuard Defense Team`,
+      `<div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px;">
+        <div style="text-align:center;margin-bottom:32px;">
+          <div style="font-size:40px;">⚖️</div>
+          <h1 style="font-size:22px;font-weight:700;color:#0d1117;">FreightGuard <span style="color:#f0b429;">Defense</span></h1>
+        </div>
+        <h2 style="font-size:18px;color:#0d1117;margin-bottom:12px;">Reset Your Password</h2>
+        <p style="color:#555;line-height:1.6;margin-bottom:24px;">Hi ${user.name||'there'},<br><br>You requested a password reset. Click the button below — the link expires in <strong>1 hour</strong>.</p>
+        <div style="text-align:center;margin:32px 0;">
+          <a href="${resetUrl}" style="background:#f0b429;color:#000;text-decoration:none;padding:14px 32px;border-radius:8px;font-weight:700;font-size:15px;display:inline-block;">Reset My Password →</a>
+        </div>
+        <p style="color:#999;font-size:12px;text-align:center;">If you didn't request this, ignore this email. Your password won't change.</p>
+        <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+        <p style="color:#999;font-size:12px;text-align:center;">FreightGuard Defense · freightguarddefense.com</p>
+      </div>`
+    );
+  } catch(err) {
+    console.error('Forgot password error:', err.message);
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/auth/reset-password', rateLimit(60000, 10), async (req, res) => {
+  const { token, password } = req.body;
+  if (!token || !password) return res.status(400).json({ error: 'Token and password are required' });
+  if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+  try {
+    let userId = null;
+    if (pgPool) {
+      const r = await pgPool.query(
+        'SELECT * FROM password_reset_tokens WHERE token=$1 AND used=FALSE AND expires_at > NOW()',
+        [token]
+      );
+      if (!r.rows.length) return res.status(400).json({ error: 'Reset link is invalid or has expired. Please request a new one.' });
+      userId = r.rows[0].user_id;
+      await pgPool.query('UPDATE password_reset_tokens SET used=TRUE WHERE token=$1', [token]);
+    } else {
+      const tokensFile = './data/reset_tokens.json';
+      const tokens = loadJSON(tokensFile);
+      const t = tokens.find(t => t.token === token && !t.used && new Date(t.expiresAt) > new Date());
+      if (!t) return res.status(400).json({ error: 'Reset link is invalid or has expired. Please request a new one.' });
+      userId = t.userId;
+      t.used = true;
+      saveJSON(tokensFile, tokens);
+    }
+    const hash = bcrypt ? await bcrypt.hash(password, 10) : password;
+    if (pgPool) {
+      await pgPool.query('UPDATE client_users SET password_hash=$1 WHERE id=$2', [hash, userId]);
+    } else {
+      const users = loadJSON(CLIENT_USERS_FILE);
+      const u = users.find(u => String(u.id) === String(userId));
+      if (u) { u.passwordHash = hash; saveJSON(CLIENT_USERS_FILE, users); }
+    }
+    res.json({ ok: true });
+  } catch(err) {
+    console.error('Reset password error:', err.message);
+    res.status(500).json({ error: 'Failed to reset password. Please try again.' });
+  }
 });
 
 // ── CLIENT PORTAL ─────────────────────────────────────────────

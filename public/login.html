@@ -29,28 +29,16 @@
       justify-content: center;
       padding: 24px;
     }
-    .logo-area {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-    .logo-area .shield { font-size: 48px; margin-bottom: 10px; }
-    .logo-area h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: var(--fg);
-      letter-spacing: -.3px;
-    }
+    .logo-area { text-align: center; margin-bottom: 28px; }
+    .logo-area .shield { font-size: 44px; margin-bottom: 8px; }
+    .logo-area h1 { font-size: 22px; font-weight: 700; letter-spacing: -.3px; }
     .logo-area h1 span { color: var(--accent); }
-    .logo-area p {
-      font-size: 13px;
-      color: var(--muted);
-      margin-top: 6px;
-    }
+    .logo-area p { font-size: 13px; color: var(--muted); margin-top: 5px; }
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 32px;
+      padding: 28px;
       width: 100%;
       max-width: 420px;
     }
@@ -60,7 +48,7 @@
       background: var(--surface2);
       border-radius: 8px;
       padding: 4px;
-      margin-bottom: 24px;
+      margin-bottom: 22px;
     }
     .tabs button {
       flex: 1;
@@ -79,15 +67,15 @@
       color: var(--fg);
       box-shadow: 0 1px 4px rgba(0,0,0,.4);
     }
-    .form-group { margin-bottom: 16px; }
+    .form-group { margin-bottom: 14px; }
     label {
       display: block;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--muted);
       text-transform: uppercase;
       letter-spacing: .5px;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
     input[type=text], input[type=email], input[type=password] {
       width: 100%;
@@ -101,6 +89,25 @@
       transition: border-color .15s;
     }
     input:focus { border-color: var(--accent); }
+    .pw-wrap { position: relative; }
+    .pw-wrap input { padding-right: 40px; }
+    .pw-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: var(--muted);
+      font-size: 16px; padding: 0; line-height: 1;
+    }
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: 12px;
+      color: var(--blue);
+      text-decoration: none;
+      margin-top: 4px;
+      cursor: pointer;
+      background: none;
+      border: none;
+    }
+    .forgot-link:hover { text-decoration: underline; }
     .btn-primary {
       width: 100%;
       background: var(--accent);
@@ -111,24 +118,31 @@
       font-size: 15px;
       font-weight: 700;
       cursor: pointer;
-      margin-top: 8px;
+      margin-top: 6px;
       transition: opacity .15s;
     }
     .btn-primary:hover { opacity: .9; }
     .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
-    .divider {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin: 20px 0;
+    .btn-secondary {
+      width: 100%;
+      background: none;
       color: var(--muted);
-      font-size: 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: border-color .15s;
+    }
+    .btn-secondary:hover { border-color: var(--accent); color: var(--fg); }
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+      margin: 18px 0; color: var(--muted); font-size: 12px;
     }
     .divider::before, .divider::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: var(--border);
+      content: ''; flex: 1; height: 1px; background: var(--border);
     }
     .btn-google {
       width: 100%;
@@ -152,18 +166,22 @@
       padding: 10px 14px;
       border-radius: 6px;
       font-size: 13px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
+      line-height: 1.5;
     }
-    .alert-error  { background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.35); color: var(--red); }
-    .alert-success{ background: rgba(63,185,80,.12);  border: 1px solid rgba(63,185,80,.35);  color: var(--green); }
+    .alert-error   { background: rgba(248,81,73,.1);  border: 1px solid rgba(248,81,73,.3);  color: var(--red); }
+    .alert-success { background: rgba(63,185,80,.1);  border: 1px solid rgba(63,185,80,.3);  color: var(--green); }
+    .alert-info    { background: rgba(58,130,246,.1); border: 1px solid rgba(58,130,246,.3); color: #7ab7ff; }
     #alert { display: none; }
-    .footer-link {
-      text-align: center;
-      font-size: 12px;
-      color: var(--muted);
-      margin-top: 20px;
-    }
+    .footer-link { text-align: center; font-size: 12px; color: var(--muted); margin-top: 18px; }
     .footer-link a { color: var(--blue); text-decoration: none; }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(0,0,0,.3); border-top-color: #000;
+      border-radius: 50%; animation: spin .6s linear infinite;
+      vertical-align: middle; margin-right: 6px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
 <body>
@@ -175,22 +193,30 @@
 </div>
 
 <div class="card">
-  <div class="tabs">
-    <button id="tab-login-btn" class="active" onclick="showTab('login')">Sign In</button>
-    <button id="tab-register-btn" onclick="showTab('register')">Create Account</button>
+
+  <!-- TAB BAR — hidden on forgot/reset screens -->
+  <div id="tabBar" class="tabs">
+    <button id="tab-login-btn"    class="active" onclick="showTab('login')">Sign In</button>
+    <button id="tab-register-btn"               onclick="showTab('register')">Create Account</button>
   </div>
 
   <div id="alert"></div>
 
-  <!-- LOGIN FORM -->
+  <!-- ── LOGIN ── -->
   <div id="form-login">
     <div class="form-group">
       <label>Email</label>
-      <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email" />
+      <input id="login-email" type="email" placeholder="you@example.com" autocomplete="email"
+             onkeydown="if(event.key==='Enter')doLogin()" />
     </div>
     <div class="form-group">
       <label>Password</label>
-      <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" />
+      <div class="pw-wrap">
+        <input id="login-password" type="password" placeholder="••••••••" autocomplete="current-password"
+               onkeydown="if(event.key==='Enter')doLogin()" />
+        <button class="pw-toggle" type="button" onclick="togglePw('login-password',this)" tabindex="-1">👁</button>
+      </div>
+      <button class="forgot-link" onclick="showTab('forgot')">Forgot password?</button>
     </div>
     <button class="btn-primary" id="btn-login" onclick="doLogin()">Sign In</button>
     <div class="divider">or</div>
@@ -200,7 +226,7 @@
     </button>
   </div>
 
-  <!-- REGISTER FORM -->
+  <!-- ── REGISTER ── -->
   <div id="form-register" style="display:none">
     <div class="form-group">
       <label>Full Name</label>
@@ -212,7 +238,11 @@
     </div>
     <div class="form-group">
       <label>Password</label>
-      <input id="reg-password" type="password" placeholder="Min 8 characters" autocomplete="new-password" />
+      <div class="pw-wrap">
+        <input id="reg-password" type="password" placeholder="Min 8 characters" autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')doRegister()" />
+        <button class="pw-toggle" type="button" onclick="togglePw('reg-password',this)" tabindex="-1">👁</button>
+      </div>
     </div>
     <button class="btn-primary" id="btn-register" onclick="doRegister()">Create Account</button>
     <div class="divider">or</div>
@@ -221,160 +251,280 @@
       Sign up with Google
     </button>
   </div>
+
+  <!-- ── FORGOT PASSWORD ── -->
+  <div id="form-forgot" style="display:none">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6;">
+      Enter your email and we'll send a password reset link valid for 1 hour.
+    </p>
+    <div class="form-group">
+      <label>Email Address</label>
+      <input id="forgot-email" type="email" placeholder="you@example.com"
+             onkeydown="if(event.key==='Enter')doForgotPassword()" />
+    </div>
+    <button class="btn-primary" id="btn-forgot" onclick="doForgotPassword()">Send Reset Link</button>
+    <button class="btn-secondary" onclick="showTab('login')">← Back to Sign In</button>
+  </div>
+
+  <!-- ── RESET PASSWORD ── -->
+  <div id="form-reset" style="display:none">
+    <p style="font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6;">
+      Choose a new password for your account.
+    </p>
+    <div class="form-group">
+      <label>New Password</label>
+      <div class="pw-wrap">
+        <input id="reset-password" type="password" placeholder="Min 8 characters" autocomplete="new-password"
+               onkeydown="if(event.key==='Enter')doResetPassword()" />
+        <button class="pw-toggle" type="button" onclick="togglePw('reset-password',this)" tabindex="-1">👁</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Confirm Password</label>
+      <div class="pw-wrap">
+        <input id="reset-confirm" type="password" placeholder="Repeat password"
+               onkeydown="if(event.key==='Enter')doResetPassword()" />
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-reset" onclick="doResetPassword()">Set New Password</button>
+  </div>
+
 </div>
 
 <div class="footer-link">
   <a href="/">← Back to FreightGuard Defense</a>
 </div>
 
-<!-- Google Identity Services (for Sign-In) -->
+<!-- Google Identity Services -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+
 <script>
 let googleClientId = '';
+let resetToken     = '';
 
+// ── INIT ──────────────────────────────────────────────────────
 async function init() {
-  // Check if already logged in
+  // Check for password reset token in URL
+  const params = new URLSearchParams(window.location.search);
+  resetToken = params.get('reset') || '';
+  if (resetToken) {
+    showTab('reset');
+    return;
+  }
+
+  // Already logged in?
   const token = localStorage.getItem('fgd_client_token');
   if (token) {
     try {
-      const res = await fetch('/api/auth/me', {
-        headers: { 'Authorization': 'Bearer ' + token }
-      });
-      if (res.ok) {
-        window.location.href = '/portal.html';
-        return;
-      } else {
-        localStorage.removeItem('fgd_client_token');
-      }
+      const res = await fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } });
+      if (res.ok) { window.location.href = '/portal.html'; return; }
+      else         localStorage.removeItem('fgd_client_token');
     } catch {}
   }
 
-  // Load Google Client ID
+  // Load Google Client ID for Sign-In
   try {
-    const res = await fetch('/api/auth/google-client-id');
-    const data = await res.json();
-    googleClientId = data.clientId || '';
+    const r  = await fetch('/api/auth/google-client-id');
+    const d  = await r.json();
+    googleClientId = d.clientId || '';
+    if (googleClientId) initGoogleOneTap();
   } catch {}
 }
 
+function initGoogleOneTap() {
+  // Use the newer credential-based flow (ID token, not access token)
+  if (!window.google) return;
+  google.accounts.id.initialize({
+    client_id:         googleClientId,
+    callback:          handleGoogleCredential,
+    auto_select:       false,
+    cancel_on_tap_outside: true,
+  });
+}
+
+// ── TAB SWITCHING ─────────────────────────────────────────────
 function showTab(tab) {
-  document.getElementById('form-login').style.display    = tab === 'login'    ? '' : 'none';
-  document.getElementById('form-register').style.display = tab === 'register' ? '' : 'none';
-  document.getElementById('tab-login-btn').classList.toggle('active',    tab === 'login');
-  document.getElementById('tab-register-btn').classList.toggle('active', tab === 'register');
+  ['login','register','forgot','reset'].forEach(t => {
+    document.getElementById('form-' + t).style.display = (t === tab) ? '' : 'none';
+  });
+  const showTabs = ['login','register'].includes(tab);
+  document.getElementById('tabBar').style.display = showTabs ? '' : 'none';
+  if (showTabs) {
+    document.getElementById('tab-login-btn').classList.toggle('active',    tab === 'login');
+    document.getElementById('tab-register-btn').classList.toggle('active', tab === 'register');
+  }
   hideAlert();
 }
 
+// ── HELPERS ───────────────────────────────────────────────────
 function showAlert(msg, type = 'error') {
   const el = document.getElementById('alert');
   el.className = 'alert alert-' + type;
-  el.textContent = msg;
+  el.innerHTML = msg;
   el.style.display = '';
 }
-function hideAlert() {
-  const el = document.getElementById('alert');
-  el.style.display = 'none';
-}
+function hideAlert() { document.getElementById('alert').style.display = 'none'; }
 
 function setLoading(ids, loading) {
   ids.forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.disabled = loading;
+    if (!el) return;
+    el.disabled = loading;
+    if (loading) el.dataset.orig = el.innerHTML;
+    else if (el.dataset.orig) el.innerHTML = el.dataset.orig;
   });
 }
 
+function togglePw(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') { input.type = 'text';     btn.textContent = '🙈'; }
+  else                           { input.type = 'password'; btn.textContent = '👁';  }
+}
+
+function saveToken(token) {
+  localStorage.setItem('fgd_client_token', token);
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────
 async function doLogin() {
   const email    = document.getElementById('login-email').value.trim();
   const password = document.getElementById('login-password').value;
-  if (!email || !password) { showAlert('Please enter email and password.'); return; }
-  setLoading(['btn-login', 'btn-google-login'], true);
+  if (!email || !password) { showAlert('Please enter your email and password.'); return; }
+  setLoading(['btn-login','btn-google-login'], true);
   hideAlert();
   try {
-    const res = await fetch('/api/auth/login', {
+    const res  = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Login failed');
-    localStorage.setItem('fgd_client_token', data.token);
-    showAlert('Welcome back! Redirecting…', 'success');
-    setTimeout(() => { window.location.href = '/portal.html'; }, 800);
+    saveToken(data.token);
+    showAlert('✅ Welcome back! Redirecting…', 'success');
+    setTimeout(() => { window.location.href = '/portal.html'; }, 700);
   } catch(e) {
     showAlert(e.message);
-    setLoading(['btn-login', 'btn-google-login'], false);
+    setLoading(['btn-login','btn-google-login'], false);
   }
 }
 
+// ── REGISTER ──────────────────────────────────────────────────
 async function doRegister() {
   const name     = document.getElementById('reg-name').value.trim();
   const email    = document.getElementById('reg-email').value.trim();
   const password = document.getElementById('reg-password').value;
   if (!name || !email || !password) { showAlert('All fields are required.'); return; }
   if (password.length < 8) { showAlert('Password must be at least 8 characters.'); return; }
-  setLoading(['btn-register', 'btn-google-reg'], true);
+  setLoading(['btn-register','btn-google-reg'], true);
   hideAlert();
   try {
-    const res = await fetch('/api/auth/register', {
+    const res  = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Registration failed');
-    localStorage.setItem('fgd_client_token', data.token);
-    showAlert('Account created! Redirecting…', 'success');
-    setTimeout(() => { window.location.href = '/portal.html'; }, 800);
+    saveToken(data.token);
+    showAlert('✅ Account created! Redirecting…', 'success');
+    setTimeout(() => { window.location.href = '/portal.html'; }, 700);
   } catch(e) {
     showAlert(e.message);
-    setLoading(['btn-register', 'btn-google-reg'], false);
+    setLoading(['btn-register','btn-google-reg'], false);
   }
 }
 
-async function doGoogleSignIn() {
+// ── GOOGLE SIGN-IN ────────────────────────────────────────────
+function doGoogleSignIn() {
   if (!googleClientId) {
-    showAlert('Google Sign-In is not configured. Please use email/password.');
+    showAlert('Google Sign-In is not configured. Please use email/password login.');
     return;
   }
-  // Use Google Identity Services one-tap / popup flow
-  const client = google.accounts.oauth2.initTokenClient({
-    client_id: googleClientId,
-    scope: 'openid email profile',
-    callback: async (tokenResponse) => {
-      if (tokenResponse.error) { showAlert('Google sign-in failed: ' + tokenResponse.error); return; }
-      // Exchange access token for user info, then send to backend
-      try {
-        const userRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: 'Bearer ' + tokenResponse.access_token }
-        });
-        const userInfo = await userRes.json();
-        // Send ID token to backend — use the sub as credential
-        const res = await fetch('/api/auth/google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credential: tokenResponse.access_token, userInfo }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Google sign-in failed');
-        localStorage.setItem('fgd_client_token', data.token);
-        showAlert('Signed in with Google! Redirecting…', 'success');
-        setTimeout(() => { window.location.href = '/portal.html'; }, 800);
-      } catch(e) {
-        showAlert(e.message);
-      }
-    },
+  // Trigger Google popup — credential callback fires handleGoogleCredential
+  google.accounts.id.prompt((notification) => {
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      // Fall back to explicit button render popup
+      const div = document.createElement('div');
+      div.style.display = 'none';
+      document.body.appendChild(div);
+      google.accounts.id.renderButton(div, {
+        type: 'standard', theme: 'outline', size: 'large',
+      });
+      div.querySelector('[role=button]')?.click();
+    }
   });
-  client.requestAccessToken();
 }
 
-// Allow Enter key to submit
-document.addEventListener('keydown', e => {
-  if (e.key === 'Enter') {
-    const loginVisible = document.getElementById('form-login').style.display !== 'none';
-    if (loginVisible) doLogin();
-    else doRegister();
+async function handleGoogleCredential(response) {
+  // response.credential is a proper Google ID token (JWT)
+  try {
+    const res  = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Google sign-in failed');
+    saveToken(data.token);
+    showAlert('✅ Signed in with Google! Redirecting…', 'success');
+    setTimeout(() => { window.location.href = '/portal.html'; }, 700);
+  } catch(e) {
+    showAlert(e.message);
   }
-});
+}
+
+// ── FORGOT PASSWORD ───────────────────────────────────────────
+async function doForgotPassword() {
+  const email = document.getElementById('forgot-email').value.trim();
+  if (!email) { showAlert('Please enter your email address.'); return; }
+  setLoading(['btn-forgot'], true);
+  hideAlert();
+  try {
+    await fetch('/api/auth/forgot-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    // Always show success (prevent email enumeration)
+    showAlert(
+      '📧 If an account exists for <strong>' + email.replace(/</g,'') + '</strong>, a reset link has been sent. Check your inbox (and spam folder).',
+      'success'
+    );
+    document.getElementById('btn-forgot').disabled = true;
+  } catch {
+    showAlert('Something went wrong. Please try again.');
+    setLoading(['btn-forgot'], false);
+  }
+}
+
+// ── RESET PASSWORD ────────────────────────────────────────────
+async function doResetPassword() {
+  const password = document.getElementById('reset-password').value;
+  const confirm  = document.getElementById('reset-confirm').value;
+  if (!password || password.length < 8) { showAlert('Password must be at least 8 characters.'); return; }
+  if (password !== confirm)             { showAlert('Passwords do not match.'); return; }
+  if (!resetToken)                      { showAlert('Invalid reset link. Please request a new one.'); return; }
+  setLoading(['btn-reset'], true);
+  hideAlert();
+  try {
+    const res  = await fetch('/api/auth/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: resetToken, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Reset failed');
+    showAlert('✅ Password updated successfully! Redirecting to sign in…', 'success');
+    resetToken = '';
+    // Remove token from URL
+    history.replaceState({}, '', '/login.html');
+    setTimeout(() => showTab('login'), 2000);
+  } catch(e) {
+    showAlert(e.message);
+    setLoading(['btn-reset'], false);
+  }
+}
 
 init();
 </script>
