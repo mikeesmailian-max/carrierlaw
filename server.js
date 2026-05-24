@@ -609,7 +609,7 @@ app.get('/api/fmcsa-lookup', async (req, res) => {
     // SAFER HTML: labels in <TH class="querylabelbkg"><A>Label:</A></TH> <TD class="queryfield">value</TD>
     function extractSafer(label) {
       const re = new RegExp(
-        label + '[^<]*<\/[Aa]>[^<]*<\/[Tt][Hh]>\s*<[Tt][Dd][^>]*class=["\'"]queryfield["\'"][^>]*>([\s\S]*?)<\/[Tt][Dd]>',
+        label + '[^<]*<\\/[Aa]>[^<]*<\\/[Tt][Hh]>\\s*<[Tt][Dd][^>]*class=["\']queryfield["\'][^>]*>([\\s\\S]*?)<\\/[Tt][Dd]>',
         'i'
       );
       const m = html.match(re);
