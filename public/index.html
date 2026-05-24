@@ -238,6 +238,8 @@
   }
 
 /* ── Google Places Autocomplete dark theme ── */
+/* Hide broken/empty pac containers */
+.pac-container:empty { display: none !important; }
 .pac-container {
   background: #0d1829 !important;
   border: 1px solid #2d3f55 !important;
@@ -920,12 +922,47 @@ async function updateCourtPreview() {
 
 let _googlePlacesReady = false;
 
+// Revert address inputs to plain text if Maps fails
+function revertAddressInputs() {
+  ['carrierAddress','brokerAddress'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    inp.removeAttribute('disabled');
+    inp.removeAttribute('readonly');
+    inp.style.removeProperty('pointer-events');
+    inp.style.removeProperty('background-color');
+    // Clear "Oops! Something went wrong." text Maps injected
+    if (inp.value && (inp.value.toLowerCase().includes('oops') || inp.value.toLowerCase().includes('went wrong'))) {
+      inp.value = '';
+    }
+    if (id === 'carrierAddress') inp.placeholder = 'e.g. 123 Main St, Dallas, TX 75201';
+    if (id === 'brokerAddress')  inp.placeholder = '4500 Commerce Blvd, Dallas, TX 75201';
+  });
+  // Remove Google's dropdown containers
+  document.querySelectorAll('.pac-container').forEach(el => el.remove());
+  // Also un-break company name input if Maps hijacked it
+  ['carrierName'].forEach(id => {
+    const inp = document.getElementById(id);
+    if (!inp) return;
+    inp.removeAttribute('disabled'); inp.removeAttribute('readonly');
+    if (inp.value && inp.value.toLowerCase().includes('oops')) inp.value = '';
+  });
+}
+
+// Called by Google Maps when API key invalid / billing issue / domain restriction
+window.gm_authFailure = function() {
+  console.warn('Google Maps auth failed — reverting to plain text inputs');
+  _googlePlacesReady = false;
+  revertAddressInputs();
+};
+
 function loadGooglePlaces(key) {
   if (!key) { console.warn('No Google Maps key — address search unavailable'); return; }
   if (window.google?.maps?.places) { initGooglePlaces(); return; }
   const s = document.createElement('script');
   s.src = `https://maps.googleapis.com/maps/api/js?key=${key}&libraries=places&callback=initGooglePlaces`;
   s.async = true; s.defer = true;
+  s.onerror = () => { console.warn('Maps script failed to load'); revertAddressInputs(); };
   document.head.appendChild(s);
 }
 
@@ -941,20 +978,24 @@ window.initGooglePlaces = function() {
 function attachAddressAutocomplete(inputId) {
   const input = document.getElementById(inputId);
   if (!input || !window.google?.maps?.places) return;
-  const ac = new google.maps.places.Autocomplete(input, {
-    types:              ['address'],
-    componentRestrictions: { country: 'us' },
-    fields:             ['formatted_address', 'geometry', 'address_components']
-  });
-  ac.addListener('place_changed', () => {
-    const place = ac.getPlace();
-    if (place.formatted_address) {
-      input.value = place.formatted_address;
-      input.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-    if (inputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
-  });
-
+  try {
+    const ac = new google.maps.places.Autocomplete(input, {
+      types:              ['address'],
+      componentRestrictions: { country: 'us' },
+      fields:             ['formatted_address', 'geometry', 'address_components']
+    });
+    ac.addListener('place_changed', () => {
+      const place = ac.getPlace();
+      if (place.formatted_address) {
+        input.value = place.formatted_address;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      if (inputId === 'brokerAddress') { try { updateCourtPreview(); } catch(e){} }
+    });
+  } catch(e) {
+    console.warn('Places autocomplete failed for', inputId, e);
+    revertAddressInputs();
+  }
 }
 
 function attachCompanyAutocomplete(nameInputId, addressInputId) {
