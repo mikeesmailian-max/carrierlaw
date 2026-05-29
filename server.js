@@ -125,6 +125,12 @@ const ATTORNEYS_FILE    = path.join(DATA_DIR, 'attorneys.json');
 const UPLOADS_DIR       = path.join(DATA_DIR, 'uploads');
 const REPORTS_FILE      = path.join(DATA_DIR, 'broker-reports.json');
 const FOLLOWUPS_FILE    = path.join(DATA_DIR, 'followups.json');
+const STATUSES_FILE     = path.join(DATA_DIR, 'statuses.json');
+const RESPONSES_FILE    = path.join(DATA_DIR, 'responses.json');
+function loadStatuses()   { return loadJSON(STATUSES_FILE);   }
+function saveStatuses(d)  { saveJSON(STATUSES_FILE, d);       }
+function loadResponses()  { return loadJSON(RESPONSES_FILE);  }
+function saveResponses(d) { saveJSON(RESPONSES_FILE, d);      }
 const USERS_FILE        = path.join(DATA_DIR, 'users.json');
 const LETTERS_FILE      = path.join(DATA_DIR, 'letters.json');
 const CLIENT_USERS_FILE = path.join(DATA_DIR, 'client-users.json');
@@ -793,14 +799,46 @@ ${attorneyBlock}`;
     await saveLetterDB(letter);
     await recordBrokerReportDB(brokerMC, brokerName, carrierName, caseRef);
 
+    // Auto-send email to broker if address provided
+    const autoSent = { sent: false, error: null };
+    if (brokerEmail) {
+      try {
+        const emailSubject = `FINAL DEMAND FOR PAYMENT — ${brokerName} — Invoice ${invoiceNumber || caseRef}`;
+        await dispatchEmail({
+          to:      brokerEmail,
+          cc:      carrierEmail,
+          subject: emailSubject,
+          text:    letterText,
+          html:    buildEmailHtml(letterText),
+        });
+        // Schedule Day 7 + Day 14 follow-ups
+        const followups = loadFollowups();
+        followups.push({
+          id: Date.now().toString(), caseRef,
+          brokerEmail: req.body.brokerEmail, carrierEmail, brokerName, carrierName,
+          originalSubject: emailSubject,
+          pending: [
+            { label: 'Day 7 Reminder',      sendAt: Date.now() + 7  * 86400000, sent: false },
+            { label: 'Day 14 Final Notice', sendAt: Date.now() + 14 * 86400000, sent: false },
+          ],
+        });
+        saveFollowups(followups);
+        // Mark status as 'sent'
+        const statuses = loadStatuses();
+        statuses[caseRef] = { status: 'sent', updatedAt: new Date().toISOString() };
+        saveStatuses(statuses);
+        autoSent.sent = true;
+      } catch(emailErr) {
+        autoSent.error = emailErr.message;
+      }
+    }
+
     res.json({
       letter: letterText,
       caseRef,
       court,
-      summary: {
-        principal, attyFees, interest, totalOwed,
-        brokerName, invoiceNumber, deadlineStr,
-      },
+      autoSent,
+      summary: { principal, attyFees, interest, totalOwed, brokerName, invoiceNumber, deadlineStr },
     });
   } catch(e) {
     console.error('Collection letter error:', e.message);
@@ -808,6 +846,7 @@ ${attorneyBlock}`;
   }
 });
 
+// ── DISPUTE LETTER GENERATION ─────────────────────────────────────────────────
 app.get('/api/maps-key', (req, res) => {
   res.json({ key: cfg('GOOGLE_MAPS_API_KEY') || '' });
 });
@@ -832,6 +871,49 @@ app.post('/api/verify-pin', (req, res) => {
 });
 
 // ── PUBLIC LETTER HISTORY (admin tool — no external auth needed) ─────────────
+// ── LETTER STATUS (server-side persistence) ───────────────────────────────────
+app.put('/api/letter-status/:caseRef', (req, res) => {
+  const { caseRef } = req.params;
+  const { status }  = req.body;
+  const valid = ['new','sent','opened','responded','settled','filed','closed'];
+  if (!valid.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  const statuses = loadStatuses();
+  statuses[caseRef] = { status, updatedAt: new Date().toISOString() };
+  saveStatuses(statuses);
+  res.json({ ok: true, caseRef, status });
+});
+
+app.get('/api/letter-statuses', (req, res) => {
+  res.json(loadStatuses());
+});
+
+// ── BROKER RESPONSE LOG ────────────────────────────────────────────────────────
+app.post('/api/letter-response/:caseRef', (req, res) => {
+  const { caseRef }  = req.params;
+  const { response, responseDate } = req.body;
+  if (!response) return res.status(400).json({ error: 'Response text required' });
+  const responses = loadResponses();
+  if (!responses[caseRef]) responses[caseRef] = [];
+  responses[caseRef].unshift({
+    text: response,
+    date: responseDate || new Date().toISOString(),
+    loggedAt: new Date().toISOString(),
+  });
+  saveResponses(responses);
+  // Auto-update status to 'responded'
+  const statuses = loadStatuses();
+  if (!['settled','filed','closed'].includes(statuses[caseRef]?.status)) {
+    statuses[caseRef] = { status: 'responded', updatedAt: new Date().toISOString() };
+    saveStatuses(statuses);
+  }
+  res.json({ ok: true });
+});
+
+app.get('/api/letter-response/:caseRef', (req, res) => {
+  const responses = loadResponses();
+  res.json({ responses: responses[req.params.caseRef] || [] });
+});
+
 app.get('/api/letters-history', async (req, res) => {
   // Require either admin token or client JWT
   const adminToken = req.headers['x-admin-token'];
@@ -862,6 +944,9 @@ app.get('/api/letters-history', async (req, res) => {
       ? allLetters
       : allLetters.filter(l => (l.carrierEmail||'').toLowerCase() === clientEmail);
 
+    const statuses  = loadStatuses();
+    const responses = loadResponses();
+
     res.json({
       letters: letters.map(l => ({
         caseRef:     l.caseRef,
@@ -873,8 +958,11 @@ app.get('/api/letters-history', async (req, res) => {
         totalDamages:l.totalDamages,
         court:       l.court,
         letterText:  l.letterText,
+        letterType:  l.letterType || 'dispute',
         attorney:    l.attorneyId ? (attyMap[l.attorneyId] || null) : null,
         ts:          l.ts || l.createdAt,
+        status:      statuses[l.caseRef]?.status || 'new',
+        responses:   responses[l.caseRef] || [],
       }))
     });
   } catch(e) {
@@ -1096,7 +1184,7 @@ ${attorneyBlock}`;
       ts: new Date().toISOString(),
     });
 
-    res.json({ letter: letterText, damages, court, attorney: attorney || null, caseRef, savedFiles });
+    res.json({ letter: letterText, damages, court, attorney: attorney || null, caseRef, savedFiles, autoSent });
   } catch(err) {
     console.error('Letter generation error:', err);
     res.status(500).json({ error: 'Letter generation failed: ' + err.message });

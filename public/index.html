@@ -746,10 +746,11 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
             <div class="field">
               <label>Broker MC Number</label>
               <div style="display:flex;gap:8px;align-items:center;">
-                <input id="col_brokerMC" placeholder="654321" oninput="colFmcsaDebounced(this.value)" style="flex:1;" data-lpignore="true" data-1p-ignore/>
+                <input id="col_brokerMC" placeholder="654321" oninput="colFmcsaDebounced(this.value);checkBrokerIntelCollection(this.value)" style="flex:1;" data-lpignore="true" data-1p-ignore/>
                 <button type="button" onclick="colFmcsaLookup(document.getElementById('col_brokerMC').value)" style="white-space:nowrap;padding:8px 12px;background:#1a2f4a;border:1px solid #2d5a8a;border-radius:8px;color:#6ab0f5;font-size:12px;cursor:pointer;">🔍 Lookup</button>
               </div>
               <div id="col_brokerFmcsaStatus" style="font-size:11px;margin-top:4px;min-height:16px;"></div>
+              <div id="col_brokerIntelBanner" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;border:1px solid #7b2020;background:#2a1010;font-size:12px;"></div>
             </div>
             <div class="field"><label>Broker Address *</label><input id="col_brokerAddress" placeholder="456 Commerce Ave, Chicago, IL 60601" data-lpignore="true" data-1p-ignore/></div>
             <div class="field"><label>Broker Point of Contact</label><input id="col_brokerPOC" placeholder="Accounts Payable / John Smith" data-lpignore="true" data-1p-ignore/></div>
@@ -854,8 +855,34 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
             style="background:none;border:none;color:var(--text-muted);font-size:28px;cursor:pointer;line-height:1;padding:0 4px;">&times;</button>
         </div>
       </div>
+      <!-- Status Pipeline -->
+      <div id="histModalPipeline" style="display:flex;align-items:center;gap:6px;padding:12px 24px;border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;"></div>
       <div style="overflow-y:auto;padding:24px;flex:1;">
         <pre id="histModalBody" style="white-space:pre-wrap;word-break:break-word;font-family:'Courier New',monospace;font-size:13px;color:#d0dbe8;line-height:1.7;margin:0;"></pre>
+
+        <!-- Broker Response Logger -->
+        <div id="histModalResponseSection" style="margin-top:28px;padding-top:20px;border-top:1px solid var(--border);">
+          <div style="font-size:13px;font-weight:700;color:#fff;margin-bottom:12px;">💬 Broker Response Log</div>
+          <div id="responseLogList" style="margin-bottom:14px;"></div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <textarea id="brokerResponseText" rows="3" placeholder="Paste or type the broker's response here (email reply, phone call notes, etc.)..."
+              style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-size:13px;resize:vertical;box-sizing:border-box;"></textarea>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <button id="logResponseBtn" onclick="logBrokerResponse(document.getElementById('histModalResponseSection').dataset.caseRef)"
+                style="padding:8px 18px;background:#1a3a5a;border:1px solid #2a6a9a;border-radius:8px;color:#7ab3ff;font-size:13px;font-weight:700;cursor:pointer;">
+                💾 Log Response
+              </button>
+              <button onclick="setStatus(document.getElementById('histModalResponseSection').dataset.caseRef,'settled').then(()=>showToast('Marked as Settled ✓','success'))"
+                style="padding:8px 18px;background:#0a2a1a;border:1px solid #1a6a3a;border-radius:8px;color:#40c070;font-size:13px;font-weight:700;cursor:pointer;">
+                ✅ Mark Settled
+              </button>
+              <button onclick="setStatus(document.getElementById('histModalResponseSection').dataset.caseRef,'filed').then(()=>showToast('Marked as Filed ✓','success'))"
+                style="padding:8px 18px;background:#2a1010;border:1px solid #6a2a2a;border-radius:8px;color:#f07060;font-size:13px;font-weight:700;cursor:pointer;">
+                ⚖️ Mark Filed in Court
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1273,6 +1300,28 @@ function colFmcsaDebounced(val) {
   if (!val || val.replace(/\D/g,'').length < 5) return;
   _colFmcsaTimer = setTimeout(() => colFmcsaLookup(val), 800);
 }
+async function checkBrokerIntelCollection(mc) {
+  const mc_clean = String(mc).replace(/\D/g,'');
+  if (mc_clean.length < 5) return;
+  const banner = document.getElementById('col_brokerIntelBanner');
+  if (!banner) return;
+  try {
+    const r = await fetch('/api/broker-intel?mc=' + mc_clean);
+    const d = await r.json();
+    if (d.count > 0) {
+      const color = d.count >= 5 ? '#ff6b6b' : d.count >= 2 ? '#f0a830' : '#f0d030';
+      banner.style.display = '';
+      banner.style.borderColor = color + '88';
+      banner.style.background = d.count >= 5 ? '#3d1a1a' : '#2a2010';
+      banner.innerHTML = `<span style="color:${color};font-weight:700;">⚠️ ${d.count} demand letter${d.count>1?'s':''} already filed against this broker</span>
+        ${d.totalDamages ? ` — $${Number(d.totalDamages).toLocaleString()} total claimed` : ''}
+        <br><span style="color:var(--text-muted);font-size:11px;">This broker has a history of non-payment disputes on FreightGuard Defense.</span>`;
+    } else {
+      banner.style.display = 'none';
+    }
+  } catch {}
+}
+
 async function colFmcsaLookup(mc) {
   const mc_clean = String(mc).replace(/\D/g,'');
   if (mc_clean.length < 5) return;
@@ -1361,6 +1410,13 @@ async function generateCollectionLetter() {
       const s = data.summary;
       showAlert('formAlert', 'gold',
         `✅ Collection letter generated — Case: ${data.caseRef} | Invoice: $${s.principal?.toLocaleString()} | Total Demanded: $${s.totalOwed?.toLocaleString()} | Deadline: ${s.deadlineStr}`);
+    }
+
+    // Auto-send notification
+    if (data.autoSent?.sent) {
+      showToast('✉️ Collection letter auto-sent to broker. Follow-up reminders scheduled for Day 7 & Day 14.', 'success');
+    } else if (data.autoSent?.error) {
+      showAlert('formAlert', 'gold', `✅ Letter generated (Case ${data.caseRef}). Note: Auto-email failed — ${data.autoSent.error}`);
     }
 
     out.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1501,6 +1557,12 @@ async function generateLetter() {
     injectDeadlineTracker(data.caseRef);
     showAlert('formAlert', 'green', '✅ Your demand letter is ready. Review it below, then print or email the broker directly.');
     document.getElementById('letterOutput').scrollIntoView({ behavior: 'smooth' });
+    // Auto-send notification
+    if (data.autoSent?.sent) {
+      showAlert('formAlert', 'gold', `✅ Letter generated & auto-emailed to broker (Case ${data.caseRef}). Day 7 & Day 14 follow-ups scheduled automatically.`);
+    } else if (data.autoSent?.error) {
+      showAlert('formAlert', 'gold', `✅ Letter generated (Case ${data.caseRef}). Auto-email failed: ${data.autoSent.error} — use Email Broker button to send manually.`);
+    }
   } catch(err) {
     showAlert('formAlert', 'red', '❌ ' + err.message);
   } finally {
@@ -2143,8 +2205,14 @@ async function loadHistory() {
   container.innerHTML = '<div style="color:var(--text-muted);padding:24px;text-align:center;"><div class="spinner" style="margin:0 auto 12px;"></div>Loading letter history...</div>';
   try {
     const res  = await fetch('/api/letters-history', { headers: getAuthHeaders() });
+    if (res.status === 401) {
+      document.getElementById('historyTbody').innerHTML = '<tr><td colspan="9" style="padding:20px;color:var(--text-muted);">Please <a href="/login.html" style="color:#6ab0f5;">log in</a> to view your past letters.</td></tr>';
+      return;
+    }
     const data = await res.json();
     _allHistoryLetters = data.letters || [];
+    // Seed server-side statuses
+    _allHistoryLetters.forEach(l => { if (l.status) _serverStatuses[l.caseRef] = l.status; });
     renderHistoryStats(_allHistoryLetters);
     renderHistoryTable(_allHistoryLetters);
   } catch(e) {
@@ -2246,9 +2314,6 @@ function renderHistoryTable(letters) {
 let _historyViewLetters = [];
 
 function openHistoryModal(idx) {
-  // Use the currently rendered set
-  const tbodyRows = document.querySelectorAll('#historyTbody tr');
-  // Re-derive from search filter
   const search = (document.getElementById('historySearch')?.value||'').toLowerCase();
   const source = search
     ? _allHistoryLetters.filter(l =>
@@ -2261,15 +2326,72 @@ function openHistoryModal(idx) {
 
   const letter = source[idx];
   if (!letter) return;
-  const modal = document.getElementById('historyModal');
-  const date  = letter.ts ? new Date(letter.ts).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : '';
+  const modal   = document.getElementById('historyModal');
+  const date    = letter.ts ? new Date(letter.ts).toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) : '';
+  const caseRef = letter.caseRef || '';
+  const status  = getStatus(caseRef);
+  const sc      = STATUS_COLORS[status] || STATUS_COLORS.new;
+
   const titleEl = document.getElementById('histModalTitle');
-  titleEl.textContent = `${letter.carrierName || 'Carrier'} vs. ${letter.brokerName || 'Broker'}`;
-  titleEl.dataset.caseRef = letter.caseRef || '';
-  document.getElementById('histModalMeta').textContent  = `Case ${letter.caseRef} · ${date} · ${letter.totalDamages ? '$'+Number(letter.totalDamages).toLocaleString()+' claimed' : ''}`;
-  document.getElementById('histModalBody').textContent  = letter.letterText || '(Letter text not available)';
+  titleEl.textContent    = `${letter.carrierName || 'Carrier'} vs. ${letter.brokerName || 'Broker'}`;
+  titleEl.dataset.caseRef = caseRef;
+
+  document.getElementById('histModalMeta').innerHTML =
+    `Case ${esc(caseRef)} &nbsp;·&nbsp; ${esc(date)} &nbsp;·&nbsp; ${letter.totalDamages ? '$'+Number(letter.totalDamages).toLocaleString()+' claimed' : ''} &nbsp;·&nbsp;
+    <span id="modalStatusBadge" style="background:${sc.bg};color:${sc.text};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;" onclick="cycleModalStatus('${caseRef}')" title="Click to change status">${sc.label}</span>`;
+
+  // Status pipeline visual
+  const pipelineEl = document.getElementById('histModalPipeline');
+  if (pipelineEl) {
+    const steps = ['new','sent','opened','responded','settled','filed'];
+    const curIdx = steps.indexOf(status);
+    pipelineEl.innerHTML = steps.map((s, i) => {
+      const c = STATUS_COLORS[s];
+      const active = i <= curIdx;
+      return `<div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;
+        background:${active ? c.bg : 'transparent'};color:${active ? c.text : 'var(--text-muted)'};
+        border:1px solid ${active ? c.text+'44' : 'var(--border)'};">${c.label}</div>
+        ${i < steps.length-1 ? '<div style="color:var(--border);font-size:14px;">›</div>' : ''}`;
+    }).join('');
+  }
+
+  document.getElementById('histModalBody').textContent = letter.letterText || '(Letter text not available)';
+
+  // Responses section
+  const respSection = document.getElementById('histModalResponseSection');
+  if (respSection) {
+    respSection.dataset.caseRef = caseRef;
+    renderResponseLog(letter.responses || []);
+    // Load fresh responses from server
+    fetch('/api/letter-response/' + encodeURIComponent(caseRef), { headers: getAuthHeaders() })
+      .then(r => r.json()).then(d => renderResponseLog(d.responses || [])).catch(() => {});
+  }
+
   modal.style.display = 'flex';
   document.addEventListener('keydown', _histModalEsc);
+}
+
+async function cycleModalStatus(caseRef) {
+  const cur  = getStatus(caseRef);
+  const idx  = STATUS_ORDER.indexOf(cur);
+  const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+  await setStatus(caseRef, next);
+  const sc = STATUS_COLORS[next] || STATUS_COLORS.new;
+  const badge = document.getElementById('modalStatusBadge');
+  if (badge) { badge.textContent = sc.label; badge.style.background = sc.bg; badge.style.color = sc.text; }
+  const pipe = document.getElementById('histModalPipeline');
+  if (pipe) {
+    const steps = ['new','sent','opened','responded','settled','filed'];
+    const ci = steps.indexOf(next);
+    pipe.innerHTML = steps.map((s, i) => {
+      const c = STATUS_COLORS[s];
+      const active = i <= ci;
+      return `<div style="display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;
+        background:${active ? c.bg : 'transparent'};color:${active ? c.text : 'var(--text-muted)'};
+        border:1px solid ${active ? c.text+'44' : 'var(--border)'};">${c.label}</div>
+        ${i < steps.length-1 ? '<div style="color:var(--border);font-size:14px;">›</div>' : ''}`;
+    }).join('');
+  }
 }
 
 function _histModalEsc(e) { if (e.key==='Escape') closeHistoryModal(); }
@@ -2278,6 +2400,38 @@ function closeHistoryModal() {
   const m = document.getElementById('historyModal');
   if (m) m.style.display = 'none';
   document.removeEventListener('keydown', _histModalEsc);
+}
+
+async function logBrokerResponse(caseRef) {
+  const text = document.getElementById('brokerResponseText').value.trim();
+  if (!text) { showToast('Enter the broker response first.', 'warn'); return; }
+  const btn = document.getElementById('logResponseBtn');
+  btn.disabled = true; btn.textContent = 'Saving...';
+  try {
+    await fetch('/api/letter-response/' + encodeURIComponent(caseRef), {
+      method: 'POST', headers: getAuthHeaders(),
+      body: JSON.stringify({ response: text, responseDate: new Date().toISOString() }),
+    });
+    await setStatus(caseRef, 'responded');
+    document.getElementById('brokerResponseText').value = '';
+    // Reload responses in modal
+    const rRes = await fetch('/api/letter-response/' + encodeURIComponent(caseRef), { headers: getAuthHeaders() });
+    const rData = await rRes.json();
+    renderResponseLog(rData.responses || []);
+    showToast('Response logged. Status set to Responded.', 'success');
+  } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+  finally { btn.disabled = false; btn.textContent = '💾 Log Response'; }
+}
+
+function renderResponseLog(responses) {
+  const el = document.getElementById('responseLogList');
+  if (!el) return;
+  if (!responses.length) { el.innerHTML = '<div style="color:var(--text-muted);font-size:12px;">No responses logged yet.</div>'; return; }
+  el.innerHTML = responses.map(r => `
+    <div style="background:rgba(255,255,255,0.04);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:8px;">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">${new Date(r.loggedAt||r.date).toLocaleString()}</div>
+      <div style="font-size:13px;color:#d0dbe8;white-space:pre-wrap;">${esc(r.text)}</div>
+    </div>`).join('');
 }
 
 function printHistoryLetter() {
@@ -2584,41 +2738,58 @@ function showToast(msg, type='info') {
 // FEATURE 2 — CASE STATUS BADGES
 // ══════════════════════════════════════════════════════════════════════
 const STATUS_COLORS = {
-  'new':       { bg:'#1a3a5c', text:'#74b4f7', label:'🆕 New' },
+  'new':       { bg:'#1a2a3a', text:'#74b4f7', label:'🆕 New' },
+  'sent':      { bg:'#1a2a5a', text:'#7ab3ff', label:'📤 Sent' },
+  'opened':    { bg:'#2a2a0a', text:'#f0d030', label:'👁 Opened' },
+  'responded': { bg:'#2a1a3a', text:'#c080ff', label:'💬 Responded' },
+  'settled':   { bg:'#0a2a1a', text:'#40c070', label:'✅ Settled' },
+  'filed':     { bg:'#3a1a1a', text:'#f07060', label:'⚖️ Filed' },
+  'closed':    { bg:'#1a1a2a', text:'#8888aa', label:'🔒 Closed' },
+  // legacy fallbacks
   'open':      { bg:'#1a3a1a', text:'#5dba60', label:'🟢 Open' },
   'pending':   { bg:'#3a2a0a', text:'#f0a830', label:'🟡 Pending' },
-  'sent':      { bg:'#1a2a4a', text:'#7ab3ff', label:'📤 Sent' },
   'resolved':  { bg:'#0a2a1a', text:'#40c070', label:'✅ Resolved' },
   'escalated': { bg:'#3a1a1a', text:'#f07060', label:'🔺 Escalated' },
-  'closed':    { bg:'#1a1a2a', text:'#8888aa', label:'🔒 Closed' }
 };
+const STATUS_ORDER = ['new','sent','opened','responded','settled','filed','closed'];
 
-function setStatus(caseRef, status) {
+// Server-side status cache (loaded with history)
+const _serverStatuses = {};
+
+async function setStatus(caseRef, status) {
   if (!caseRef) return;
   localStorage.setItem('status_' + caseRef, status);
-  // re-render history if visible
+  _serverStatuses[caseRef] = status;
+  try {
+    await fetch('/api/letter-status/' + encodeURIComponent(caseRef), {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ status }),
+    });
+  } catch {}
   const screen = document.getElementById('screen-history');
   if (screen && screen.classList.contains('active')) loadHistory();
 }
 
 function getStatus(caseRef) {
-  return localStorage.getItem('status_' + caseRef) || 'new';
+  return _serverStatuses[caseRef] || localStorage.getItem('status_' + caseRef) || 'new';
 }
 
 function renderStatusBadge(caseRef) {
   const s = getStatus(caseRef);
   const c = STATUS_COLORS[s] || STATUS_COLORS['new'];
   return `<span style="background:${c.bg};color:${c.text};padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;"
-    onclick="cycleStatus('${caseRef}')" title="Click to change status">${c.label}</span>`;
+    onclick="cycleStatusUI('${caseRef}')" title="Click to cycle status">${c.label}</span>`;
 }
 
-function cycleStatus(caseRef) {
-  const order = ['new','open','pending','sent','resolved','escalated','closed'];
+function cycleStatusUI(caseRef) {
   const cur = getStatus(caseRef);
-  const idx = order.indexOf(cur);
-  const next = order[(idx + 1) % order.length];
+  const idx = STATUS_ORDER.indexOf(cur);
+  const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
   setStatus(caseRef, next);
 }
+
+function cycleStatus(caseRef) { cycleStatusUI(caseRef); }
 
 // ══════════════════════════════════════════════════════════════════════
 // FEATURE 3 — REAL PDF DOWNLOAD (jsPDF)
