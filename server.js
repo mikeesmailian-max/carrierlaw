@@ -661,6 +661,153 @@ app.get('/api/fmcsa-lookup', async (req, res) => {
   }
 });
 
+// ── UNPAID FREIGHT COLLECTION LETTER ─────────────────────────────────────────
+app.post('/api/generate-collection-letter', rateLimit(60000, 5), async (req, res) => {
+  try {
+    const {
+      carrierName, carrierMC, carrierDOT, carrierEmail, carrierAddress,
+      brokerName, brokerMC, brokerAddress, brokerPOC, brokerEmail,
+      invoiceNumber, invoiceDate, loadNumber, bolNumber,
+      invoiceAmount, paymentDueDate, serviceDescription,
+      assignedAttorneyId,
+    } = req.body;
+
+    if (!carrierName || !brokerName || !brokerAddress || !invoiceAmount) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const principal   = parseFloat(String(invoiceAmount).replace(/[^0-9.]/g, '')) || 0;
+    const attyFees    = Math.round(principal * 0.5);
+    const interest    = Math.round(principal * 0.18 / 365 * 30); // 18% APR ~30 days
+    const totalOwed   = principal + attyFees + interest;
+
+    const caseRef = 'FGD-COL-' + Date.now().toString().slice(-6) + '-' + Math.floor(Math.random()*9000+1000);
+
+    let court = { name: 'United States District Court', address: brokerAddress, city: '', state: '', zip: '', dept: '', phone: '' };
+    try { court = await findCourthouseViaGoogleMaps(brokerAddress); } catch {}
+
+    const attorneys  = await loadAttorneys();
+    const attorney   = assignedAttorneyId ? attorneys.find(a => a.id === assignedAttorneyId) : null;
+
+    const today       = new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+    const deadline    = new Date();
+    deadline.setDate(deadline.getDate() + 14);
+    const deadlineStr = deadline.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+
+    const firmLine = attorney
+      ? (attorney.firmName || attorney.name + ', Attorney at Law')
+      : '[LAW FIRM — TBD]';
+    const attorneyBlock = attorney
+      ? `Respectfully submitted,\n\n${attorney.name}\n${attorney.firmName || 'Attorney at Law'}\nBar No. ${attorney.barNumber} (${attorney.barState})\n${attorney.phone || ''}\n${attorney.email}`
+      : 'Respectfully submitted,\n\n_________________________________\nAuthorized Representative / Counsel';
+
+    const courtLine = court.name
+      ? `${court.name}\n${court.address || ''}, ${court.city || ''}, ${court.state || ''} ${court.zip || ''}\n${court.dept || ''}\nPhone: ${court.phone || 'N/A'}`
+      : brokerAddress;
+
+    const prompt = `CRITICAL FORMATTING RULES: Output ONLY plain text. Do NOT use HTML tags, markdown, bold (**), bullet symbols, or special formatting. Use standard ASCII. Line breaks are fine.
+
+You are a senior collections attorney and transportation law specialist drafting a FINAL DEMAND FOR PAYMENT AND NOTICE OF INTENT TO SUE. This letter must be forceful, legally authoritative, and unmistakably threatening — the kind of letter that motivates immediate payment.
+
+TODAY'S DATE: ${today}
+FINAL PAYMENT DEADLINE: ${deadlineStr} (14 days from today)
+
+LAW FIRM / SENDER:
+${firmLine}
+
+PLAINTIFF / CREDITOR (MOTOR CARRIER):
+- Legal Name: ${carrierName}
+- MC Number: MC-${carrierMC || 'N/A'}
+- DOT Number: ${carrierDOT || 'N/A'}
+- Address: ${carrierAddress || 'N/A'}
+- Contact Email: ${carrierEmail}
+
+DEFENDANT / DEBTOR (FREIGHT BROKER):
+- Legal Name: ${brokerName}
+- MC Number: MC-${brokerMC || 'N/A'}
+- Address: ${brokerAddress}
+- Point of Contact: ${brokerPOC || 'Accounts Payable Department'}
+
+TRANSACTION DETAILS:
+- Invoice Number: ${invoiceNumber || 'N/A'}
+- Invoice Date: ${invoiceDate || 'N/A'}
+- Load / Reference Number: ${loadNumber || 'N/A'}
+- Bill of Lading: ${bolNumber || 'N/A'}
+- Payment Due Date: ${paymentDueDate || 'N/A'}
+- Description of Services: ${serviceDescription || 'Freight transportation services rendered in full'}
+
+FINANCIAL DEMAND:
+- Original Invoice Amount: $${principal.toLocaleString()}
+- Attorney Fees & Collection Costs (50%): $${attyFees.toLocaleString()}
+- Accrued Interest (18% per annum): $${interest.toLocaleString()}
+- TOTAL AMOUNT DUE AND OWING: $${totalOwed.toLocaleString()}
+
+DESIGNATED FILING COURT (if payment not received):
+${courtLine}
+
+LEGAL CAUSES OF ACTION TO CITE (cite relevant statute numbers):
+1. Breach of Contract — failure to pay for services rendered per 49 U.S.C. § 14101
+2. Quantum Meruit — unjust enrichment for services performed and accepted
+3. Unjust Enrichment — defendant profited from carrier services without compensation
+4. Violation of Prompt Payment requirements under 49 C.F.R. § 371.3 and industry standards
+5. Bad Faith / Tortious Interference — if applicable
+6. Interest at the statutory rate plus contractual rate of 18% per annum
+7. Full attorney fees and collection costs pursuant to contract and applicable law
+
+WRITE THE LETTER WITH THESE EXACT SECTIONS:
+1. Header block: FROM (law firm), DATE, TO (broker/debtor address)
+2. RE: line — must include case reference ${caseRef}, invoice number, and dollar amount
+3. Opening paragraph — identify the firm, the carrier client, and state this is the FINAL PRE-LITIGATION DEMAND. State that if payment is not received within 14 days, a lawsuit WILL be filed — no further notice will be given.
+4. "BACKGROUND AND SERVICES RENDERED" — detail the load, invoice, and completed services
+5. "DEFAULT AND FAILURE TO PAY" — document the debt, days overdue, and refusal to pay
+6. "LEGAL GROUNDS FOR RECOVERY" — cite every cause of action with specific statutes
+7. "FINANCIAL DEMAND" — present the full table: principal, attorney fees (50%), interest, total
+8. "CONSEQUENCES OF NON-PAYMENT" — explain lawsuit filing in ${court.name || 'federal district court'}, judgment, interest accrual, damage to broker's credit/license, FMCSA notification, industry reporting
+9. "DEMAND FOR IMMEDIATE PAYMENT" — numbered demands: full wire/check payment within 14 days or suit filed
+10. State specifically that suit WILL be filed at: ${courtLine}
+11. Professional closing with attorney signature block
+
+Make every sentence feel like it was written by a $600/hour collections attorney. The tone must be formally aggressive — factual, precise, and unmistakably serious. No softening language whatsoever.
+
+${attorneyBlock}`;
+
+    const message = await anthropic.messages.create({
+      model:      'claude-opus-4-6',
+      max_tokens: 3000,
+      messages:   [{ role: 'user', content: prompt }],
+    });
+
+    const letterText = message.content[0].type === 'text' ? message.content[0].text : '';
+
+    // Save to letters store
+    const letter = {
+      id: caseRef, caseRef, letterType: 'collection',
+      carrierName, carrierEmail, carrierMC, carrierDOT,
+      brokerName, brokerMC, brokerAddress,
+      invoiceNumber, invoiceAmount: principal, totalDemand: totalOwed,
+      totalDamages: totalOwed,
+      letterText,
+      court, attorneyId: assignedAttorneyId || null,
+      ts: new Date().toISOString(),
+    };
+    await saveLetterDB(letter);
+    await recordBrokerReportDB(brokerMC, brokerName, carrierName, caseRef);
+
+    res.json({
+      letter: letterText,
+      caseRef,
+      court,
+      summary: {
+        principal, attyFees, interest, totalOwed,
+        brokerName, invoiceNumber, deadlineStr,
+      },
+    });
+  } catch(e) {
+    console.error('Collection letter error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/maps-key', (req, res) => {
   res.json({ key: cfg('GOOGLE_MAPS_API_KEY') || '' });
 });

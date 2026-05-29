@@ -483,6 +483,18 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
 
   <div class="form-content">
     <div id="formAlert"></div>
+
+    <!-- LETTER TYPE SELECTOR -->
+    <div style="display:flex;gap:0;margin-bottom:22px;border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+      <button id="typeDispute" onclick="setLetterType('dispute')"
+        style="flex:1;padding:14px 20px;background:var(--accent);color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+        ⚖️ FreightGuard Report Dispute
+      </button>
+      <button id="typeCollection" onclick="setLetterType('collection')"
+        style="flex:1;padding:14px 20px;background:var(--card);color:var(--text-muted);border:none;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;border-left:1px solid var(--border);">
+        💰 Unpaid Freight Invoice Collection
+      </button>
+    </div>
     <div id="draftRestoreBanner" style="display:none;background:#0d1f10;border:1px solid #1e5a20;border-radius:8px;padding:10px 16px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
       <span style="font-size:13px;color:#2ecc71;">💾 <strong>Unsaved draft found</strong> — <span id="draftAge" style="color:#27ae60;"></span></span>
       <div style="display:flex;gap:8px;">
@@ -492,6 +504,7 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
     </div>
     <div id="draftSaveIndicator" style="text-align:right;font-size:11px;color:var(--text-muted);margin-bottom:4px;opacity:0;transition:opacity 0.3s;"></div>
 
+    <div id="disputeFields">
     <div class="grid-2">
 
       <!-- LEFT COLUMN -->
@@ -672,6 +685,101 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
       </div>
 
     </div><!-- end grid -->
+    </div><!-- end disputeFields -->
+
+    <!-- COLLECTION LETTER FIELDS (hidden by default) -->
+    <div id="collectionFields" style="display:none;">
+      <div class="grid-2">
+
+        <!-- LEFT: Carrier + Invoice Info -->
+        <div>
+          <div class="card">
+            <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
+            <div class="field"><label>Carrier Company Name *</label><input id="col_carrierName" placeholder="e.g. ABC Trucking LLC" data-lpignore="true" data-1p-ignore/></div>
+            <div class="field"><label>Carrier Address</label><input id="col_carrierAddress" placeholder="123 Main St, Dallas, TX 75201" data-lpignore="true" data-1p-ignore/></div>
+            <div class="field-row">
+              <div class="field"><label>MC Number</label><input id="col_carrierMC" placeholder="1234567" data-lpignore="true" data-1p-ignore/></div>
+              <div class="field"><label>DOT Number</label><input id="col_carrierDOT" placeholder="9876543" data-lpignore="true" data-1p-ignore/></div>
+            </div>
+            <div class="field"><label>Your Email *</label><input id="col_carrierEmail" type="email" placeholder="owner@yourcompany.com" data-lpignore="true" data-1p-ignore/></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><span class="dot"></span>Invoice &amp; Load Details</div>
+            <div class="field-row">
+              <div class="field"><label>Invoice Number *</label><input id="col_invoiceNumber" placeholder="INV-2025-001" data-lpignore="true" data-1p-ignore/></div>
+              <div class="field"><label>Invoice Date *</label><input id="col_invoiceDate" type="date" data-lpignore="true" data-1p-ignore/></div>
+            </div>
+            <div class="field-row">
+              <div class="field"><label>Load / Reference #</label><input id="col_loadNumber" placeholder="LOAD-88421" data-lpignore="true" data-1p-ignore/></div>
+              <div class="field"><label>Bill of Lading #</label><input id="col_bolNumber" placeholder="BOL-2025-001" data-lpignore="true" data-1p-ignore/></div>
+            </div>
+            <div class="field"><label>Payment Due Date</label><input id="col_paymentDueDate" type="date" data-lpignore="true" data-1p-ignore/></div>
+            <div class="field">
+              <label>Invoice Amount (USD) *</label>
+              <input id="col_invoiceAmount" type="number" min="1" placeholder="e.g. 4500" oninput="recalcCollection()" data-lpignore="true" data-1p-ignore/>
+            </div>
+            <div id="collectionCalc" style="display:none;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.3);border-radius:8px;padding:14px;margin-top:8px;font-size:13px;line-height:2;">
+              <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Original Invoice:</span><span id="col_principal" style="color:#d0dbe8;font-weight:600;"></span></div>
+              <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Attorney Fees (50%):</span><span id="col_attyFees" style="color:#f39c12;font-weight:600;"></span></div>
+              <div style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted);">Interest (18% APR ~30d):</span><span id="col_interest" style="color:#f39c12;font-weight:600;"></span></div>
+              <div style="display:flex;justify-content:space-between;border-top:1px solid rgba(192,57,43,0.3);padding-top:8px;margin-top:4px;"><span style="color:#fff;font-weight:700;">TOTAL DEMANDED:</span><span id="col_total" style="color:#e74c3c;font-weight:800;font-size:16px;"></span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><span class="dot"></span>Services Rendered</div>
+            <textarea id="col_serviceDescription" rows="5" placeholder="Describe the transportation services performed: pickup location, delivery location, load details, dates, proof of delivery, and any communications with the broker about non-payment..." style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:12px;font-size:13px;resize:vertical;"></textarea>
+          </div>
+        </div>
+
+        <!-- RIGHT: Broker + Generate -->
+        <div>
+          <div class="card">
+            <div class="card-title"><span class="dot"></span>Broker (Debtor) Information</div>
+            <div class="field">
+              <label>Broker Company Name *</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="col_brokerName" placeholder="e.g. Apex Freight Solutions Inc." style="flex:1;" data-lpignore="true" data-1p-ignore/>
+              </div>
+            </div>
+            <div class="field">
+              <label>Broker MC Number</label>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <input id="col_brokerMC" placeholder="654321" oninput="colFmcsaDebounced(this.value)" style="flex:1;" data-lpignore="true" data-1p-ignore/>
+                <button type="button" onclick="colFmcsaLookup(document.getElementById('col_brokerMC').value)" style="white-space:nowrap;padding:8px 12px;background:#1a2f4a;border:1px solid #2d5a8a;border-radius:8px;color:#6ab0f5;font-size:12px;cursor:pointer;">🔍 Lookup</button>
+              </div>
+              <div id="col_brokerFmcsaStatus" style="font-size:11px;margin-top:4px;min-height:16px;"></div>
+            </div>
+            <div class="field"><label>Broker Address *</label><input id="col_brokerAddress" placeholder="456 Commerce Ave, Chicago, IL 60601" data-lpignore="true" data-1p-ignore/></div>
+            <div class="field"><label>Broker Point of Contact</label><input id="col_brokerPOC" placeholder="Accounts Payable / John Smith" data-lpignore="true" data-1p-ignore/></div>
+            <div class="field"><label>Broker Email (for delivery)</label><input id="col_brokerEmail" type="email" placeholder="ap@brokercompany.com" data-lpignore="true" data-1p-ignore/></div>
+          </div>
+
+          <div class="card">
+            <div class="card-title"><span class="dot"></span>Attorney Assignment (Optional)</div>
+            <div class="field">
+              <label>Assign Attorney</label>
+              <select id="col_assignedAttorney" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-size:13px;">
+                <option value="">— No Attorney Assigned —</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card" style="background:linear-gradient(135deg,rgba(192,57,43,0.15) 0%,var(--card) 100%);border-color:rgba(192,57,43,0.4);">
+            <div class="card-title"><span class="dot"></span>Generate Collection Letter</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:18px;line-height:1.6;">
+              Generates a <strong style="color:#e74c3c;">FINAL DEMAND FOR PAYMENT</strong> — a professionally drafted legal collection letter with 50% attorney fees, 18% interest, and the broker's nearest federal courthouse as the filing venue. This letter is designed to compel immediate payment.
+            </p>
+            <button class="btn btn-red" id="colGenerateBtn" onclick="generateCollectionLetter()" style="width:100%;justify-content:center;font-size:15px;padding:16px;">
+              💰 Generate Collection Letter
+            </button>
+            <p style="font-size:11px;color:var(--text-muted);margin-top:10px;text-align:center;">Takes approximately 15–25 seconds</p>
+          </div>
+        </div>
+
+      </div><!-- end collection grid -->
+    </div><!-- end collectionFields -->
 
     <!-- Letter output -->
     <div id="letterOutput">
@@ -1106,6 +1214,164 @@ function openAddressModal(targetInputId) {
 document.getElementById('brokerAddress')?.addEventListener('input', updateCourtPreview);
 
 // ── GENERATE LETTER ───────────────────────────────────────────
+// ── LETTER TYPE TOGGLE ────────────────────────────────────────────────────────
+let currentLetterType = 'dispute';
+function setLetterType(type) {
+  currentLetterType = type;
+  const isDispute = type === 'dispute';
+  document.getElementById('disputeFields').style.display    = isDispute ? '' : 'none';
+  document.getElementById('collectionFields').style.display = isDispute ? 'none' : '';
+  // Update button styles
+  const btnD = document.getElementById('typeDispute');
+  const btnC = document.getElementById('typeCollection');
+  btnD.style.background = isDispute ? 'var(--accent)' : 'var(--card)';
+  btnD.style.color      = isDispute ? '#fff' : 'var(--text-muted)';
+  btnC.style.background = isDispute ? 'var(--card)' : '#7d1e1e';
+  btnC.style.color      = isDispute ? 'var(--text-muted)' : '#fff';
+  // Populate attorney dropdown if needed
+  if (!isDispute) populateColAttorneyDropdown();
+  document.getElementById('letterOutput').style.display = 'none';
+}
+
+async function populateColAttorneyDropdown() {
+  const sel = document.getElementById('col_assignedAttorney');
+  if (sel.options.length > 1) return; // already populated
+  try {
+    const r = await fetch('/api/attorneys');
+    const d = await r.json();
+    (d.attorneys || []).forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name + (a.firmName ? ' — ' + a.firmName : '') + ' (' + (a.barState||'') + ')';
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
+// ── COLLECTION CALC ────────────────────────────────────────────────────────────
+function recalcCollection() {
+  const raw  = parseFloat((document.getElementById('col_invoiceAmount').value||'0').replace(/[^0-9.]/g,'')) || 0;
+  const atty = Math.round(raw * 0.5);
+  const intr = Math.round(raw * 0.18 / 365 * 30);
+  const tot  = raw + atty + intr;
+  const box  = document.getElementById('collectionCalc');
+  if (raw > 0) {
+    box.style.display = '';
+    document.getElementById('col_principal').textContent = '$' + raw.toLocaleString();
+    document.getElementById('col_attyFees').textContent  = '$' + atty.toLocaleString();
+    document.getElementById('col_interest').textContent  = '$' + intr.toLocaleString();
+    document.getElementById('col_total').textContent     = '$' + tot.toLocaleString();
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+// ── COLLECTION FMCSA LOOKUP ────────────────────────────────────────────────────
+let _colFmcsaTimer = null;
+function colFmcsaDebounced(val) {
+  clearTimeout(_colFmcsaTimer);
+  if (!val || val.replace(/\D/g,'').length < 5) return;
+  _colFmcsaTimer = setTimeout(() => colFmcsaLookup(val), 800);
+}
+async function colFmcsaLookup(mc) {
+  const mc_clean = String(mc).replace(/\D/g,'');
+  if (mc_clean.length < 5) return;
+  const el = document.getElementById('col_brokerFmcsaStatus');
+  el.textContent = '🔍 Looking up...'; el.style.color = '#6ab0f5';
+  try {
+    const r = await fetch('/api/fmcsa-lookup?mc=' + mc_clean);
+    const d = await r.json();
+    if (d.legalName) {
+      if (!document.getElementById('col_brokerName').value)    document.getElementById('col_brokerName').value    = d.legalName;
+      if (!document.getElementById('col_brokerAddress').value) document.getElementById('col_brokerAddress').value = d.address || '';
+      el.textContent = '✓ Found: ' + d.legalName; el.style.color = '#2ecc71';
+    } else {
+      el.textContent = '⚠ Not found on FMCSA'; el.style.color = '#f39c12';
+    }
+  } catch { el.textContent = 'Lookup failed'; el.style.color = '#e74c3c'; }
+}
+
+// ── GENERATE COLLECTION LETTER ─────────────────────────────────────────────────
+async function generateCollectionLetter() {
+  const f = {
+    carrierName:         document.getElementById('col_carrierName').value.trim(),
+    carrierAddress:      document.getElementById('col_carrierAddress').value.trim(),
+    carrierMC:           document.getElementById('col_carrierMC').value.trim(),
+    carrierDOT:          document.getElementById('col_carrierDOT').value.trim(),
+    carrierEmail:        document.getElementById('col_carrierEmail').value.trim(),
+    brokerName:          document.getElementById('col_brokerName').value.trim(),
+    brokerMC:            document.getElementById('col_brokerMC').value.trim(),
+    brokerAddress:       document.getElementById('col_brokerAddress').value.trim(),
+    brokerPOC:           document.getElementById('col_brokerPOC').value.trim(),
+    brokerEmail:         document.getElementById('col_brokerEmail').value.trim(),
+    invoiceNumber:       document.getElementById('col_invoiceNumber').value.trim(),
+    invoiceDate:         document.getElementById('col_invoiceDate').value,
+    loadNumber:          document.getElementById('col_loadNumber').value.trim(),
+    bolNumber:           document.getElementById('col_bolNumber').value.trim(),
+    invoiceAmount:       document.getElementById('col_invoiceAmount').value,
+    paymentDueDate:      document.getElementById('col_paymentDueDate').value,
+    serviceDescription:  document.getElementById('col_serviceDescription').value.trim(),
+    assignedAttorneyId:  document.getElementById('col_assignedAttorney').value,
+  };
+
+  if (!f.carrierName || !f.carrierEmail || !f.brokerName || !f.brokerAddress || !f.invoiceAmount) {
+    showAlert('formAlert', 'red', '⚠️ Please fill in: Carrier Name, Carrier Email, Broker Name, Broker Address, and Invoice Amount.');
+    return;
+  }
+
+  const btn = document.getElementById('colGenerateBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner"></div> Drafting collection letter...';
+  showAlert('formAlert', 'gold', '⏳ AI is drafting your collection demand letter with courthouse lookup. This takes 15–25 seconds...');
+  document.getElementById('letterOutput').style.display = 'none';
+
+  try {
+    const res  = await fetch('/api/generate-collection-letter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(f),
+    });
+    let data;
+    const raw = await res.text();
+    try { data = JSON.parse(raw); } catch { throw new Error('Invalid server response: ' + raw.substring(0,200)); }
+    if (!res.ok) throw new Error(data.error || 'Server error ' + res.status);
+
+    const cleanLetter = (data.letter||'')
+      .replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');
+
+    // Show in letterOutput
+    const out = document.getElementById('letterOutput');
+    out.style.display = '';
+    document.getElementById('letterText').textContent = cleanLetter;
+    document.getElementById('letterStats').textContent = cleanLetter.split(/\s+/).length + ' words';
+
+    // Update toolbar title
+    const tb = out.querySelector('.letter-toolbar-left');
+    if (tb) tb.innerHTML = '💰 Collection Demand Letter <span class="ready-badge">READY TO SEND</span> <span style="font-size:11px;color:var(--text-muted);font-weight:400;margin-left:12px;">' + cleanLetter.split(/\s+/).length + ' words</span>';
+
+    // Court box
+    if (data.court && data.court.name) {
+      document.getElementById('courtBox').style.display = '';
+      document.getElementById('courtBoxText').textContent =
+        data.court.name + ' — ' + (data.court.address||'') + ', ' + (data.court.city||'') + ', ' + (data.court.state||'') + ' ' + (data.court.zip||'');
+    }
+
+    // Summary banner
+    if (data.summary) {
+      const s = data.summary;
+      showAlert('formAlert', 'gold',
+        `✅ Collection letter generated — Case: ${data.caseRef} | Invoice: $${s.principal?.toLocaleString()} | Total Demanded: $${s.totalOwed?.toLocaleString()} | Deadline: ${s.deadlineStr}`);
+    }
+
+    out.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch(e) {
+    showAlert('formAlert', 'red', '❌ ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '💰 Generate Collection Letter';
+  }
+}
+
 async function generateLetter() {
   const f = {
     carrierName:       v('carrierName'),
