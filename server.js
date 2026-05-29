@@ -686,10 +686,35 @@ app.post('/api/verify-pin', (req, res) => {
 
 // ── PUBLIC LETTER HISTORY (admin tool — no external auth needed) ─────────────
 app.get('/api/letters-history', async (req, res) => {
+  // Require either admin token or client JWT
+  const adminToken = req.headers['x-admin-token'];
+  const isAdmin = adminToken && adminToken === (process.env.ADMIN_PASSWORD || 'mikee@megafleetcorp.com');
+
+  let clientEmail = null;
+  if (!isAdmin) {
+    const auth = req.headers.authorization;
+    if (!auth || !auth.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Login required to view past letters' });
+    }
+    try {
+      if (!jwt) return res.status(500).json({ error: 'JWT not available' });
+      const decoded = jwt.verify(auth.slice(7), JWT_SECRET);
+      clientEmail = decoded.email.toLowerCase();
+    } catch {
+      return res.status(401).json({ error: 'Session expired. Please log in again.' });
+    }
+  }
+
   try {
-    const letters = await loadLetters();
-    const attorneys = await loadAttorneys();
-    const attyMap = Object.fromEntries(attorneys.map(a => [a.id, a]));
+    const allLetters = await loadLetters();
+    const attorneys  = await loadAttorneys();
+    const attyMap    = Object.fromEntries(attorneys.map(a => [a.id, a]));
+
+    // Admin sees all; clients see only their own letters
+    const letters = isAdmin
+      ? allLetters
+      : allLetters.filter(l => (l.carrierEmail||'').toLowerCase() === clientEmail);
+
     res.json({
       letters: letters.map(l => ({
         caseRef:     l.caseRef,

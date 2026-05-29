@@ -328,7 +328,7 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
   <div class="nav-actions">
     <button class="nav-link active" id="navHome" onclick="showScreen('landing')">Home</button>
     <button class="nav-link" id="navAttorneys" onclick="showNavAttorneys()">Our Attorneys</button>
-    <button class="nav-link" id="navHistory" onclick="showNavHistory()">📋 Past Letters</button>
+    <button class="nav-link" id="navHistory" onclick="showNavHistory()" style="display:none;">📋 Past Letters</button>
     <button class="nav-link" id="navAnalytics" onclick="showNavAnalytics()">📈 Analytics</button>
     <a href="/login.html" class="nav-link" style="text-decoration:none;">🔐 Client Login</a>
   </div>
@@ -1459,6 +1459,20 @@ async function deleteAttorney(id) {
 // ── GLOBAL HELPERS ────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
+// Returns auth headers for API calls — client JWT or admin token
+function getAuthHeaders() {
+  const h = { 'Content-Type': 'application/json' };
+  const adminToken = sessionStorage.getItem('adminToken');
+  const clientToken = localStorage.getItem('fgd_client_token');
+  if (adminToken) h['x-admin-token'] = adminToken;
+  else if (clientToken) h['Authorization'] = 'Bearer ' + clientToken;
+  return h;
+}
+// True if the visitor is authenticated (admin or logged-in client)
+function isAuthenticated() {
+  return !!(sessionStorage.getItem('adminToken') || localStorage.getItem('fgd_client_token'));
+}
+
 // ── ADMIN HELPERS ─────────────────────────────────────────────
 function isAdminUser() {
   return sessionStorage.getItem('isAdmin') === '1';
@@ -1467,6 +1481,9 @@ function refreshAdminUI() {
   const addBtn = document.getElementById('addAttyBtn');
   if (addBtn) addBtn.style.display = isAdminUser() ? 'inline-flex' : 'none';
   renderAttorneys(); // re-render to show/hide Remove buttons
+  // Show Past Letters nav only to authenticated users
+  const navHistory = document.getElementById('navHistory');
+  if (navHistory) navHistory.style.display = isAuthenticated() ? 'inline-flex' : 'none';
 }
 
 // ── UTILS ─────────────────────────────────────────────────────
@@ -1667,7 +1684,7 @@ function tickDeadline(deadline) {
 // ══════════════════════════════════════════════════════════════════════════════
 async function loadLandingStats() {
   try {
-    const res  = await fetch('/api/letters-history');
+    const res  = await fetch('/api/letters-history', { headers: getAuthHeaders() });
     const data = await res.json();
     const ltrs = data.letters || [];
     if (!ltrs.length) return;
@@ -1708,7 +1725,7 @@ async function openPrefillModal() {
   if (!_prefillLetters.length) {
     document.getElementById('prefillList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text-muted);"><div class="spinner" style="margin:0 auto 10px;"></div>Loading...</div>';
     try {
-      const res  = await fetch('/api/letters-history');
+      const res  = await fetch('/api/letters-history', { headers: getAuthHeaders() });
       const data = await res.json();
       _prefillLetters = data.letters || [];
     } catch {
@@ -1843,6 +1860,11 @@ function downloadLetter() {
 let _allHistoryLetters = [];
 
 function showNavHistory() {
+  if (!isAuthenticated()) {
+    // Not logged in — send to client login
+    window.location.href = 'login.html?redirect=history';
+    return;
+  }
   showScreen('history');
   const nav = document.getElementById('navHistory');
   if (nav) nav.classList.add('active');
@@ -1854,7 +1876,7 @@ async function loadHistory() {
   if (!container) return;
   container.innerHTML = '<div style="color:var(--text-muted);padding:24px;text-align:center;"><div class="spinner" style="margin:0 auto 12px;"></div>Loading letter history...</div>';
   try {
-    const res  = await fetch('/api/letters-history');
+    const res  = await fetch('/api/letters-history', { headers: getAuthHeaders() });
     const data = await res.json();
     _allHistoryLetters = data.letters || [];
     renderHistoryStats(_allHistoryLetters);
@@ -2022,7 +2044,7 @@ async function downloadLetterPDFByRef(caseRef, carrierName, brokerName) {
   if (!letter || !letter.letterText) {
     // Re-fetch as fallback
     try {
-      const res  = await fetch('/api/letters-history');
+      const res  = await fetch('/api/letters-history', { headers: getAuthHeaders() });
       const data = await res.json();
       const l2   = (data.letters || []).find(l => l.caseRef === caseRef);
       if (!l2 || !l2.letterText) { alert('Letter text not available. Please open the letter first using View →'); return; }
@@ -2411,7 +2433,7 @@ function exportCSV() {
   const btn = document.getElementById('csvExportBtn');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Exporting…'; }
 
-  fetch('/api/letters-history')
+  fetch('/api/letters-history', { headers: getAuthHeaders() })
     .then(r => r.json())
     .then(data => {
       const letters = data.letters || data || [];
@@ -2603,7 +2625,7 @@ function refreshAnalytics() {
 }
 
 function loadAnalytics() {
-  fetch('/api/letters-history')
+  fetch('/api/letters-history', { headers: getAuthHeaders() })
     .then(r => r.json())
     .then(data => {
       const letters = data.letters || data || [];
@@ -3013,5 +3035,6 @@ fetch('/api/maps-key').then(r=>r.json()).then(d=>{ if(d.key) loadGooglePlaces(d.
   </div>
 </div>
 
+<script>refreshAdminUI();</script>
 </body>
 </html>
