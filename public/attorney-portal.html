@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Attorney Portal — FreightGuard Defense</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#080d1a;color:#d0dbe8;min-height:100vh;display:flex;flex-direction:column;}
+.topbar{background:#0d1625;border-bottom:1px solid rgba(255,255,255,0.08);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;flex-shrink:0;}
+.topbar .brand{display:flex;align-items:center;gap:10px;} .topbar .brand span{font-size:22px;} .topbar .brand h1{font-size:16px;font-weight:800;color:#fff;}
+.topbar .brand p{font-size:10px;color:#7ab3ff;}
+.topbar .user-info{display:flex;align-items:center;gap:16px;font-size:13px;color:#8899aa;}
+.topbar .user-info strong{color:#fff;}
+.topbar .logout{padding:6px 16px;background:transparent;border:1px solid rgba(255,255,255,0.15);color:#8899aa;border-radius:6px;cursor:pointer;font-size:12px;}
+.main{display:flex;flex:1;overflow:hidden;}
+.sidebar{width:240px;background:#0d1625;border-right:1px solid rgba(255,255,255,0.08);padding:20px 0;flex-shrink:0;}
+.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:#8899aa;text-decoration:none;transition:all .15s;}
+.sidebar a:hover,.sidebar a.active{background:rgba(255,255,255,0.05);color:#fff;}
+.sidebar a .icon{font-size:16px;width:20px;}
+.content{flex:1;overflow-y:auto;padding:32px;}
+.page-title{font-size:22px;font-weight:800;color:#fff;margin-bottom:6px;}
+.page-sub{font-size:13px;color:#8899aa;margin-bottom:28px;}
+.card{background:#0d1625;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;}
+.card-header{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;}
+.card-header h3{font-size:13px;font-weight:700;color:#fff;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px;}
+.stat{background:#0d1625;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px;}
+.stat .val{font-size:28px;font-weight:900;color:#fff;} .stat .lbl{font-size:11px;color:#8899aa;text-transform:uppercase;letter-spacing:.5px;margin-top:4px;}
+table{width:100%;border-collapse:collapse;}
+th{padding:10px 16px;text-align:left;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#667788;border-bottom:1px solid rgba(255,255,255,0.06);}
+td{padding:12px 16px;font-size:13px;border-bottom:1px solid rgba(255,255,255,0.04);}
+tr:hover td{background:rgba(255,255,255,0.02);}
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.badge-pending{background:#1a2a4a;color:#7ab3ff;}
+.badge-approved{background:#0a2a1a;color:#40c070;}
+.badge-changes{background:#2a1a0a;color:#f0a830;}
+.btn{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s;}
+.btn:hover{opacity:.85;} .btn-primary{background:#c0392b;color:#fff;} .btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.15);color:#d0dbe8;}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9000;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal{background:#0d1625;border:1px solid rgba(255,255,255,0.12);border-radius:14px;width:94%;max-width:860px;max-height:92vh;display:flex;flex-direction:column;}
+.modal-header{padding:18px 24px;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:flex-start;flex-shrink:0;}
+.modal-body{overflow-y:auto;padding:24px;flex:1;}
+.modal-footer{padding:16px 24px;border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0;}
+.letter-pre{white-space:pre-wrap;font-family:'Courier New',monospace;font-size:12px;color:#c8d8e8;line-height:1.75;background:#06090f;padding:20px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:6px;}
+.field textarea{width:100%;background:#06090f;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;color:#d0dbe8;font-size:13px;resize:vertical;outline:none;}
+.alert{padding:10px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;}
+.alert-success{background:#0a2a1a;border:1px solid #2a6a3a;color:#40c070;}
+.alert-error{background:#2a0a0a;border:1px solid #6a2a2a;color:#f07060;}
+.login-wrap{display:flex;align-items:center;justify-content:center;flex:1;padding:40px;}
+.login-card{background:#0d1625;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:36px;width:100%;max-width:420px;}
+.login-card h2{font-size:20px;font-weight:800;color:#fff;margin-bottom:6px;}
+.login-card p{font-size:13px;color:#8899aa;margin-bottom:24px;}
+input[type=email],input[type=password],input[type=text]{width:100%;background:#06090f;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:11px 14px;color:#d0dbe8;font-size:13px;outline:none;margin-bottom:12px;}
+input:focus{border-color:#4a8fd8;}
+.stamp{background:linear-gradient(135deg,#0a2a1a,#0d3520);border:1px solid #2a6a3a;border-radius:8px;padding:14px 18px;margin-top:16px;font-size:12px;color:#40c070;font-family:'Courier New',monospace;}
+</style>
+</head>
+<body>
+
+<!-- Login screen -->
+<div id="loginScreen" style="display:flex;flex-direction:column;flex:1;">
+  <div class="topbar">
+    <div class="brand"><span>⚖️</span><div><h1>FreightGuard Defense</h1><p>Attorney Portal</p></div></div>
+  </div>
+  <div class="login-wrap">
+    <div class="login-card">
+      <h2>Attorney Sign In</h2>
+      <p>Sign in to review and approve demand letters assigned to your licensed states.</p>
+      <div id="loginAlert"></div>
+      <input type="email" id="loginEmail" placeholder="attorney@firm.com" />
+      <input type="password" id="loginPassword" placeholder="Password" />
+      <button class="btn btn-primary" onclick="doLogin()" style="width:100%;padding:12px;font-size:14px;">Sign In</button>
+      <p style="margin-top:14px;font-size:12px;color:#667788;text-align:center;">
+        First time? <a href="/attorney-join.html" style="color:#7ab3ff;">Accept your invitation</a> to set up your account.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- Portal (shown after login) -->
+<div id="portalScreen" style="display:none;flex-direction:column;flex:1;">
+  <div class="topbar">
+    <div class="brand"><span>⚖️</span><div><h1>FreightGuard Defense</h1><p>Attorney Portal</p></div></div>
+    <div class="user-info">
+      <span>Signed in as <strong id="attyName">—</strong></span>
+      <span id="attyBar" style="color:#7ab3ff;font-size:12px;"></span>
+      <button class="logout" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="sidebar">
+      <a href="#" class="active" onclick="showTab('letters',this)"><span class="icon">📋</span> Letter Queue</a>
+      <a href="#" onclick="showTab('approved',this)"><span class="icon">✅</span> Approved</a>
+      <a href="#" onclick="showTab('payouts',this)"><span class="icon">💰</span> My Earnings</a>
+    </div>
+    <div class="content">
+      <!-- Stats -->
+      <div class="stats" id="statsRow">
+        <div class="stat"><div class="val" id="statPending">—</div><div class="lbl">Pending Review</div></div>
+        <div class="stat"><div class="val" id="statApproved">—</div><div class="lbl">Approved</div></div>
+        <div class="stat"><div class="val" id="statEarned" style="color:#f0a830;">—</div><div class="lbl">Total Earned</div></div>
+        <div class="stat"><div class="val" id="statPending$" style="color:#e74c3c;">—</div><div class="lbl">Pending Payout</div></div>
+      </div>
+
+      <!-- Letters Queue tab -->
+      <div id="tab-letters">
+        <div class="page-title">Letter Review Queue</div>
+        <div class="page-sub">Demand letters assigned to your licensed states awaiting your review. You earn <strong style="color:#f0a830;">$100</strong> per approved letter.</div>
+        <div class="card">
+          <div class="card-header"><h3>📋 Assigned Letters</h3><button class="btn btn-outline" style="font-size:11px;padding:5px 12px;" onclick="loadLetters()">↻ Refresh</button></div>
+          <div id="lettersTable"><div style="padding:24px;text-align:center;color:#667788;">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- Approved tab -->
+      <div id="tab-approved" style="display:none;">
+        <div class="page-title">Approved Letters</div>
+        <div class="page-sub">Letters you have reviewed and approved.</div>
+        <div class="card">
+          <div id="approvedTable"><div style="padding:24px;text-align:center;color:#667788;">Loading...</div></div>
+        </div>
+      </div>
+
+      <!-- Payouts tab -->
+      <div id="tab-payouts" style="display:none;">
+        <div class="page-title">My Earnings</div>
+        <div class="page-sub">$100 earned per approved demand letter. Paid monthly via ACH/wire.</div>
+        <div class="card">
+          <div id="payoutsTable"><div style="padding:24px;text-align:center;color:#667788;">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Review Modal -->
+<div class="modal-overlay" id="reviewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <div id="modalCaseRef" style="font-size:12px;color:#7ab3ff;font-weight:700;margin-bottom:2px;"></div>
+        <div id="modalTitle" style="font-size:16px;font-weight:800;color:#fff;"></div>
+        <div id="modalMeta" style="font-size:12px;color:#8899aa;margin-top:2px;"></div>
+      </div>
+      <button onclick="closeModal()" style="background:none;border:none;color:#667788;font-size:24px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div class="modal-body">
+      <div id="modalAlert"></div>
+
+      <!-- Attorney stamp preview -->
+      <div class="stamp" id="stampPreview">
+        <div style="font-weight:700;margin-bottom:6px;">REVIEWED AND APPROVED BY COUNSEL</div>
+        <div id="stampName" style="color:#fff;"></div>
+        <div id="stampFirm" style="color:#aaddbb;"></div>
+        <div id="stampBar" style="color:#aaddbb;"></div>
+        <div id="stampDate" style="color:#aaddbb;"></div>
+      </div>
+
+      <div style="margin:16px 0;font-size:12px;color:#8899aa;">This stamp will be appended to the letter upon your approval. The carrier will be notified by email and SMS.</div>
+
+      <div class="letter-pre" id="modalLetterText"></div>
+
+      <div class="field" style="margin-top:20px;">
+        <label>Review Notes (required if requesting changes)</label>
+        <textarea id="reviewNotes" rows="4" placeholder="Enter any notes, changes requested, or approval confirmation..."></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="submitReview('changes_requested')" id="changesBtn">⚠️ Request Changes</button>
+      <button class="btn btn-primary" onclick="submitReview('approved')" id="approveBtn">✅ Approve Letter (+$100)</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _token = localStorage.getItem('attorney_token') || '';
+let _attorney = JSON.parse(localStorage.getItem('attorney_info') || 'null');
+let _currentCaseRef = '';
+let _letters = [];
+
+// Init
+if (_token && _attorney) showPortal();
+
+async function doLogin() {
+  const email    = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!email || !password) { showLoginAlert('error', 'Email and password required.'); return; }
+  try {
+    const res = await fetch('/api/attorney/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error);
+    _token    = d.token;
+    _attorney = d.attorney;
+    localStorage.setItem('attorney_token', _token);
+    localStorage.setItem('attorney_info', JSON.stringify(_attorney));
+    showPortal();
+  } catch(e) { showLoginAlert('error', '❌ ' + e.message); }
+}
+
+function doLogout() {
+  localStorage.removeItem('attorney_token');
+  localStorage.removeItem('attorney_info');
+  _token = ''; _attorney = null;
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('portalScreen').style.display = 'none';
+}
+
+function showPortal() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('portalScreen').style.display = 'flex';
+  document.getElementById('attyName').textContent = _attorney?.name || '';
+  document.getElementById('attyBar').textContent  = `Bar #${_attorney?.barState || ''} · ${_attorney?.firmName || 'Attorney at Law'}`;
+  // Stamp preview
+  document.getElementById('stampName').textContent = _attorney?.name || '';
+  document.getElementById('stampFirm').textContent = _attorney?.firmName || 'Attorney at Law';
+  document.getElementById('stampBar').textContent  = `Bar State: ${_attorney?.barState || ''}`;
+  document.getElementById('stampDate').textContent = 'Date: ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  loadLetters();
+}
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + _token };
+}
+
+async function loadLetters() {
+  const wrap = document.getElementById('lettersTable');
+  wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#667788;">Loading assigned letters...</div>';
+  try {
+    const res = await fetch('/api/attorney/portal/letters', { headers: authHeaders() });
+    if (res.status === 401) { doLogout(); return; }
+    const d   = await res.json();
+    _letters  = d.letters || [];
+
+    const pending  = _letters.filter(l => l.reviewStatus === 'pending_review' || !l.reviewStatus);
+    const approved = _letters.filter(l => l.reviewStatus === 'approved');
+    const changes  = _letters.filter(l => l.reviewStatus === 'changes_requested');
+
+    document.getElementById('statPending').textContent  = pending.length;
+    document.getElementById('statApproved').textContent = approved.length;
+
+    // Render pending queue
+    if (!pending.length) { wrap.innerHTML = '<div style="padding:28px;text-align:center;color:#667788;font-size:14px;">✅ No pending letters. Check back soon.</div>'; }
+    else {
+      wrap.innerHTML = `<table><thead><tr>
+        <th>Case Ref</th><th>Carrier</th><th>Broker</th><th>Damages</th><th>Type</th><th>Submitted</th><th>Status</th><th>Action</th>
+      </tr></thead><tbody>${pending.map(l => `
+        <tr>
+          <td style="color:#7ab3ff;font-weight:700;">${l.caseRef}</td>
+          <td>${l.carrierName||'—'}</td>
+          <td>${l.brokerName||'—'}<br><span style="font-size:11px;color:#667788;">MC-${l.brokerMC||'?'}</span></td>
+          <td style="color:#e74c3c;font-weight:700;">$${Number(l.totalDamages||0).toLocaleString()}</td>
+          <td><span class="badge ${l.letterType==='collection'?'badge-changes':'badge-pending'}">${l.letterType==='collection'?'💰 Collection':'⚖️ Dispute'}</span></td>
+          <td style="color:#667788;">${l.ts ? new Date(l.ts).toLocaleDateString() : '—'}</td>
+          <td><span class="badge badge-pending">⏳ Pending</span></td>
+          <td><button class="btn btn-primary" style="padding:6px 14px;font-size:12px;" onclick="openReview('${l.caseRef}')">Review →</button></td>
+        </tr>`).join('')}</tbody></table>`;
+    }
+
+    // Approved tab
+    renderApproved(approved);
+  } catch(e) {
+    wrap.innerHTML = `<div style="padding:16px;color:#f07060;">Error: ${e.message}</div>`;
+  }
+}
+
+function renderApproved(letters) {
+  const wrap = document.getElementById('approvedTable');
+  if (!letters.length) { wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#667788;">No approved letters yet.</div>'; return; }
+  wrap.innerHTML = `<table><thead><tr>
+    <th>Case Ref</th><th>Carrier</th><th>Broker</th><th>Damages</th><th>Approved</th><th>Earnings</th>
+  </tr></thead><tbody>${letters.map(l => `
+    <tr>
+      <td style="color:#7ab3ff;font-weight:700;">${l.caseRef}</td>
+      <td>${l.carrierName||'—'}</td>
+      <td>${l.brokerName||'—'}</td>
+      <td style="color:#e74c3c;">$${Number(l.totalDamages||0).toLocaleString()}</td>
+      <td style="color:#667788;">${l.reviewedAt ? new Date(l.reviewedAt).toLocaleDateString() : '—'}</td>
+      <td style="color:#f0a830;font-weight:700;">$100</td>
+    </tr>`).join('')}</tbody></table>`;
+  document.getElementById('statApproved').textContent = letters.length;
+  document.getElementById('statEarned').textContent   = '$' + (letters.length * 100).toLocaleString();
+}
+
+async function openReview(caseRef) {
+  _currentCaseRef = caseRef;
+  document.getElementById('modalCaseRef').textContent = 'CASE ' + caseRef;
+  document.getElementById('modalTitle').textContent   = 'Loading...';
+  document.getElementById('modalLetterText').textContent = '';
+  document.getElementById('reviewNotes').value        = '';
+  document.getElementById('modalAlert').innerHTML     = '';
+  document.getElementById('reviewModal').classList.add('open');
+
+  try {
+    const res = await fetch('/api/attorney/portal/letter/' + encodeURIComponent(caseRef), { headers: authHeaders() });
+    const d   = await res.json();
+    const letter = d;
+    document.getElementById('modalTitle').textContent = `${letter.carrierName || 'Carrier'} vs. ${letter.brokerName || 'Broker'}`;
+    document.getElementById('modalMeta').textContent  = `$${Number(letter.totalDamages||0).toLocaleString()} claimed · ${letter.brokerAddress || ''} · ${letter.letterType === 'collection' ? 'Collection Letter' : 'Dispute Letter'}`;
+    document.getElementById('modalLetterText').textContent = letter.letterText || '(Letter text unavailable)';
+    document.getElementById('stampDate').textContent = 'Date: ' + new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  } catch(e) {
+    document.getElementById('modalTitle').textContent = 'Error loading letter';
+    document.getElementById('modalLetterText').textContent = e.message;
+  }
+}
+
+async function submitReview(action) {
+  const notes = document.getElementById('reviewNotes').value.trim();
+  if (action === 'changes_requested' && !notes) {
+    document.getElementById('modalAlert').innerHTML = '<div class="alert alert-error">Please enter notes explaining what changes are needed.</div>';
+    return;
+  }
+  const btn = action === 'approved' ? document.getElementById('approveBtn') : document.getElementById('changesBtn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  try {
+    const res = await fetch('/api/attorney/portal/review/' + encodeURIComponent(_currentCaseRef), {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ action, notes }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error);
+    document.getElementById('modalAlert').innerHTML = `<div class="alert alert-success">${d.message}</div>`;
+    setTimeout(() => { closeModal(); loadLetters(); }, 1800);
+  } catch(e) {
+    document.getElementById('modalAlert').innerHTML = `<div class="alert alert-error">❌ ${e.message}</div>`;
+  } finally { btn.disabled = false; btn.textContent = action === 'approved' ? '✅ Approve Letter (+$100)' : '⚠️ Request Changes'; }
+}
+
+function closeModal() { document.getElementById('reviewModal').classList.remove('open'); }
+
+function showTab(name, el) {
+  ['letters','approved','payouts'].forEach(t => {
+    document.getElementById('tab-' + t).style.display = t === name ? '' : 'none';
+  });
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  if (el) el.classList.add('active');
+  if (name === 'payouts') loadPayouts();
+  if (name === 'approved') { const approved = _letters.filter(l => l.reviewStatus === 'approved'); renderApproved(approved); }
+}
+
+async function loadPayouts() {
+  const wrap = document.getElementById('payoutsTable');
+  wrap.innerHTML = '<div style="padding:20px;text-align:center;color:#667788;">Loading...</div>';
+  // For now show from _letters
+  const approved = _letters.filter(l => l.reviewStatus === 'approved');
+  const total    = approved.length * 100;
+  document.getElementById('statEarned').textContent   = '$' + total.toLocaleString();
+  document.getElementById('statPending$').textContent = '$' + total.toLocaleString();
+  if (!approved.length) { wrap.innerHTML = '<div style="padding:24px;text-align:center;color:#667788;">No earnings yet. Approve letters to earn $100 each.</div>'; return; }
+  wrap.innerHTML = `
+    <div style="padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;">
+      <div style="color:#8899aa;font-size:13px;">${approved.length} letter${approved.length!==1?'s':''} approved</div>
+      <div style="color:#f0a830;font-weight:800;font-size:16px;">$${total.toLocaleString()} earned</div>
+    </div>
+    <table><thead><tr><th>Case</th><th>Carrier</th><th>Broker</th><th>Approved</th><th>Amount</th><th>Status</th></tr></thead>
+    <tbody>${approved.map(l => `<tr>
+      <td style="color:#7ab3ff;font-weight:700;">${l.caseRef}</td>
+      <td>${l.carrierName||'—'}</td>
+      <td>${l.brokerName||'—'}</td>
+      <td style="color:#667788;">${l.reviewedAt?new Date(l.reviewedAt).toLocaleDateString():'—'}</td>
+      <td style="color:#f0a830;font-weight:700;">$100</td>
+      <td><span class="badge badge-pending">⏳ Pending Payment</span></td>
+    </tr>`).join('')}</tbody></table>
+    <div style="padding:14px 20px;font-size:12px;color:#667788;border-top:1px solid rgba(255,255,255,0.06);">
+      💡 Earnings are disbursed monthly via ACH/wire. Contact admin@freightguarddefense.com with your banking details.
+    </div>`;
+}
+
+function showLoginAlert(type, msg) {
+  const el = document.getElementById('loginAlert');
+  el.innerHTML = `<div class="alert alert-${type}">${msg}</div>`;
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+</script>
+</body>
+</html>

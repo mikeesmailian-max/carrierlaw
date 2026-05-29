@@ -33,6 +33,20 @@ if (process.env.DATABASE_URL) {
         ts TIMESTAMPTZ DEFAULT NOW()
       );
       ALTER TABLE letters ADD COLUMN IF NOT EXISTS attorney_id TEXT;
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS review_status TEXT DEFAULT 'pending_review';
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS attorney_notes TEXT;
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS reviewed_by TEXT;
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS locked BOOLEAN DEFAULT FALSE;
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS stripe_session_id TEXT;
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS carrier_phone TEXT;
+      ALTER TABLE letters ADD COLUMN IF NOT EXISTS email_opened_at TIMESTAMPTZ;
+      ALTER TABLE attorneys ADD COLUMN IF NOT EXISTS password_hash TEXT;
+      ALTER TABLE attorneys ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+      CREATE TABLE IF NOT EXISTS letter_audit (
+        id SERIAL PRIMARY KEY, case_ref TEXT NOT NULL, event TEXT NOT NULL,
+        actor TEXT, details TEXT, ip TEXT, ts TIMESTAMPTZ DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS broker_reports (
         id SERIAL PRIMARY KEY, broker_mc TEXT, broker_name TEXT, carrier_name TEXT,
         case_ref TEXT, ts TIMESTAMPTZ DEFAULT NOW()
@@ -65,6 +79,29 @@ if (process.env.DATABASE_URL) {
   } catch(e) {
     console.warn('  ⚠️  pg package not found; using file storage. Run: npm install pg');
   }
+}
+
+// ── TWILIO SMS CLIENT ─────────────────────────────────────────
+let twilioClient = null;
+try {
+  if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN) {
+    const twilio = require('twilio');
+    twilioClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+    console.log('  📱  Twilio SMS:        ✅ Connected');
+  }
+} catch(e) { /* twilio not installed */ }
+
+async function sendSMS(to, body) {
+  if (!twilioClient || !process.env.TWILIO_FROM_NUMBER) return;
+  const phone = String(to).replace(/[^+\d]/g, '');
+  if (!phone || phone.length < 10) return;
+  try {
+    await twilioClient.messages.create({
+      body,
+      from: process.env.TWILIO_FROM_NUMBER,
+      to:   phone.startsWith('+') ? phone : '+1' + phone,
+    });
+  } catch(e) { console.warn('SMS failed:', e.message); }
 }
 
 // ── RESEND CLIENT ─────────────────────────────────────────────
@@ -528,6 +565,14 @@ function buildEmailHtml(letterText) {
 </div>`;
 }
 
+// Email with open-tracking pixel
+function buildEmailHtmlTracked(letterText, caseRef) {
+  const siteUrl = process.env.SITE_URL || 'https://freightguarddefense.com';
+  const html    = buildEmailHtml(letterText);
+  const pixel   = caseRef ? `<img src="${siteUrl}/api/pixel/${encodeURIComponent(caseRef)}" width="1" height="1" style="display:none;" alt="" />` : '';
+  return html.replace('</body>', pixel + '</body>') || html + pixel;
+}
+
 async function dispatchEmail({ to, cc, subject, text, html }) {
   const fromName = process.env.FIRM_NAME || 'FreightGuard Defense Legal Network';
 
@@ -821,7 +866,7 @@ ${attorneyBlock}`;
           cc:      carrierEmail,
           subject: emailSubject,
           text:    letterText,
-          html:    buildEmailHtml(letterText),
+          html:    buildEmailHtmlTracked(letterText, caseRef),
         });
         // Schedule Day 7 + Day 14 follow-ups
         const followups = loadFollowups();
@@ -1031,7 +1076,7 @@ app.get('/api/court', async (req, res) => {
 app.post('/api/generate-letter', rateLimit(60000, 5), async (req, res) => {
   try {
     const {
-      carrierName, carrierMC, carrierDOT, carrierEmail,
+      carrierName, carrierMC, carrierDOT, carrierEmail, carrierPhone,
       numTrucks, carrierNarrative, evidenceDescription,
       brokerName, brokerMC, brokerAddress, brokerPOC,
       reporterName, reportContent, assignedAttorneyId,
@@ -1184,19 +1229,42 @@ ${attorneyBlock}`;
 
     const letterText = message.content[0].type === 'text' ? message.content[0].text : '';
 
-    // Save letter
+    // Save letter (locked until $299 Stripe payment if Stripe is active)
+    const stripeActive = !!stripe;
     await addLetterDB({
       id: caseRef, caseRef,
-      carrierName, carrierEmail, carrierMC,
+      carrierName, carrierEmail, carrierMC, carrierPhone: carrierPhone||'',
       brokerName, brokerMC, brokerAddress,
       numTrucks, totalDamages: damages.totalDamages,
       court: `${court.name}, ${court.city}, ${court.state}`,
       letterText,
+      locked: stripeActive,
       attorneyId: attorney ? (attorney.id || null) : null,
       ts: new Date().toISOString(),
     });
 
-    res.json({ letter: letterText, damages, court, attorney: attorney || null, caseRef, savedFiles, autoSent });
+    // Audit + SMS
+    await logAudit(caseRef, 'letter_generated', carrierEmail, `${carrierName} vs ${brokerName} — $${damages.totalDamages.toLocaleString()}`, req.ip || '');
+    if (carrierPhone) {
+      const msg = stripeActive
+        ? `⚖️ FreightGuard Defense: Your demand letter (Case ${caseRef}) is ready. Complete your $299 payment to unlock and send it. Visit freightguarddefense.com`
+        : `⚖️ FreightGuard Defense: Your demand letter (Case ${caseRef}) is ready. $${damages.totalDamages.toLocaleString()} claimed against ${brokerName}. Log in to send it.`;
+      await sendSMS(carrierPhone, msg);
+    }
+
+    // If Stripe active — return locked preview (first 400 chars), else full letter
+    const letterPreview = stripeActive ? letterText.substring(0, 400) + '\n\n[... LETTER CONTINUES — UNLOCK TO VIEW FULL TEXT ...]' : letterText;
+
+    res.json({
+      letter: stripeActive ? letterPreview : letterText,
+      locked: stripeActive,
+      caseRef,
+      damages,
+      court,
+      attorney: attorney || null,
+      savedFiles,
+      autoSent,
+    });
   } catch(err) {
     console.error('Letter generation error:', err);
     res.status(500).json({ error: 'Letter generation failed: ' + err.message });
@@ -1247,32 +1315,46 @@ app.post('/api/send-email', rateLimit(60000, 10), async (req, res) => {
 
 // ── STRIPE PAYMENT ────────────────────────────────────────────
 // Stripe is DISABLED (devMode) until re-enabled by admin
+// ── PER-LETTER STRIPE CHECKOUT ($299) ─────────────────────────
 app.post('/api/create-checkout', rateLimit(60000, 10), async (req, res) => {
-  // Payment bypassed — return devMode so client skips Stripe
-  if (!stripe || process.env.STRIPE_DISABLED === 'true') {
-    return res.json({ devMode: true });
-  }
+  const { caseRef, carrierEmail, letterType } = req.body;
+  if (!stripe) return res.json({ devMode: true }); // free in dev
+
   try {
-    const baseUrl = process.env.BASE_URL || `http://localhost:${PORT}`;
+    const baseUrl    = process.env.BASE_URL || 'https://freightguarddefense.com';
+    const letterName = letterType === 'collection'
+      ? 'FreightGuard Defense — Collection Letter'
+      : 'FreightGuard Defense — Demand Letter';
+    const letterDesc = letterType === 'collection'
+      ? 'Professionally drafted freight invoice collection demand letter — 50% attorney fees + interest, nearest federal courthouse as filing venue.'
+      : 'AI-drafted federal demand letter — defamation, tortious interference, FMCSA violations, damages table, nearest federal courthouse as venue.';
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
+      customer_email: carrierEmail || undefined,
       line_items: [{
         price_data: {
-          currency: 'usd',
-          product_data: {
-            name:        'FreightGuard Defense — Demand Letter',
-            description: 'AI-drafted federal demand letter with damages calculation, court locator, and direct email delivery.',
-          },
-          unit_amount: parseInt(process.env.STRIPE_PRICE_AMOUNT) || 25000,
+          currency:     'usd',
+          product_data: { name: letterName, description: letterDesc },
+          unit_amount:  29900, // $299.00
         },
         quantity: 1,
       }],
       mode:        'payment',
-      success_url: `${baseUrl}/?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${baseUrl}/?session_id={CHECKOUT_SESSION_ID}&caseRef=${encodeURIComponent(caseRef||'')}`,
       cancel_url:  `${baseUrl}/`,
-      metadata:    { product: 'demand_letter' },
+      metadata:    { caseRef: caseRef || '', carrierEmail: carrierEmail || '', letterType: letterType || 'dispute' },
     });
-    res.json({ url: session.url });
+
+    // Record pending payment on the letter
+    if (caseRef) {
+      const statuses = loadStatuses();
+      statuses[caseRef] = statuses[caseRef] || {};
+      statuses[caseRef].stripeSessionId = session.id;
+      saveStatuses(statuses);
+    }
+
+    res.json({ url: session.url, sessionId: session.id });
   } catch(err) {
     console.error('Stripe error:', err);
     res.status(500).json({ error: err.message });
@@ -1280,24 +1362,43 @@ app.post('/api/create-checkout', rateLimit(60000, 10), async (req, res) => {
 });
 
 app.get('/api/verify-payment', async (req, res) => {
-  const { session_id } = req.query;
+  const { session_id, caseRef } = req.query;
   if (!session_id) return res.status(400).json({ error: 'No session ID' });
-  if (!stripe || process.env.STRIPE_DISABLED === 'true') return res.json({ paid: true, devMode: true });
+  if (!stripe) return res.json({ paid: true, devMode: true });
   try {
     const session = await stripe.checkout.sessions.retrieve(session_id);
     const paid    = session.payment_status === 'paid';
-    const email   = session.customer_details?.email || '';
+    const email   = session.customer_details?.email || session.metadata?.carrierEmail || '';
+    const ref     = caseRef || session.metadata?.caseRef || '';
 
-    // Save user registration
-    if (paid) {
-      const users = loadUsers();
-      if (!users.find(u => u.stripeSessionId === session_id)) {
-        users.push({ id: Date.now().toString(), email, stripeSessionId: session_id, paidAt: new Date().toISOString(), caseRefs: [] });
-        saveUsers(users);
+    if (paid && ref) {
+      // Unlock letter
+      const allLetters = await loadLetters();
+      const letter = allLetters.find(l => l.caseRef === ref || l.id === ref);
+      if (letter) {
+        letter.locked = false;
+        letter.paidAt = new Date().toISOString();
+        letter.stripeSessionId = session_id;
+        if (pgPool) {
+          await pgPool.query('UPDATE letters SET locked=FALSE, stripe_session_id=$1 WHERE case_ref=$2', [session_id, ref]).catch(() => {});
+        } else {
+          // Update file store
+          const path2 = require('path');
+          const letters = loadJSON(path2.join(DATA_DIR, 'letters.json'));
+          const idx = letters.findIndex(l => l.caseRef === ref || l.id === ref);
+          if (idx >= 0) { letters[idx].locked = false; letters[idx].paidAt = new Date().toISOString(); saveJSON(path2.join(DATA_DIR, 'letters.json'), letters); }
+        }
+        // SMS carrier
+        if (letter.carrierPhone) {
+          await sendSMS(letter.carrierPhone,
+            `✅ FreightGuard Defense: Your $299 payment was received. Your demand letter (Case ${ref}) is now unlocked. Log in to view and send it.`);
+        }
+        // Log audit
+        await logAudit(ref, 'payment_received', email, `Stripe session ${session_id} — $299 paid`);
       }
     }
 
-    res.json({ paid, email });
+    res.json({ paid, email, caseRef: ref });
   } catch(err) {
     res.status(500).json({ error: err.message });
   }
@@ -1542,6 +1643,255 @@ app.get('/api/portal/letter/:caseRef', requireClient, async (req, res) => {
     return res.status(403).json({ error: 'Access denied' });
   }
   res.json({ ...letter, createdAt: letter.ts||letter.createdAt });
+});
+
+// ── AUDIT LOG ─────────────────────────────────────────────────────────────────
+async function logAudit(caseRef, event, actor, details, ip) {
+  if (pgPool) {
+    await pgPool.query('INSERT INTO letter_audit(case_ref,event,actor,details,ip) VALUES($1,$2,$3,$4,$5)',
+      [caseRef, event, actor||'system', details||'', ip||'']).catch(() => {});
+  }
+  // File fallback
+  const AUDIT_FILE = path.join(DATA_DIR, 'audit.json');
+  const log = loadJSON(AUDIT_FILE);
+  log.push({ caseRef, event, actor: actor||'system', details: details||'', ip: ip||'', ts: new Date().toISOString() });
+  if (log.length > 5000) log.splice(0, log.length - 5000); // keep last 5000
+  saveJSON(AUDIT_FILE, log);
+}
+
+// ── EMAIL OPEN PIXEL TRACKING ─────────────────────────────────────────────────
+app.get('/api/pixel/:caseRef', async (req, res) => {
+  const { caseRef } = req.params;
+  // Return 1x1 transparent GIF
+  const pixel = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7','base64');
+  res.set({ 'Content-Type':'image/gif', 'Cache-Control':'no-store', 'Content-Length': pixel.length });
+  res.send(pixel);
+
+  // Async: mark email as opened, update status, SMS carrier
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    await logAudit(caseRef, 'email_opened', 'broker', `Opened from IP ${ip}`, ip);
+    await setLetterStatusFile(caseRef, 'opened');
+
+    // Find letter for carrier phone + broker info
+    const allLetters = await loadLetters();
+    const letter = allLetters.find(l => l.caseRef === caseRef || l.id === caseRef);
+    if (letter) {
+      if (pgPool) await pgPool.query('UPDATE letters SET email_opened_at=NOW() WHERE case_ref=$1', [caseRef]).catch(() => {});
+      // SMS carrier
+      if (letter.carrierPhone) {
+        const deadline = letter.deadlineDate || (() => {
+          const d = new Date(letter.ts || Date.now()); d.setDate(d.getDate()+14); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+        })();
+        await sendSMS(letter.carrierPhone,
+          `⚠️ FreightGuard Defense: ${letter.brokerName || 'The broker'} just OPENED your demand letter (Case ${caseRef}). Their 14-day response deadline: ${deadline}. Monitor for a reply.`);
+      }
+    }
+  } catch {}
+});
+
+function setLetterStatusFile(caseRef, status) {
+  try {
+    const statuses = loadStatuses();
+    if (!statuses[caseRef]) statuses[caseRef] = {};
+    if (typeof statuses[caseRef] === 'string') statuses[caseRef] = { status: statuses[caseRef] };
+    statuses[caseRef].status = status;
+    statuses[caseRef].updatedAt = new Date().toISOString();
+    saveStatuses(statuses);
+  } catch {}
+}
+
+// ── ATTORNEY PORTAL AUTH ───────────────────────────────────────────────────────
+const ATTORNEY_JWT_SECRET = process.env.JWT_SECRET || 'fgd-secret-change-me-in-production';
+
+function makeAttorneyJWT(payload) {
+  if (!jwt) return null;
+  return jwt.sign({ ...payload, type: 'attorney' }, ATTORNEY_JWT_SECRET, { expiresIn: '30d' });
+}
+
+function requireAttorney(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Attorney login required' });
+  try {
+    const decoded = jwt.verify(auth.slice(7), ATTORNEY_JWT_SECRET);
+    if (decoded.type !== 'attorney') return res.status(401).json({ error: 'Invalid token type' });
+    req.attorney = decoded;
+    next();
+  } catch { return res.status(401).json({ error: 'Session expired. Please log in again.' }); }
+}
+
+app.post('/api/attorney/login', rateLimit(60000, 10), async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const attorneys = await loadAttorneys();
+  const attorney  = attorneys.find(a => (a.email||'').toLowerCase() === email.toLowerCase());
+  if (!attorney) return res.status(401).json({ error: 'Invalid email or password' });
+  if (!attorney.passwordHash && !attorney.password_hash)
+    return res.status(401).json({ error: 'Account not activated. Please set a password via your invitation link.' });
+  const hash = attorney.passwordHash || attorney.password_hash;
+  const ok   = bcrypt ? await bcrypt.compare(password, hash) : password === hash;
+  if (!ok) return res.status(401).json({ error: 'Invalid email or password' });
+  if (attorney.status === 'suspended') return res.status(403).json({ error: 'Account suspended. Contact admin.' });
+  if (pgPool) await pgPool.query('UPDATE attorneys SET last_login=NOW() WHERE id=$1', [attorney.id]).catch(() => {});
+  const token = makeAttorneyJWT({ id: attorney.id, email: attorney.email, name: attorney.name, barState: attorney.barState });
+  res.json({ token, attorney: { id: attorney.id, name: attorney.name, email: attorney.email, barState: attorney.barState, firmName: attorney.firmName||'' } });
+});
+
+app.post('/api/attorney/set-password', async (req, res) => {
+  const { token: inviteToken, password } = req.body;
+  if (!inviteToken || !password || password.length < 8)
+    return res.status(400).json({ error: 'Valid invite token and password (min 8 chars) required' });
+  const invites = loadInvites();
+  const invite  = invites[inviteToken];
+  if (!invite) return res.status(404).json({ error: 'Invalid invite token' });
+  const hash = bcrypt ? await bcrypt.hash(password, 10) : password;
+  if (pgPool) {
+    await pgPool.query('UPDATE attorneys SET password_hash=$1 WHERE invite_token=$2', [hash, inviteToken]).catch(() => {});
+  } else {
+    const all = await loadAttorneys();
+    const idx = all.findIndex(a => a.inviteToken === inviteToken);
+    if (idx >= 0) { all[idx].passwordHash = hash; saveJSON(path.join(DATA_DIR, 'attorneys.json'), all); }
+  }
+  res.json({ ok: true, message: 'Password set. You can now log in.' });
+});
+
+// Get attorney's assigned letters (matched by licenseStates)
+app.get('/api/attorney/portal/letters', requireAttorney, async (req, res) => {
+  const attorneys = await loadAttorneys();
+  const attorney  = attorneys.find(a => a.id === req.attorney.id);
+  if (!attorney) return res.status(404).json({ error: 'Attorney not found' });
+
+  const states = String(attorney.licenseStates || attorney.license_states || attorney.barState || '')
+    .split(/[,;\s]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+
+  const allLetters = await loadLetters();
+  const statuses   = loadStatuses();
+
+  // Match letters where broker address contains one of attorney's states
+  const assigned = allLetters.filter(l => {
+    const brokerAddr = String(l.brokerAddress || l.broker_address || '').toUpperCase();
+    const reviewStatus = l.reviewStatus || l.review_status || 'pending_review';
+    return states.some(s => brokerAddr.includes(` ${s} `) || brokerAddr.includes(`,${s},`) || brokerAddr.endsWith(` ${s}`) || brokerAddr.includes(` ${s} `) || new RegExp(`\\b${s}\\b`).test(brokerAddr));
+  }).map(l => ({
+    caseRef:      l.caseRef || l.id,
+    carrierName:  l.carrierName,
+    brokerName:   l.brokerName,
+    brokerMC:     l.brokerMC,
+    brokerAddress:l.brokerAddress,
+    totalDamages: l.totalDamages,
+    letterType:   l.letterType || 'dispute',
+    reviewStatus: l.reviewStatus || l.review_status || 'pending_review',
+    reviewedAt:   l.reviewedAt || l.reviewed_at || null,
+    ts:           l.ts || l.createdAt,
+    status:       statuses[l.caseRef]?.status || statuses[l.caseRef] || 'new',
+  }));
+
+  res.json({ letters: assigned, attorney: { name: attorney.name, barState: attorney.barState, states } });
+});
+
+// Get full letter text for attorney review
+app.get('/api/attorney/portal/letter/:caseRef', requireAttorney, async (req, res) => {
+  const allLetters = await loadLetters();
+  const letter = allLetters.find(l => l.caseRef === req.params.caseRef || l.id === req.params.caseRef);
+  if (!letter) return res.status(404).json({ error: 'Letter not found' });
+  await logAudit(req.params.caseRef, 'attorney_viewed', req.attorney.email, `Viewed by attorney ${req.attorney.name}`);
+  res.json({ ...letter, createdAt: letter.ts || letter.createdAt });
+});
+
+// Attorney submits review (approve or request changes)
+app.post('/api/attorney/portal/review/:caseRef', requireAttorney, async (req, res) => {
+  const { action, notes } = req.body; // action: 'approved' | 'changes_requested'
+  if (!['approved','changes_requested'].includes(action))
+    return res.status(400).json({ error: 'Invalid action' });
+
+  const { caseRef } = req.params;
+  const attorneys   = await loadAttorneys();
+  const attorney    = attorneys.find(a => a.id === req.attorney.id);
+  if (!attorney) return res.status(404).json({ error: 'Attorney not found' });
+
+  const allLetters  = await loadLetters();
+  const letter      = allLetters.find(l => l.caseRef === caseRef || l.id === caseRef);
+  if (!letter) return res.status(404).json({ error: 'Letter not found' });
+
+  const now = new Date().toISOString();
+
+  if (action === 'approved') {
+    // Append attorney stamp to letter
+    const stamp = `\n\n${'─'.repeat(60)}\nREVIEWED AND APPROVED BY COUNSEL\n${attorney.name}\n${attorney.firmName || 'Attorney at Law'}\nBar No. ${attorney.barNumber || attorney.bar_number} (${attorney.barState || attorney.bar_state})\n${attorney.email}\n${attorney.phone || ''}\nDate: ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}\n${'─'.repeat(60)}`;
+
+    // Update letter
+    if (pgPool) {
+      await pgPool.query(
+        'UPDATE letters SET review_status=$1, attorney_notes=$2, reviewed_by=$3, reviewed_at=$4, letter_text=letter_text||$5 WHERE case_ref=$6',
+        ['approved', notes||'', attorney.name, now, stamp, caseRef]
+      ).catch(() => {});
+    } else {
+      const path2 = require('path');
+      const all2  = loadJSON(path2.join(DATA_DIR, 'letters.json'));
+      const idx   = all2.findIndex(l => l.caseRef === caseRef || l.id === caseRef);
+      if (idx >= 0) {
+        all2[idx].reviewStatus = 'approved'; all2[idx].attorney_notes = notes||'';
+        all2[idx].reviewedBy = attorney.name; all2[idx].reviewedAt = now;
+        all2[idx].letterText = (all2[idx].letterText || '') + stamp;
+        saveJSON(path2.join(DATA_DIR, 'letters.json'), all2);
+      }
+    }
+
+    // Notify carrier via email + SMS
+    const carrierEmail = letter.carrierEmail || letter.carrier_email;
+    if (carrierEmail) {
+      await dispatchEmail({
+        to: carrierEmail,
+        subject: `✅ Your Demand Letter Has Been Attorney-Reviewed — Case ${caseRef}`,
+        text: `Your demand letter (Case ${caseRef}) has been reviewed and approved by ${attorney.name} (Bar No. ${attorney.barNumber||attorney.bar_number}, ${attorney.barState||attorney.bar_state}).\n\nThe letter now includes a formal attorney review stamp and is ready to send to the broker.\n\nLog in to FreightGuard Defense to view and send your approved letter.`,
+        html: `<p>Your demand letter <strong>Case ${caseRef}</strong> has been reviewed and approved by <strong>${attorney.name}</strong> (Bar No. ${attorney.barNumber||attorney.bar_number}, ${attorney.barState||attorney.bar_state}).</p><p>The letter now includes a formal attorney review stamp and is ready to send to the broker.</p>`,
+      }).catch(() => {});
+    }
+    if (letter.carrierPhone) {
+      await sendSMS(letter.carrierPhone,
+        `✅ FreightGuard Defense: Attorney ${attorney.name} approved your demand letter (Case ${caseRef}). It now carries a legal review stamp. Log in to send it.`);
+    }
+
+    // Track $100 attorney payout due
+    const payouts = loadJSON(path.join(DATA_DIR, 'attorney_payouts.json'));
+    payouts.push({ attorneyId: attorney.id, attorneyName: attorney.name, attorneyEmail: attorney.email, caseRef, amount: 100, status: 'pending', approvedAt: now });
+    saveJSON(path.join(DATA_DIR, 'attorney_payouts.json'), payouts);
+
+    await logAudit(caseRef, 'attorney_approved', attorney.email, `Approved by ${attorney.name}. $100 payout queued.`);
+
+  } else {
+    // Changes requested
+    if (pgPool) await pgPool.query('UPDATE letters SET review_status=$1, attorney_notes=$2, reviewed_by=$3, reviewed_at=$4 WHERE case_ref=$5',
+      ['changes_requested', notes||'', attorney.name, now, caseRef]).catch(() => {});
+    else {
+      const path2 = require('path'); const all2 = loadJSON(path2.join(DATA_DIR, 'letters.json'));
+      const idx = all2.findIndex(l => l.caseRef === caseRef || l.id === caseRef);
+      if (idx >= 0) { all2[idx].reviewStatus = 'changes_requested'; all2[idx].attorneyNotes = notes||''; all2[idx].reviewedBy = attorney.name; saveJSON(path2.join(DATA_DIR, 'letters.json'), all2); }
+    }
+    // Notify carrier
+    const ce = letter.carrierEmail || letter.carrier_email;
+    if (ce) await dispatchEmail({ to: ce, subject: `Attorney Review: Changes Requested — Case ${caseRef}`,
+      text: `Attorney ${attorney.name} has reviewed your demand letter and requested changes.\n\nNotes:\n${notes||'(none)'}\n\nPlease log in to update your letter.`,
+      html: `<p>Attorney <strong>${attorney.name}</strong> reviewed your letter and requested changes.</p><p><strong>Notes:</strong> ${notes||'(none)'}</p>` }).catch(() => {});
+    await logAudit(caseRef, 'changes_requested', attorney.email, notes||'');
+  }
+
+  res.json({ ok: true, action, message: action === 'approved' ? `Letter approved. $100 payout recorded for ${attorney.name}.` : 'Changes requested. Carrier notified.' });
+});
+
+// Admin: view attorney payouts
+app.get('/api/admin/attorney-payouts', requireAdmin, (req, res) => {
+  const payouts = loadJSON(path.join(DATA_DIR, 'attorney_payouts.json'));
+  res.json({ payouts, pending: payouts.filter(p=>p.status==='pending').reduce((s,p)=>s+p.amount,0) });
+});
+
+app.put('/api/admin/attorney-payouts/:caseRef/paid', requireAdmin, (req, res) => {
+  const payouts = loadJSON(path.join(DATA_DIR, 'attorney_payouts.json'));
+  const idx = payouts.findIndex(p => p.caseRef === req.params.caseRef && p.status === 'pending');
+  if (idx < 0) return res.status(404).json({ error: 'Payout not found' });
+  payouts[idx].status = 'paid'; payouts[idx].paidAt = new Date().toISOString();
+  saveJSON(path.join(DATA_DIR, 'attorney_payouts.json'), payouts);
+  res.json({ ok: true });
 });
 
 // ── ATTORNEY RECRUITMENT & INVITES ───────────────────────────────────────────

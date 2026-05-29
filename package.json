@@ -1,7 +1,7 @@
 {
   "name": "freightguard-defense",
   "version": "1.0.0",
-  "description": "FreightGuard Defense — Carrier Federal Demand Letter Generator",
+  "description": "FreightGuard Defense \u2014 Carrier Federal Demand Letter Generator",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -17,7 +17,8 @@
     "nodemailer": "^6.9.7",
     "pg": "^8.11.3",
     "resend": "^3.2.0",
-    "stripe": "^14.21.0"
+    "stripe": "^14.21.0",
+    "twilio": "^4.23.0"
   },
   "engines": {
     "node": ">=18.0.0"

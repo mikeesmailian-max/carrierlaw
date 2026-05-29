@@ -331,6 +331,7 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
     <button class="nav-link" id="navHistory" onclick="showNavHistory()" style="display:none;">📋 Past Letters</button>
     <button class="nav-link" id="navAnalytics" onclick="showNavAnalytics()">📈 Analytics</button>
     <a href="/login.html" class="nav-link" style="text-decoration:none;">🔐 Client Login</a>
+    <a href="/attorney-portal.html" class="nav-link" style="text-decoration:none;color:#f0a830;">⚖️ Attorneys</a>
   </div>
 </div>
 
@@ -554,6 +555,7 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
             </div>
           </div>
           <div class="field"><label>Your Contact Email *</label><input id="carrierEmail" type="email" placeholder="owner@yourcompany.com"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/></div>
+          <div class="field"><label>Your Cell Phone (for SMS alerts)</label><input id="carrierPhone" type="tel" placeholder="(555) 000-0000"  data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/><div style="font-size:11px;color:var(--text-muted);margin-top:3px;">We'll text you when the broker opens your letter and when deadlines approach.</div></div>
 
           <!-- TRUCKS — fixed $15k/month rate -->
           <div class="field">
@@ -1500,6 +1502,29 @@ async function generateLetter() {
     }
     if (!res.ok) throw new Error(data.error || `Server error ${res.status}`);
 
+    // Handle Stripe paywall — locked letter
+    if (data.locked && data.caseRef) {
+      const out = document.getElementById('letterOutput');
+      out.style.display = '';
+      document.getElementById('letterText').innerHTML = `
+        <div style="filter:blur(4px);pointer-events:none;user-select:none;opacity:0.5;white-space:pre-wrap;font-family:'Courier New',monospace;font-size:13px;line-height:1.7;">${(data.letter||'').replace(/</g,'&lt;')}</div>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(8,13,26,0.85);border-radius:8px;z-index:10;padding:32px;">
+          <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+          <div style="font-size:20px;font-weight:800;color:#fff;margin-bottom:8px;">Your Letter Is Ready</div>
+          <div style="font-size:14px;color:#8899aa;margin-bottom:24px;text-align:center;max-width:400px;">Pay once to unlock the full text, send it to the broker, and schedule follow-ups.</div>
+          <button onclick="startStripePayment('${data.caseRef}','${f.carrierEmail||''}','${f.letterType||'dispute'}')"
+            style="padding:16px 40px;background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;">
+            💳 Unlock Letter — $299
+          </button>
+          <div style="font-size:11px;color:#445566;margin-top:12px;">One-time payment · Secure checkout via Stripe</div>
+        </div>`;
+      document.getElementById('letterText').style.position = 'relative';
+      document.getElementById('courtBox').style.display = 'none';
+      showAlert('formAlert','gold',`✅ Your letter has been generated (Case ${data.caseRef}). Complete payment to unlock the full text.`);
+      out.scrollIntoView({ behavior:'smooth', block:'start' });
+      return;
+    }
+
     // Clean any HTML entities the AI might have produced
     const cleanLetter = (data.letter || '')
       .replace(/&nbsp;/g, ' ')
@@ -1804,6 +1829,61 @@ async function deleteAttorney(id) {
 
 // ── GLOBAL HELPERS ────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── STRIPE PAYMENT FLOW ─────────────────────────────────────────────────────
+async function startStripePayment(caseRef, carrierEmail, letterType) {
+  try {
+    showToast('Redirecting to secure checkout...', 'info');
+    const res = await fetch('/api/create-checkout', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ caseRef, carrierEmail, letterType: letterType || 'dispute' }),
+    });
+    const d = await res.json();
+    if (d.devMode) {
+      // Dev/free mode — auto-unlock
+      showAlert('formAlert','gold','✅ Dev mode: letter unlocked without payment.');
+      await unlockLetter(caseRef);
+      return;
+    }
+    if (d.url) window.location.href = d.url;
+    else throw new Error(d.error || 'Checkout failed');
+  } catch(e) { showAlert('formAlert','red','❌ Payment error: ' + e.message); }
+}
+
+async function unlockLetter(caseRef) {
+  try {
+    const res  = await fetch('/api/letters-history', { headers: getAuthHeaders() });
+    const data = await res.json();
+    const letter = (data.letters||[]).find(l => l.caseRef === caseRef);
+    if (letter && letter.letterText) {
+      const out = document.getElementById('letterOutput');
+      document.getElementById('letterText').style.position = '';
+      document.getElementById('letterText').textContent = letter.letterText;
+      document.getElementById('letterStats').textContent = letter.letterText.split(/\s+/).length + ' words';
+      out.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+  } catch {}
+}
+
+// Check if returning from Stripe payment
+(async function checkStripeReturn() {
+  const params     = new URLSearchParams(window.location.search);
+  const session_id = params.get('session_id');
+  const caseRef    = params.get('caseRef');
+  if (!session_id) return;
+  // Clean URL
+  window.history.replaceState({}, '', '/');
+  try {
+    const res = await fetch(`/api/verify-payment?session_id=${session_id}&caseRef=${encodeURIComponent(caseRef||'')}`);
+    const d   = await res.json();
+    if (d.paid) {
+      showAlert('formAlert','gold', caseRef
+        ? `✅ Payment received! Your letter (Case ${caseRef}) is unlocked. Go to Past Letters to view it.`
+        : '✅ Payment received! Your letter is ready.');
+      showNavHistory();
+    }
+  } catch {}
+})();
 
 // Returns auth headers for API calls — client JWT or admin token
 function getAuthHeaders() {
