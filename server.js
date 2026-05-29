@@ -46,6 +46,15 @@ if (process.env.DATABASE_URL) {
       CREATE TABLE IF NOT EXISTS app_config (
         key TEXT PRIMARY KEY, value TEXT, updated_at TIMESTAMPTZ DEFAULT NOW()
       );
+      CREATE TABLE IF NOT EXISTS attorney_invites (
+        id TEXT PRIMARY KEY, email TEXT NOT NULL, name TEXT,
+        specialty TEXT, token TEXT UNIQUE NOT NULL,
+        status TEXT DEFAULT 'pending',
+        invited_at TIMESTAMPTZ DEFAULT NOW(), accepted_at TIMESTAMPTZ,
+        resent_at TIMESTAMPTZ
+      );
+      ALTER TABLE attorneys ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
+      ALTER TABLE attorneys ADD COLUMN IF NOT EXISTS invite_token TEXT;
       CREATE TABLE IF NOT EXISTS password_reset_tokens (
         id SERIAL PRIMARY KEY, user_id INT NOT NULL, token TEXT UNIQUE NOT NULL,
         expires_at TIMESTAMPTZ NOT NULL, used BOOLEAN DEFAULT FALSE,
@@ -126,6 +135,9 @@ const UPLOADS_DIR       = path.join(DATA_DIR, 'uploads');
 const REPORTS_FILE      = path.join(DATA_DIR, 'broker-reports.json');
 const FOLLOWUPS_FILE    = path.join(DATA_DIR, 'followups.json');
 const STATUSES_FILE     = path.join(DATA_DIR, 'statuses.json');
+const INVITES_FILE      = path.join(DATA_DIR, 'attorney_invites.json');
+function loadInvites()   { return loadJSON(INVITES_FILE); }
+function saveInvites(d)  { saveJSON(INVITES_FILE, d); }
 const RESPONSES_FILE    = path.join(DATA_DIR, 'responses.json');
 function loadStatuses()   { return loadJSON(STATUSES_FILE);   }
 function saveStatuses(d)  { saveJSON(STATUSES_FILE, d);       }
@@ -1530,6 +1542,212 @@ app.get('/api/portal/letter/:caseRef', requireClient, async (req, res) => {
     return res.status(403).json({ error: 'Access denied' });
   }
   res.json({ ...letter, createdAt: letter.ts||letter.createdAt });
+});
+
+// ── ATTORNEY RECRUITMENT & INVITES ───────────────────────────────────────────
+const SITE_URL = process.env.SITE_URL || 'https://freightguarddefense.com';
+
+async function sendAttorneyInviteEmail(invite) {
+  const joinUrl = `${SITE_URL}/attorney-join.html?token=${invite.token}`;
+  const subject = 'Join FreightGuard Defense — Earn $100 Per Approved Demand Letter';
+  const text = `Dear ${invite.name || 'Counselor'},
+
+You have been personally invited to join the FreightGuard Defense Attorney Network.
+
+FreightGuard Defense is a legal protection platform serving motor carriers who have been harmed by false FreightGuard reports and unpaid freight invoices. Our platform generates federally-formatted demand letters and connects carriers with licensed transportation attorneys.
+
+WHY JOIN:
+• Earn $100.00 per approved pre-litigation demand letter
+• Cases come to you — no marketing required
+• Work remotely — review and approve letters on your schedule
+• Niche practice area: 49 U.S.C. § 14915, defamation, tortious interference
+• Growing carrier base across all 50 states
+
+HOW IT WORKS:
+1. Accept this invitation and complete your attorney profile
+2. Letters are assigned to you based on your licensed states
+3. Review and approve each demand letter for $100 flat fee
+4. Carrier receives letter with your credentials — you handle any follow-up litigation
+
+TO ACCEPT YOUR INVITATION:
+${joinUrl}
+
+This invitation link is unique to you and expires in 7 days.
+
+Questions? Reply to this email or call our team.
+
+FreightGuard Defense
+Carrier Legal Protection Network
+${SITE_URL}`;
+
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:0;">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+  <div style="background:linear-gradient(135deg,#0a1628 0%,#1a2a4a 100%);padding:32px 40px;text-align:center;">
+    <div style="font-size:28px;margin-bottom:8px;">⚖️</div>
+    <h1 style="color:#fff;font-size:22px;margin:0;">FreightGuard Defense</h1>
+    <p style="color:#7ab3ff;font-size:13px;margin:4px 0 0;">Attorney Network Invitation</p>
+  </div>
+  <div style="padding:32px 40px;">
+    <p style="color:#1a1a2a;font-size:15px;">Dear ${invite.name || 'Counselor'},</p>
+    <p style="color:#333;font-size:14px;line-height:1.7;">You have been personally invited to join the <strong>FreightGuard Defense Attorney Network</strong> — a growing legal protection platform serving motor carriers nationwide.</p>
+    <div style="background:#f0f4ff;border-left:4px solid #2c5aa0;padding:16px 20px;border-radius:0 8px 8px 0;margin:20px 0;">
+      <p style="margin:0;font-size:15px;font-weight:700;color:#1a2a4a;">💰 Earn $100 per approved demand letter</p>
+      <p style="margin:4px 0 0;font-size:13px;color:#555;">No client acquisition. No marketing. Cases assigned to you.</p>
+    </div>
+    <h3 style="color:#1a2a4a;font-size:14px;border-bottom:1px solid #eee;padding-bottom:8px;">Why Attorneys Love Our Network:</h3>
+    <ul style="color:#333;font-size:13px;line-height:2;padding-left:20px;">
+      <li>$100 flat fee per approved pre-litigation letter — paid automatically</li>
+      <li>Work from anywhere — review letters on your own schedule</li>
+      <li>Specialized in transportation law under 49 U.S.C. § 14915</li>
+      <li>Letters assigned by your licensed states — instant jurisdiction match</li>
+      <li>Growing pipeline — thousands of carriers filing FreightGuard disputes monthly</li>
+    </ul>
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${joinUrl}" style="background:#c0392b;color:#fff;text-decoration:none;padding:16px 36px;border-radius:8px;font-size:15px;font-weight:700;display:inline-block;">Accept Invitation & Join Network</a>
+    </div>
+    <p style="color:#888;font-size:11px;text-align:center;">This invitation is unique to you and expires in 7 days.<br>Invitation for: ${invite.email}</p>
+  </div>
+  <div style="background:#f5f5f5;padding:16px 40px;text-align:center;font-size:11px;color:#999;">
+    FreightGuard Defense · ${SITE_URL}
+  </div>
+</div></body></html>`;
+
+  await dispatchEmail({ to: invite.email, subject, text, html });
+}
+
+// Send single attorney invite
+app.post('/api/admin/attorney-invite', requireAdmin, async (req, res) => {
+  const { email, name, specialty } = req.body;
+  if (!email) return res.status(400).json({ error: 'Email required' });
+
+  const token   = require('crypto').randomBytes(24).toString('hex');
+  const invite  = { id: token.slice(0,12), email, name: name||'', specialty: specialty||'', token, status: 'pending', invited_at: new Date().toISOString() };
+
+  // Save
+  const invites = loadInvites();
+  invites[token] = invite;
+  saveInvites(invites);
+
+  // DB
+  if (pgPool) {
+    await pgPool.query(
+      'INSERT INTO attorney_invites(id,email,name,specialty,token,status) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(token) DO NOTHING',
+      [invite.id, email, name||'', specialty||'', token, 'pending']
+    ).catch(() => {});
+  }
+
+  try {
+    await sendAttorneyInviteEmail(invite);
+    res.json({ ok: true, message: `Invitation sent to ${email}` });
+  } catch(e) {
+    res.status(500).json({ error: 'Saved but email failed: ' + e.message });
+  }
+});
+
+// Bulk invite from uploaded Excel/CSV data (frontend parses, sends JSON array)
+app.post('/api/admin/attorney-invite/bulk', requireAdmin, async (req, res) => {
+  const { contacts } = req.body; // [{email, name, specialty}]
+  if (!Array.isArray(contacts) || contacts.length === 0)
+    return res.status(400).json({ error: 'No contacts provided' });
+
+  const results = [];
+  const invites = loadInvites();
+
+  for (const c of contacts.slice(0, 200)) { // cap at 200 per batch
+    if (!c.email || !/\S+@\S+/.test(c.email)) { results.push({ email: c.email, status: 'skipped', reason: 'invalid email' }); continue; }
+    const token  = require('crypto').randomBytes(24).toString('hex');
+    const invite = { id: token.slice(0,12), email: c.email, name: c.name||'', specialty: c.specialty||'', token, status: 'pending', invited_at: new Date().toISOString() };
+    invites[token] = invite;
+    if (pgPool) await pgPool.query('INSERT INTO attorney_invites(id,email,name,specialty,token,status) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(token) DO NOTHING', [invite.id, c.email, c.name||'', c.specialty||'', token, 'pending']).catch(() => {});
+    try { await sendAttorneyInviteEmail(invite); results.push({ email: c.email, status: 'sent' }); }
+    catch(e) { results.push({ email: c.email, status: 'failed', reason: e.message }); }
+    await new Promise(r => setTimeout(r, 200)); // rate limit
+  }
+
+  saveInvites(invites);
+  res.json({ results, sent: results.filter(r=>r.status==='sent').length, failed: results.filter(r=>r.status!=='sent').length });
+});
+
+// List all invites
+app.get('/api/admin/attorney-invites', requireAdmin, (req, res) => {
+  const invites = Object.values(loadInvites()).sort((a,b) => b.invited_at > a.invited_at ? 1 : -1);
+  res.json({ invites });
+});
+
+// Resend invite
+app.post('/api/admin/attorney-invite/resend/:token', requireAdmin, async (req, res) => {
+  const invites = loadInvites();
+  const invite  = invites[req.params.token];
+  if (!invite) return res.status(404).json({ error: 'Invite not found' });
+  invite.resent_at = new Date().toISOString();
+  invites[req.params.token] = invite;
+  saveInvites(invites);
+  try { await sendAttorneyInviteEmail(invite); res.json({ ok: true }); }
+  catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// Attorney validates invite token
+app.get('/api/attorney/invite/:token', (req, res) => {
+  const invites = loadInvites();
+  const invite  = invites[req.params.token];
+  if (!invite) return res.status(404).json({ error: 'Invalid or expired invitation' });
+  if (invite.status === 'accepted') return res.status(410).json({ error: 'This invitation has already been used' });
+  res.json({ ok: true, email: invite.email, name: invite.name, specialty: invite.specialty });
+});
+
+// Attorney completes signup from invite link
+app.post('/api/attorney/register', async (req, res) => {
+  const { token, name, firmName, barNumber, barState, licenseStates, phone, specialty, email } = req.body;
+  if (!token || !name || !barNumber || !barState)
+    return res.status(400).json({ error: 'Name, bar number, and bar state are required' });
+
+  const invites = loadInvites();
+  const invite  = invites[token];
+  if (!invite) return res.status(404).json({ error: 'Invalid invitation token' });
+  if (invite.status === 'accepted') return res.status(410).json({ error: 'Invitation already used' });
+
+  // Create attorney record
+  const id = 'atty_' + Date.now();
+  const attorney = {
+    id, name, firmName: firmName||'', barNumber, barState,
+    email: email || invite.email, phone: phone||'',
+    licenseStates: licenseStates||barState, specialty: specialty || invite.specialty || '',
+    status: 'active', inviteToken: token,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (pgPool) {
+    await pgPool.query(
+      'INSERT INTO attorneys(id,name,firm_name,bar_number,bar_state,email,phone,license_states,specialty,status,invite_token) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)',
+      [id, name, firmName||'', barNumber, barState, attorney.email, phone||'', licenseStates||barState, attorney.specialty, 'active', token]
+    ).catch(async () => {
+      const all = await loadAttorneys();
+      all.push(attorney);
+      saveJSON(path.join(DATA_DIR, 'attorneys.json'), all);
+    });
+  } else {
+    const all = await loadAttorneys();
+    all.push(attorney);
+    saveJSON(path.join(DATA_DIR, 'attorneys.json'), all);
+  }
+
+  // Mark invite accepted
+  invite.status    = 'accepted';
+  invite.accepted_at = new Date().toISOString();
+  invites[token]   = invite;
+  saveInvites(invites);
+  if (pgPool) await pgPool.query('UPDATE attorney_invites SET status=$1, accepted_at=NOW() WHERE token=$2', ['accepted', token]).catch(() => {});
+
+  // Welcome email
+  try {
+    await dispatchEmail({
+      to: attorney.email, subject: 'Welcome to FreightGuard Defense Attorney Network',
+      text: `Dear ${name},\n\nWelcome to the FreightGuard Defense Attorney Network! Your profile is now active.\n\nYou will begin receiving letter assignments for cases in your licensed states. Each approved demand letter pays $100, wired monthly.\n\nLog in to manage your assignments: ${SITE_URL}\n\nFreightGuard Defense`,
+      html: `<p>Dear ${name},</p><p>Welcome to the <strong>FreightGuard Defense Attorney Network</strong>! Your profile is now active.</p><p>You will receive letter assignments for cases in <strong>${licenseStates||barState}</strong>. Each approved letter pays <strong>$100</strong>.</p><p><a href="${SITE_URL}">Log in to manage your assignments</a></p>`,
+    });
+  } catch {}
+
+  res.json({ ok: true, message: 'Welcome! Your attorney profile is now active.', attorney: { id, name, email: attorney.email } });
 });
 
 // ── ADMIN AUTH ────────────────────────────────────────────────

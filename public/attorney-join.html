@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Join the FreightGuard Defense Attorney Network</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0f1e;color:#d0dbe8;min-height:100vh;}
+  .topbar{background:linear-gradient(135deg,#0a1628 0%,#1a2a4a 100%);padding:18px 40px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(255,255,255,0.08);}
+  .topbar .logo{font-size:26px;} .topbar h1{font-size:18px;color:#fff;font-weight:800;} .topbar p{font-size:11px;color:#7ab3ff;}
+  .hero{background:linear-gradient(135deg,#0a1628 0%,#1a2a4a 60%,#2a1a0a 100%);padding:60px 40px;text-align:center;}
+  .hero h2{font-size:36px;font-weight:900;color:#fff;margin-bottom:14px;} .hero p{font-size:16px;color:#aab8cc;max-width:600px;margin:0 auto;}
+  .badge{display:inline-block;background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;font-size:22px;font-weight:900;padding:12px 28px;border-radius:50px;margin:20px auto;}
+  .perks{display:flex;flex-wrap:wrap;gap:20px;justify-content:center;padding:40px 40px 20px;max-width:900px;margin:0 auto;}
+  .perk{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px 24px;flex:1;min-width:220px;}
+  .perk .icon{font-size:28px;margin-bottom:10px;} .perk h4{font-size:14px;font-weight:700;color:#fff;margin-bottom:6px;} .perk p{font-size:12px;color:#8899aa;line-height:1.6;}
+  .form-wrap{max-width:560px;margin:0 auto;padding:40px;}
+  .card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:32px 36px;}
+  .card h3{font-size:18px;font-weight:800;color:#fff;margin-bottom:6px;} .card p{font-size:13px;color:#8899aa;margin-bottom:24px;}
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:6px;}
+  .field input,.field select,.field textarea{width:100%;background:#0d1625;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:11px 14px;color:#d0dbe8;font-size:13px;outline:none;transition:border-color .2s;}
+  .field input:focus,.field select:focus{border-color:#4a8fd8;}
+  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .btn{width:100%;padding:15px;background:linear-gradient(135deg,#c0392b,#e74c3c);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;margin-top:6px;}
+  .btn:hover{opacity:.9;} .btn:disabled{opacity:.5;cursor:not-allowed;}
+  .alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:16px;}
+  .alert-success{background:#0a2a1a;border:1px solid #2a6a3a;color:#40c070;}
+  .alert-error{background:#2a0a0a;border:1px solid #6a2a2a;color:#f07060;}
+  .alert-info{background:#0a1a3a;border:1px solid #2a4a7a;color:#7ab3ff;}
+  .success-state{text-align:center;padding:40px 20px;display:none;}
+  .success-state .icon{font-size:64px;margin-bottom:16px;}
+  .token-invalid{text-align:center;padding:40px;display:none;}
+  footer{text-align:center;padding:32px;color:#445566;font-size:12px;border-top:1px solid rgba(255,255,255,0.05);margin-top:40px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">⚖️</div>
+  <div><h1>FreightGuard Defense</h1><p>Carrier Legal Protection Network</p></div>
+</div>
+
+<div class="hero">
+  <h2>Join Our Attorney Network</h2>
+  <p>Review pre-litigation demand letters for motor carriers. No client acquisition. No overhead. Pure referral income.</p>
+  <div class="badge">💰 $100 Per Approved Demand Letter</div>
+</div>
+
+<div class="perks">
+  <div class="perk"><div class="icon">📬</div><h4>Cases Come to You</h4><p>Letters assigned automatically based on your licensed states. No cold calling, no marketing.</p></div>
+  <div class="perk"><div class="icon">🕐</div><h4>Work Your Schedule</h4><p>Review and approve letters on your own time. Remote. Flexible. No court appearances required.</p></div>
+  <div class="perk"><div class="icon">⚡</div><h4>Instant Pipeline</h4><p>Thousands of carriers file FreightGuard disputes monthly. Consistent, growing case flow.</p></div>
+  <div class="perk"><div class="icon">📜</div><h4>Transportation Law</h4><p>Specialized under 49 U.S.C. § 14915, defamation, tortious interference, and FMCSA regulations.</p></div>
+</div>
+
+<div class="form-wrap">
+  <div id="invalidState" class="token-invalid">
+    <div style="font-size:48px;margin-bottom:16px;">🔒</div>
+    <h3 style="color:#f07060;margin-bottom:8px;">Invalid or Expired Invitation</h3>
+    <p style="color:#8899aa;font-size:14px;">This invitation link is invalid or has already been used. Please contact FreightGuard Defense to request a new invitation.</p>
+    <p style="margin-top:16px;"><a href="/" style="color:#7ab3ff;">Return to FreightGuard Defense</a></p>
+  </div>
+
+  <div id="successState" class="success-state">
+    <div class="icon">🎉</div>
+    <h3 style="color:#fff;font-size:22px;margin-bottom:10px;">Welcome to the Network!</h3>
+    <p style="color:#8899aa;font-size:14px;max-width:400px;margin:0 auto 20px;">Your attorney profile is now active. You'll start receiving letter assignments for cases in your licensed states shortly. A welcome email is on its way.</p>
+    <a href="/" style="display:inline-block;padding:12px 28px;background:#1a3a5a;color:#7ab3ff;border:1px solid #2a5a8a;border-radius:8px;text-decoration:none;font-weight:700;">Return to FreightGuard Defense</a>
+  </div>
+
+  <div id="formState" class="card">
+    <h3>Complete Your Attorney Profile</h3>
+    <p>You've been personally invited. Fill out your details below to activate your account.</p>
+    <div id="formAlert"></div>
+
+    <div class="field">
+      <label>Full Name *</label>
+      <input id="j-name" placeholder="Robert J. Harrington, Esq." />
+    </div>
+    <div class="field">
+      <label>Email Address *</label>
+      <input id="j-email" type="email" placeholder="attorney@firm.com" />
+    </div>
+    <div class="field">
+      <label>Law Firm Name</label>
+      <input id="j-firm" placeholder="Harrington & Associates, P.C." />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label>Bar Number *</label>
+        <input id="j-bar" placeholder="47821" />
+      </div>
+      <div class="field">
+        <label>Bar State *</label>
+        <input id="j-barstate" placeholder="TX" maxlength="2" style="text-transform:uppercase;" />
+      </div>
+    </div>
+    <div class="field">
+      <label>Licensed States (comma-separated) *</label>
+      <input id="j-states" placeholder="TX, LA, OK, AR, NM" />
+    </div>
+    <div class="field">
+      <label>Phone Number</label>
+      <input id="j-phone" type="tel" placeholder="(555) 000-0000" />
+    </div>
+    <div class="field">
+      <label>Practice Area / Specialty</label>
+      <input id="j-specialty" placeholder="Transportation law, FMCSA disputes, cargo claims, defamation" />
+    </div>
+
+    <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.2);border-radius:8px;padding:14px 16px;margin:18px 0;font-size:12px;color:#aab8cc;line-height:1.7;">
+      By joining, you agree to review demand letters assigned to you, provide your bar credentials for client letters, and maintain your license in good standing. FreightGuard Defense pays $100 per approved letter, disbursed monthly.
+    </div>
+
+    <button class="btn" id="joinBtn" onclick="submitJoin()">⚖️ Activate My Attorney Account</button>
+  </div>
+</div>
+
+<footer>FreightGuard Defense &copy; 2026 · Carrier Legal Protection Network · <a href="/" style="color:#7ab3ff;">freightguarddefense.com</a></footer>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const token  = params.get('token') || '';
+
+async function init() {
+  if (!token) { showInvalid(); return; }
+  try {
+    const r = await fetch('/api/attorney/invite/' + token);
+    if (!r.ok) { showInvalid(); return; }
+    const d = await r.json();
+    if (d.email) document.getElementById('j-email').value = d.email;
+    if (d.name)  document.getElementById('j-name').value  = d.name;
+    if (d.specialty) document.getElementById('j-specialty').value = d.specialty;
+  } catch { showInvalid(); }
+}
+
+function showInvalid() {
+  document.getElementById('formState').style.display = 'none';
+  document.getElementById('invalidState').style.display = '';
+}
+
+async function submitJoin() {
+  const name     = document.getElementById('j-name').value.trim();
+  const email    = document.getElementById('j-email').value.trim();
+  const firmName = document.getElementById('j-firm').value.trim();
+  const barNumber= document.getElementById('j-bar').value.trim();
+  const barState = document.getElementById('j-barstate').value.trim().toUpperCase();
+  const licenseStates = document.getElementById('j-states').value.trim() || barState;
+  const phone    = document.getElementById('j-phone').value.trim();
+  const specialty= document.getElementById('j-specialty').value.trim();
+
+  if (!name || !email || !barNumber || !barState) {
+    showAlert('error','Please fill in all required fields (Name, Email, Bar Number, Bar State).');
+    return;
+  }
+
+  const btn = document.getElementById('joinBtn');
+  btn.disabled = true; btn.textContent = 'Activating your account...';
+
+  try {
+    const res = await fetch('/api/attorney/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, name, email, firmName, barNumber, barState, licenseStates, phone, specialty }),
+    });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.error);
+    document.getElementById('formState').style.display = 'none';
+    document.getElementById('successState').style.display = '';
+  } catch(e) {
+    showAlert('error', '❌ ' + e.message);
+    btn.disabled = false; btn.textContent = '⚖️ Activate My Attorney Account';
+  }
+}
+
+function showAlert(type, msg) {
+  const el = document.getElementById('formAlert');
+  const cls = type === 'error' ? 'alert-error' : type === 'success' ? 'alert-success' : 'alert-info';
+  el.innerHTML = `<div class="alert ${cls}">${msg}</div>`;
+}
+
+init();
+</script>
+</body>
+</html>
