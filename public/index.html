@@ -511,7 +511,11 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
       </button>
       <button id="typeCollection" onclick="setLetterType('collection')"
         style="flex:1;padding:14px 20px;background:var(--card);color:var(--text-muted);border:none;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;border-left:1px solid var(--border);">
-        💰 Unpaid Freight Invoice Collection
+        💰 Unpaid Freight Collection
+      </button>
+      <button id="typeCeasDesist" onclick="setLetterType('cease_desist')"
+        style="flex:1;padding:14px 20px;background:var(--card);color:var(--text-muted);border:none;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;border-left:1px solid var(--border);">
+        🛑 Cease &amp; Desist — $149
       </button>
     </div>
     <div id="draftRestoreBanner" style="display:none;background:#0d1f10;border:1px solid #1e5a20;border-radius:8px;padding:10px 16px;margin-bottom:14px;display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
@@ -545,6 +549,7 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
                 <button type="button" onclick="fmcsaLookup('carrier',document.getElementById('carrierMC').value,true)" style="white-space:nowrap;padding:8px 12px;background:#1a2f4a;border:1px solid #2d5a8a;border-radius:8px;color:#6ab0f5;font-size:12px;cursor:pointer;">🔍 Lookup</button>
               </div>
               <div id="carrierFmcsaStatus" style="font-size:11px;margin-top:4px;min-height:16px;"></div>
+              <div id="carrierSafetyWarning" style="display:none;margin-top:6px;padding:8px 12px;background:#2a1010;border:1px solid #6a2020;border-radius:6px;font-size:12px;color:#f07060;"></div>
             </div>
             <div class="field">
               <label>DOT Number *</label>
@@ -633,6 +638,10 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
                 <div id="brokerIntelBody" style="display:none;padding:14px;background:#2a1010;border-top:1px solid #5a1a1a;">
                   <div id="brokerIntelStats" style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:12px;"></div>
                   <div id="brokerIntelReports" style="font-size:12px;color:#c8a8a8;"></div>
+                  <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                    <button onclick="addToWatchlist()" style="padding:6px 14px;background:#1a2a3a;border:1px solid #2a4a6a;border-radius:6px;color:#7ab3ff;font-size:12px;font-weight:700;cursor:pointer;">👁 Add to Watchlist</button>
+                    <button onclick="joinGroupAction()" id="joinGroupBtn" style="display:none;padding:6px 14px;background:#1a3a1a;border:1px solid #2a6a2a;border-radius:6px;color:#40c070;font-size:12px;font-weight:700;cursor:pointer;">⚖️ Join Group Action</button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -801,6 +810,67 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
 
       </div><!-- end collection grid -->
     </div><!-- end collectionFields -->
+    <!-- CEASE & DESIST FIELDS -->
+    <div id="cdFields" style="display:none;">
+      <div style="background:linear-gradient(135deg,rgba(139,0,0,0.15),rgba(8,13,26,0.8));border:1px solid rgba(192,57,43,0.4);border-radius:10px;padding:14px 20px;margin-bottom:18px;display:flex;align-items:center;gap:12px;">
+        <span style="font-size:28px;">🛑</span>
+        <div>
+          <div style="font-weight:800;color:#fff;font-size:14px;">Cease & Desist — 72-Hour Report Removal Demand</div>
+          <div style="font-size:12px;color:#aab8cc;margin-top:3px;">Directly targets the broker's obligation to remove the false FreightGuard report within 72 hours or face immediate lawsuit + FMCSA complaint. <strong style="color:#f0a830;">$149</strong></div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div>
+          <div class="card">
+            <div class="card-title"><span class="dot"></span>Your Carrier Information</div>
+            <div class="field"><label>Carrier Name *</label><input id="cd_carrierName" placeholder="ABC Trucking LLC" data-lpignore="true"/></div>
+            <div class="field-row">
+              <div class="field"><label>MC Number</label><input id="cd_carrierMC" placeholder="1234567" data-lpignore="true"/></div>
+              <div class="field"><label>DOT Number</label><input id="cd_carrierDOT" placeholder="9876543" data-lpignore="true"/></div>
+            </div>
+            <div class="field"><label>Email *</label><input id="cd_carrierEmail" type="email" placeholder="owner@yourcompany.com" data-lpignore="true"/></div>
+            <div class="field"><label>Phone</label><input id="cd_carrierPhone" type="tel" placeholder="(555) 000-0000" data-lpignore="true"/></div>
+          </div>
+          <div class="card">
+            <div class="card-title"><span class="dot"></span>The False FreightGuard Report</div>
+            <div class="field"><label>Exact Text of False Report *</label><textarea id="cd_reportContent" rows="6" placeholder="Paste the exact text of the false FreightGuard report here..." style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:12px;font-size:13px;resize:vertical;"></textarea></div>
+            <div class="field"><label>FreightGuard Report URL (if available)</label><input id="cd_reportUrl" placeholder="https://freightguard.com/report/..." data-lpignore="true"/></div>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title"><span class="dot"></span>Broker (Respondent)</div>
+            <div class="field">
+              <label>Broker Company Name *</label>
+              <div style="display:flex;gap:8px;">
+                <input id="cd_brokerName" placeholder="Apex Freight Solutions Inc." style="flex:1;" data-lpignore="true"/>
+              </div>
+            </div>
+            <div class="field">
+              <label>Broker MC Number</label>
+              <div style="display:flex;gap:8px;">
+                <input id="cd_brokerMC" placeholder="654321" style="flex:1;" oninput="cdBrokerIntelCheck(this.value)" data-lpignore="true"/>
+                <button type="button" onclick="cdFmcsaLookup(document.getElementById('cd_brokerMC').value)" style="white-space:nowrap;padding:8px 12px;background:#1a2f4a;border:1px solid #2d5a8a;border-radius:8px;color:#6ab0f5;font-size:12px;cursor:pointer;">🔍 Lookup</button>
+              </div>
+              <div id="cd_brokerIntelBanner" style="display:none;margin-top:8px;padding:8px 12px;border-radius:6px;font-size:12px;"></div>
+            </div>
+            <div class="field"><label>Broker Address *</label><input id="cd_brokerAddress" placeholder="456 Commerce Ave, Chicago, IL 60601" data-lpignore="true"/></div>
+            <div class="field"><label>Broker Email (for direct delivery)</label><input id="cd_brokerEmail" type="email" placeholder="legal@broker.com" data-lpignore="true"/></div>
+          </div>
+          <div class="card" style="background:linear-gradient(135deg,rgba(139,0,0,0.15),var(--card));border-color:rgba(192,57,43,0.4);">
+            <div class="card-title"><span class="dot"></span>Generate C&D Letter</div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;line-height:1.6;">72-hour removal demand with FMCSA complaint threat, lawsuit filing notice, and regulatory exposure warning. Delivered directly to the broker.</p>
+            <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.2);border-radius:8px;padding:12px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;">
+              <span style="font-size:13px;color:#aab8cc;">One-time fee</span>
+              <span style="font-size:22px;font-weight:900;color:#e74c3c;">$149</span>
+            </div>
+            <button class="btn btn-red" id="cdGenerateBtn" onclick="generateCDLetter()" style="width:100%;justify-content:center;font-size:15px;padding:16px;">
+              🛑 Generate Cease &amp; Desist Letter
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Letter output -->
     <div id="letterOutput">
@@ -819,6 +889,12 @@ div[style*="z-index:2147483647"][style*="position:absolute"] {
           </button>
           <button onclick="openEmailModal()" style="padding:10px 22px;background:#1a3a5a;color:#7ab3ff;border:1px solid #2a5a8a;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">
             📧 Email Broker
+          </button>
+          <button id="threatScoreBtn" onclick="showThreatScore()" style="padding:10px 16px;background:#1a1a3a;color:#f0a830;border:1px solid #3a3a6a;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;" title="View your Legal Threat Score">
+            🎯 Threat Score
+          </button>
+          <button id="watchlistBtn" onclick="addToWatchlistFromLetter()" style="padding:10px 16px;background:#0a2a3a;color:#7ab3ff;border:1px solid #1a4a6a;border-radius:8px;font-size:13px;cursor:pointer;" title="Monitor this broker weekly">
+            👁 Watch Broker
           </button>
           <button onclick="copyLetterToClipboard()" style="padding:10px 16px;background:var(--navy-mid);color:#d0dbe8;border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;">📋 Copy</button>
           <button onclick="printLetter()" style="padding:10px 16px;background:var(--navy-mid);color:#d0dbe8;border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer;">🖨️ Print</button>
@@ -1579,6 +1655,11 @@ async function generateLetter() {
     window._attorney  = data.attorney  || null;
     window._courtData = data.court     || null;
     document.getElementById('letterOutput').style.display = 'block';
+    // Store caseRef globally for threat score / watchlist
+    _lastGeneratedCaseRef = data.caseRef || '';
+    _lastBrokerMC   = f.brokerMC || '';
+    _lastBrokerName = f.brokerName || '';
+
     // Update success banner
     const sub = document.getElementById('letterSuccessSub');
     if (sub) {
@@ -3627,6 +3708,144 @@ fetch('/api/maps-key').then(r=>r.json()).then(d=>{ if(d.key) loadGooglePlaces(d.
     </div>
   </div>
 </div>
+
+<script>
+// ── FEATURE A: WATCHLIST ──────────────────────────────────────────────────────
+let _lastGeneratedCaseRef = '';
+let _lastBrokerMC = '';
+let _lastBrokerName = '';
+
+async function addToWatchlist() {
+  const brokerMC   = v('brokerMC') || _lastBrokerMC;
+  const brokerName = v('brokerName') || _lastBrokerName;
+  const carrierEmail = v('carrierEmail');
+  const carrierName  = v('carrierName');
+  if (!brokerMC || !carrierEmail) { showToast('Fill in Broker MC and your email first.', 'warn'); return; }
+  try {
+    const r = await fetch('/api/watchlist/add', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ brokerMC, brokerName, carrierEmail, carrierName, caseRef: _lastGeneratedCaseRef }),
+    });
+    const d = await r.json();
+    showToast('✅ ' + d.message, 'success');
+  } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+async function addToWatchlistFromLetter() {
+  const brokerMC    = v('brokerMC') || _lastBrokerMC;
+  const brokerName  = v('brokerName') || _lastBrokerName;
+  const carrierEmail = v('carrierEmail');
+  const carrierName  = v('carrierName');
+  if (!brokerMC) { showToast('No broker MC available.', 'warn'); return; }
+  try {
+    const r = await fetch('/api/watchlist/add', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ brokerMC, brokerName, carrierEmail, carrierName, caseRef: _lastGeneratedCaseRef }),
+    });
+    const d = await r.json();
+    showToast('👁 ' + d.message, 'success');
+    const btn = document.getElementById('watchlistBtn');
+    if (btn) { btn.textContent = '✅ Watching'; btn.style.color = '#40c070'; btn.disabled = true; }
+  } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+// ── FEATURE B: GROUP ACTION ───────────────────────────────────────────────────
+let _groupActionData = null;
+
+async function checkGroupAction(brokerMC) {
+  if (!brokerMC || brokerMC.replace(/\D/g,'').length < 5) return;
+  try {
+    const r = await fetch('/api/group-action/' + brokerMC.replace(/\D/g,''));
+    const d = await r.json();
+    _groupActionData = d;
+    const btn = document.getElementById('joinGroupBtn');
+    if (btn && d.totalLetters >= 2) {
+      btn.style.display = '';
+      btn.textContent = `⚖️ Join Group Action (${d.totalLetters} carriers, ${d.groupAction ? '$' + Number(d.groupAction.totalDamages).toLocaleString() + ' combined' : 'forming'})`;
+    }
+  } catch {}
+}
+
+async function joinGroupAction() {
+  const brokerMC    = v('brokerMC');
+  const brokerName  = v('brokerName');
+  const carrierEmail = v('carrierEmail');
+  const carrierName  = v('carrierName');
+  const carrierMC   = v('carrierMC');
+  const damages     = document.getElementById('damagesDisplay')?.dataset?.total || 0;
+  if (!brokerMC || !carrierEmail) { showToast('Fill in your info and broker MC first.', 'warn'); return; }
+  try {
+    const r = await fetch('/api/group-action/join', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ brokerMC, brokerName, carrierName, carrierEmail, carrierMC, caseRef: _lastGeneratedCaseRef, damages }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    showToast(`✅ ${d.message}`, 'success');
+    showAlert('formAlert','gold', `⚖️ You've joined the group action against ${brokerName}. ${d.groupAction.carriers.length} carriers · $${Number(d.groupAction.totalDamages).toLocaleString()} combined damages. All carriers will be notified when a group letter is generated.`);
+  } catch(e) { showToast('Failed: ' + e.message, 'error'); }
+}
+
+// ── FEATURE C: THREAT SCORE ───────────────────────────────────────────────────
+async function showThreatScore() {
+  if (!_lastGeneratedCaseRef) { showToast('Generate a letter first to see your threat score.', 'warn'); return; }
+  try {
+    const r = await fetch('/api/threat-score/' + encodeURIComponent(_lastGeneratedCaseRef));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+
+    const scoreHtml = `
+      <div style="text-align:center;padding:8px 0 16px;">
+        <div style="font-size:72px;font-weight:900;color:${d.color};">${d.score}</div>
+        <div style="font-size:14px;font-weight:700;color:${d.color};margin-bottom:4px;">${d.label}</div>
+        <div style="font-size:12px;color:var(--text-muted);">out of 10</div>
+      </div>
+      <div style="margin-bottom:16px;">
+        ${d.factors.map(f => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+            <span style="font-size:13px;color:${f.met?'#d0dbe8':'#667788'};">${f.met?'✅':'⬜'} ${f.label}</span>
+            <span style="font-size:12px;font-weight:700;color:${f.met?'#40c070':'#667788'};">${f.met?'+'+f.points:'+'+f.points+' (missing)'}</span>
+          </div>`).join('')}
+      </div>
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px 16px;margin-bottom:16px;">
+        <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Shareable Badge</div>
+        <div style="font-size:12px;color:#8899aa;word-break:break-all;margin-bottom:8px;">${d.shareText}</div>
+        <button onclick="navigator.clipboard.writeText('${d.shareText.replace(/'/g,"\'")}');showToast('Copied!','success')"
+          style="padding:6px 14px;background:#1a3a5a;border:1px solid #2a5a8a;border-radius:6px;color:#7ab3ff;font-size:12px;cursor:pointer;">📋 Copy Badge Text</button>
+        <a href="/badge/${d.caseRef}.svg" target="_blank"
+          style="margin-left:8px;padding:6px 14px;background:#1a2a1a;border:1px solid #2a4a2a;border-radius:6px;color:#40c070;font-size:12px;text-decoration:none;display:inline-block;">🖼 View Badge SVG</a>
+      </div>`;
+
+    // Show in a modal - reuse historyModal
+    const modal = document.getElementById('historyModal');
+    document.getElementById('histModalTitle').textContent = `Legal Threat Score — Case ${d.caseRef}`;
+    document.getElementById('histModalMeta').textContent  = '';
+    document.getElementById('histModalPipeline').innerHTML = '';
+    document.getElementById('histModalBody').textContent  = '';
+    document.getElementById('histModalBody').innerHTML = scoreHtml;
+    document.getElementById('histModalResponseSection').style.display = 'none';
+    modal.style.display = 'flex';
+  } catch(e) { showToast('Failed to load score: ' + e.message, 'error'); }
+}
+
+// Hook into broker MC field to auto-check group actions
+const origBrokerMcInput = document.getElementById('brokerMC');
+if (origBrokerMcInput) {
+  origBrokerMcInput.addEventListener('input', function() {
+    _lastBrokerMC = this.value;
+    if (this.value.replace(/\D/g,'').length >= 5) checkGroupAction(this.value);
+  });
+}
+
+// Track last generated case ref
+const _origGenerateLetter = window.generateLetter;
+// Patch: set _lastGeneratedCaseRef when letter completes
+const _scoreObserver = new MutationObserver(() => {
+  const caseBar = document.querySelector('[data-caseref]');
+  if (caseBar && caseBar.dataset.caseref) _lastGeneratedCaseRef = caseBar.dataset.caseref;
+});
+_scoreObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-caseref'] });
+</script>
 
 <script>refreshAdminUI();</script>
 </body>

@@ -2027,6 +2027,481 @@ app.put('/api/admin/attorney-payouts/:caseRef/paid', requireAdmin, (req, res) =>
   res.json({ ok: true });
 });
 
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 1 — CEASE & DESIST PACKAGE ($149)
+// ════════════════════════════════════════════════════════════════════════════
+app.post('/api/generate-cd-letter', rateLimit(60000, 5), async (req, res) => {
+  try {
+    const { carrierName, carrierMC, carrierEmail, carrierPhone,
+            brokerName, brokerMC, brokerAddress, reportContent,
+            freightguardReportUrl, assignedAttorneyId } = req.body;
+    if (!carrierName || !brokerName || !reportContent)
+      return res.status(400).json({ error: 'Missing required fields' });
+
+    const caseRef   = 'FGD-CD-' + Date.now().toString().slice(-6) + '-' + Math.floor(Math.random()*9000+1000);
+    const attorneys = await loadAttorneys();
+    const attorney  = assignedAttorneyId ? attorneys.find(a => a.id === assignedAttorneyId) : null;
+    let court = { name: 'U.S. District Court', address: brokerAddress };
+    try { court = await findCourthouseViaGoogleMaps(brokerAddress); } catch {}
+
+    const today    = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    const deadline = new Date(); deadline.setDate(deadline.getDate()+72/24);
+    const deadlineStr = deadline.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+    const firmLine = attorney ? (attorney.firmName||attorney.name) : '[LAW FIRM NAME]';
+
+    const prompt = `CRITICAL: Output ONLY plain text. No HTML, no markdown, no special characters.
+
+You are a senior transportation law attorney drafting a CEASE AND DESIST LETTER AND DEMAND FOR IMMEDIATE REMOVAL directed at a freight broker who filed a false FreightGuard report.
+
+TODAY: ${today}
+72-HOUR REMOVAL DEADLINE: ${deadlineStr}
+FIRM: ${firmLine}
+
+CARRIER (CLIENT): ${carrierName} / MC-${carrierMC}
+BROKER (RESPONDENT): ${brokerName} / MC-${brokerMC} / ${brokerAddress}
+FALSE REPORT CONTENT: "${reportContent}"
+${freightguardReportUrl ? `REPORT URL: ${freightguardReportUrl}` : ''}
+
+FILING COURT IF NOT COMPLIED: ${court.name}, ${court.address||''}, ${court.city||''} ${court.state||''}
+
+Write a legally aggressive C&D with these sections:
+1. Formal letterhead, VIA CERTIFIED MAIL, date, recipient address
+2. RE: CEASE AND DESIST — DEMAND FOR IMMEDIATE REMOVAL OF FALSE FREIGHTGUARD REPORT — Case ${caseRef}
+3. Opening: this firm represents carrier, this is final notice before litigation AND regulatory complaint
+4. IDENTIFICATION OF FALSE REPORT: quote the report verbatim and identify each false statement
+5. LEGAL VIOLATIONS: 49 U.S.C. § 14915, Defamation, Tortious Interference, False Light, Lanham Act § 43(a)
+6. REGULATORY EXPOSURE: FMCSA complaint, state attorney general referral, industry reporting
+7. DEMANDS (72-hour deadline): (1) Remove report from FreightGuard immediately (2) Issue written retraction to FreightGuard (3) Written confirmation of removal to this office (4) Cease all further disparagement
+8. CONSEQUENCES of non-compliance: immediate lawsuit + FMCSA complaint + $50,000+ damages
+9. Professional closing with attorney signature
+
+Every word must convey legal authority and inevitability of consequences. $600/hour tone.`;
+
+    const message = await anthropic.messages.create({
+      model: 'claude-opus-4-6', max_tokens: 2500,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const letterText = message.content[0].type === 'text' ? message.content[0].text : '';
+
+    await addLetterDB({ id: caseRef, caseRef, letterType: 'cease_desist',
+      carrierName, carrierEmail, carrierMC, carrierPhone: carrierPhone||'',
+      brokerName, brokerMC, brokerAddress, totalDamages: 50000,
+      letterText, court, attorneyId: assignedAttorneyId||null, ts: new Date().toISOString() });
+    await recordBrokerReportDB(brokerMC, brokerName, carrierName, caseRef);
+    await logAudit(caseRef, 'cd_generated', carrierEmail, `C&D: ${carrierName} vs ${brokerName}`);
+
+    // 3-party email dispatch
+    if (req.body.brokerEmail) {
+      const subj = `CEASE AND DESIST — IMMEDIATE REPORT REMOVAL REQUIRED — ${brokerName} — 72-Hour Deadline`;
+      const cc   = [carrierEmail, attorney?.email].filter(Boolean);
+      try { await dispatchEmail({ to: req.body.brokerEmail, cc, subject: subj, text: letterText, html: buildEmailHtmlTracked(letterText, caseRef) }); } catch {}
+      try { await dispatchEmail({ to: carrierEmail, subject: `✅ Your C&D Letter Sent (Case ${caseRef})`, text: `Your cease & desist has been sent to ${brokerName}.\nCase: ${caseRef}\n72-Hour removal deadline: ${deadlineStr}\n\n${letterText}`, html: `<p>Your C&D letter (Case ${caseRef}) was sent to ${brokerName}. 72-hour deadline: <strong>${deadlineStr}</strong>.</p>` }); } catch {}
+    }
+
+    res.json({ letter: letterText, caseRef, court, deadlineStr });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 2 — CASE OUTCOME TRACKER
+// ════════════════════════════════════════════════════════════════════════════
+const OUTCOMES_FILE = path.join(DATA_DIR, 'outcomes.json');
+function loadOutcomes() { return loadJSON(OUTCOMES_FILE); }
+function saveOutcomes(d) { saveJSON(OUTCOMES_FILE, d); }
+
+app.put('/api/letter-outcome/:caseRef', async (req, res) => {
+  const { outcome, settlementAmount, notes } = req.body;
+  // outcome: 'report_removed' | 'settled' | 'filed_court' | 'no_response' | 'withdrawn'
+  const valid = ['report_removed','settled','filed_court','no_response','withdrawn','ongoing'];
+  if (!valid.includes(outcome)) return res.status(400).json({ error: 'Invalid outcome' });
+  const outcomes = loadOutcomes();
+  outcomes[req.params.caseRef] = { outcome, settlementAmount: settlementAmount||0, notes: notes||'', recordedAt: new Date().toISOString() };
+  saveOutcomes(outcomes);
+  await logAudit(req.params.caseRef, 'outcome_recorded', 'carrier', `Outcome: ${outcome}${settlementAmount ? ' / $'+settlementAmount : ''}`);
+  // Update letter status
+  const statusMap = { report_removed:'resolved', settled:'settled', filed_court:'filed', no_response:'escalated', withdrawn:'closed' };
+  if (statusMap[outcome]) setLetterStatusFile(req.params.caseRef, statusMap[outcome]);
+  res.json({ ok: true });
+});
+
+app.get('/api/outcomes/stats', async (req, res) => {
+  const outcomes  = loadOutcomes();
+  const allLetters = await loadLetters();
+  const total      = allLetters.length;
+  const vals       = Object.values(outcomes);
+  const removed    = vals.filter(o => o.outcome === 'report_removed').length;
+  const settled    = vals.filter(o => o.outcome === 'settled').length;
+  const totalSettled = vals.filter(o => o.outcome === 'settled').reduce((s,o) => s+(Number(o.settlementAmount)||0), 0);
+  const totalDamages = allLetters.reduce((s,l) => s+(Number(l.totalDamages)||0), 0);
+  res.json({ totalLetters: total, reportsRemoved: removed, settled, totalSettledAmount: totalSettled, totalDamagesClaimed: totalDamages, winRate: total > 0 ? Math.round((removed+settled)/Math.max(vals.length,1)*100) : 0 });
+});
+
+app.get('/api/letter-outcomes', (req, res) => res.json(loadOutcomes()));
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 3 — FMCSA CARRIER SAFETY CHECK
+// ════════════════════════════════════════════════════════════════════════════
+app.get('/api/carrier-safety/:mc', async (req, res) => {
+  const mc = req.params.mc.replace(/\D/g,'');
+  if (!mc || mc.length < 5) return res.status(400).json({ error: 'Invalid MC' });
+  try {
+    const url = 'https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=' + mc;
+    const r   = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
+    const html = await r.text();
+    function ex(label) {
+      const re = new RegExp(label + '[^<]*<\/[Aa]>[^<]*<\/[Tt][Hh]>\\s*<[Tt][Dd][^>]*class=["\'"]queryfield["\'"][^>]*>([\\s\\S]*?)<\/[Tt][Dd]>', 'i');
+      const m  = html.match(re); if (!m) return '';
+      return m[1].replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+    }
+    function exStatus() {
+      const m = html.match(/USDOT Status:<\/A>[\s\S]*?<TD[^>]*class=["']queryfield["'][^>]*>([\s\S]*?)<\/TD>/i);
+      if (!m) return '';
+      return m[1].replace(/<!--[\s\S]*?-->/g,'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+    }
+    const status   = exStatus();
+    const safetyRating = ex('Safety Rating');
+    const oosRate  = ex('Out of Service Rate');
+    const warnings = [];
+    if (status && status.toLowerCase() !== 'active') warnings.push({ level: 'critical', msg: `USDOT Status is "${status}" — not ACTIVE. Load boards may be blocking this carrier.` });
+    if (safetyRating && ['unsatisfactory','conditional'].some(s => safetyRating.toLowerCase().includes(s)))
+      warnings.push({ level: 'critical', msg: `Safety Rating: ${safetyRating} — carriers with this rating are often blocked by brokers and load boards.` });
+    if (!status && !safetyRating) warnings.push({ level: 'warn', msg: 'Could not retrieve FMCSA data. Verify MC number is correct.' });
+    res.json({ status, safetyRating, oosRate, warnings, mc });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 4 — CARRIER SHIELD SUBSCRIPTION ($49/month)
+// ════════════════════════════════════════════════════════════════════════════
+app.post('/api/create-subscription', rateLimit(60000, 10), async (req, res) => {
+  const { email, plan } = req.body;
+  if (!stripe) return res.json({ devMode: true });
+  try {
+    const baseUrl = process.env.BASE_URL || 'https://freightguarddefense.com';
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      customer_email: email || undefined,
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { name: 'FreightGuard Defense — Carrier Shield', description: 'Unlimited demand letters + priority attorney review + MC credit monitoring. Cancel anytime.' },
+          unit_amount: 4900, // $49/month
+          recurring: { interval: 'month' },
+        },
+        quantity: 1,
+      }],
+      mode: 'subscription',
+      success_url: `${baseUrl}/?subscribed=1&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${baseUrl}/`,
+      metadata: { plan: plan || 'carrier_shield', email: email || '' },
+    });
+    res.json({ url: session.url, sessionId: session.id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/verify-subscription', async (req, res) => {
+  const { session_id } = req.query;
+  if (!session_id) return res.status(400).json({ error: 'No session ID' });
+  if (!stripe) return res.json({ active: true, devMode: true });
+  try {
+    const session = await stripe.checkout.sessions.retrieve(session_id, { expand: ['subscription'] });
+    const active  = session.subscription?.status === 'active' || session.subscription?.status === 'trialing';
+    const email   = session.customer_details?.email || session.metadata?.email || '';
+    res.json({ active, email, subscriptionId: session.subscription?.id });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 5 — WHITE-LABEL SETTINGS
+// ════════════════════════════════════════════════════════════════════════════
+app.get('/api/admin/white-label', requireAdmin, (req, res) => {
+  const wl = loadJSON(path.join(DATA_DIR, 'white_label.json'));
+  res.json(wl[0] || {});
+});
+
+app.post('/api/admin/white-label', requireAdmin, (req, res) => {
+  const { companyName, logoUrl, primaryColor, domain, contactEmail, footerText, customDisclaimer } = req.body;
+  const settings = [{ companyName, logoUrl, primaryColor, domain, contactEmail, footerText, customDisclaimer, updatedAt: new Date().toISOString() }];
+  saveJSON(path.join(DATA_DIR, 'white_label.json'), settings);
+  res.json({ ok: true });
+});
+
+app.get('/api/brand', (req, res) => {
+  const wl = loadJSON(path.join(DATA_DIR, 'white_label.json'));
+  const brand = wl[0] || {};
+  res.json({
+    name:           brand.companyName   || 'FreightGuard Defense',
+    logo:           brand.logoUrl       || '',
+    primaryColor:   brand.primaryColor  || '#c0392b',
+    contactEmail:   brand.contactEmail  || 'legal@freightguarddefense.com',
+    footerText:     brand.footerText    || 'FreightGuard Defense — Carrier Legal Protection Network',
+    disclaimer:     brand.customDisclaimer || '',
+  });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE A — BROKER WATCHLIST & WEEKLY MONITORING
+// ════════════════════════════════════════════════════════════════════════════
+const WATCHLIST_FILE = path.join(DATA_DIR, 'broker_watchlist.json');
+function loadWatchlist()  { return loadJSON(WATCHLIST_FILE); }
+function saveWatchlist(d) { saveJSON(WATCHLIST_FILE, d);    }
+
+// Add broker to watchlist
+app.post('/api/watchlist/add', async (req, res) => {
+  const { brokerMC, brokerName, carrierEmail, carrierName, caseRef } = req.body;
+  if (!brokerMC || !carrierEmail) return res.status(400).json({ error: 'brokerMC and carrierEmail required' });
+  const wl  = loadWatchlist();
+  const key = brokerMC.replace(/\D/g,'');
+  if (!wl[key]) wl[key] = { brokerMC: key, brokerName, subscribers: [], addedAt: new Date().toISOString() };
+  if (!wl[key].subscribers.find(s => s.email === carrierEmail)) {
+    wl[key].subscribers.push({ email: carrierEmail, name: carrierName||'', caseRef: caseRef||'', addedAt: new Date().toISOString() });
+  }
+  saveWatchlist(wl);
+  res.json({ ok: true, message: `${brokerName||'Broker MC-'+key} added to your watchlist. You'll receive weekly status alerts.` });
+});
+
+app.get('/api/watchlist', (req, res) => {
+  const email = (req.query.email||'').toLowerCase();
+  const wl    = loadWatchlist();
+  const mine  = Object.values(wl).filter(b => b.subscribers?.some(s => s.email.toLowerCase() === email));
+  res.json({ watchlist: mine });
+});
+
+app.delete('/api/watchlist/:brokerMC', (req, res) => {
+  const { email } = req.body;
+  const wl  = loadWatchlist();
+  const key = req.params.brokerMC.replace(/\D/g,'');
+  if (wl[key] && email) wl[key].subscribers = wl[key].subscribers.filter(s => s.email !== email);
+  saveWatchlist(wl);
+  res.json({ ok: true });
+});
+
+// Weekly watchlist scanner — check each broker's FMCSA status and email subscribers
+async function runBrokerWatchlistScan() {
+  const wl = loadWatchlist();
+  for (const [mc, broker] of Object.entries(wl)) {
+    if (!broker.subscribers?.length) continue;
+    try {
+      const url  = `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${mc}`;
+      const r    = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
+      const html = await r.text();
+      // Extract status
+      const sm = html.match(/USDOT Status:<\/A>[\s\S]*?<TD[^>]*class=["']queryfield["'][^>]*>([\s\S]*?)<\/TD>/i);
+      const status = sm ? sm[1].replace(/<!--[\s\S]*?-->/g,'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim() : 'Unknown';
+      const prevStatus = broker.lastStatus || '';
+      const changed    = prevStatus && prevStatus !== status;
+
+      // Email all subscribers a weekly report
+      for (const sub of broker.subscribers) {
+        try {
+          await dispatchEmail({
+            to: sub.email,
+            subject: changed
+              ? `⚠️ ALERT: Broker ${broker.brokerName||'MC-'+mc} Status Changed — ${prevStatus} → ${status}`
+              : `📊 Weekly Broker Watch: ${broker.brokerName||'MC-'+mc} Status Update`,
+            text: `FreightGuard Defense — Broker Watchlist Update\n\nBroker: ${broker.brokerName||'MC-'+mc} (MC-${mc})\nCurrent FMCSA Status: ${status}\n${changed ? `⚠️ STATUS CHANGED from "${prevStatus}" to "${status}"` : 'No change detected this week.'}\n\nCase Reference: ${sub.caseRef||'N/A'}\n\nThis is your weekly automated broker monitoring report from FreightGuard Defense.`,
+            html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+              <div style="background:#0a1628;padding:20px 28px;text-align:center;"><h2 style="color:#fff;margin:0;">⚖️ FreightGuard Defense</h2><p style="color:#7ab3ff;font-size:12px;margin:4px 0 0;">Broker Watchlist Weekly Report</p></div>
+              <div style="padding:24px 28px;background:#f9f9f9;">
+                ${changed ? `<div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:14px;margin-bottom:16px;"><strong>⚠️ STATUS CHANGE DETECTED</strong><br>${prevStatus} → <strong style="color:${status.toLowerCase().includes('active')?'green':'red'}">${status}</strong></div>` : ''}
+                <table style="font-size:13px;"><tr><td style="color:#888;padding:4px 12px 4px 0;">Broker:</td><td><strong>${broker.brokerName||'MC-'+mc}</strong></td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">MC Number:</td><td>MC-${mc}</td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">FMCSA Status:</td><td style="font-weight:700;color:${status.toLowerCase().includes('active')?'green':'#c0392b'};">${status}</td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">Your Case:</td><td>${sub.caseRef||'N/A'}</td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">Report Date:</td><td>${new Date().toLocaleDateString()}</td></tr></table>
+              </div></div>`,
+          });
+        } catch(e) { console.warn('Watchlist email failed:', e.message); }
+      }
+      // Save latest status
+      wl[mc].lastStatus = status; wl[mc].lastChecked = new Date().toISOString();
+    } catch(e) { console.warn('Watchlist scan error for MC', mc, e.message); }
+    await new Promise(r => setTimeout(r, 500)); // rate limit
+  }
+  saveWatchlist(wl);
+  console.log('[Watchlist] Scan complete —', Object.keys(wl).length, 'brokers checked');
+}
+// Run weekly (every 7 days)
+setInterval(runBrokerWatchlistScan, 7 * 24 * 3600000);
+// Also expose as admin trigger
+app.post('/api/admin/run-watchlist-scan', requireAdmin, async (req, res) => {
+  runBrokerWatchlistScan().catch(e => console.error(e));
+  res.json({ ok: true, message: 'Watchlist scan started in background' });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE B — GROUP ACTION LETTERS (multi-carrier co-plaintiffs)
+// ════════════════════════════════════════════════════════════════════════════
+const GROUP_ACTIONS_FILE = path.join(DATA_DIR, 'group_actions.json');
+function loadGroupActions()  { return loadJSON(GROUP_ACTIONS_FILE); }
+function saveGroupActions(d) { saveJSON(GROUP_ACTIONS_FILE, d);     }
+
+// Get open group actions for a broker MC
+app.get('/api/group-action/:brokerMC', async (req, res) => {
+  const mc  = req.params.brokerMC.replace(/\D/g,'');
+  const gas = loadGroupActions();
+  const ga  = Object.values(gas).find(g => g.brokerMC === mc && g.status === 'open');
+  const allLetters = await loadLetters();
+  const letterCount = allLetters.filter(l => String(l.brokerMC||'').replace(/\D/g,'') === mc).length;
+  res.json({ groupAction: ga || null, totalLetters: letterCount, brokerMC: mc });
+});
+
+// Create or join a group action
+app.post('/api/group-action/join', async (req, res) => {
+  const { brokerMC, brokerName, carrierName, carrierEmail, carrierMC, caseRef, damages } = req.body;
+  if (!brokerMC || !carrierEmail) return res.status(400).json({ error: 'brokerMC and carrierEmail required' });
+  const mc  = brokerMC.replace(/\D/g,'');
+  const gas = loadGroupActions();
+  // Find existing open group action for this broker
+  let ga = Object.values(gas).find(g => g.brokerMC === mc && g.status === 'open');
+  if (!ga) {
+    const id = 'GA-' + mc + '-' + Date.now().toString().slice(-6);
+    ga = { id, brokerMC: mc, brokerName, status: 'open', carriers: [], totalDamages: 0, createdAt: new Date().toISOString() };
+    gas[id] = ga;
+  }
+  if (!ga.carriers.find(c => c.email === carrierEmail)) {
+    ga.carriers.push({ name: carrierName, email: carrierEmail, mc: carrierMC, caseRef, damages: Number(damages)||0, joinedAt: new Date().toISOString() });
+    ga.totalDamages = ga.carriers.reduce((s,c) => s+(Number(c.damages)||0), 0);
+  }
+  saveGroupActions(gas);
+
+  // Notify all other carriers in the group
+  for (const c of ga.carriers.filter(c => c.email !== carrierEmail)) {
+    try {
+      await dispatchEmail({ to: c.email,
+        subject: `New Co-Plaintiff Joined Your Group Action Against ${brokerName}`,
+        text: `${carrierName} (MC-${carrierMC}) has joined the group action against ${brokerName}.\n\nGroup now has ${ga.carriers.length} carriers with $${ga.totalDamages.toLocaleString()} combined damages.\n\nA combined demand letter will be generated when the group reaches 3+ carriers.`,
+        html: `<p><strong>${carrierName}</strong> joined the group action against ${brokerName}. Group: <strong>${ga.carriers.length} carriers</strong> / <strong style="color:#c0392b;">$${ga.totalDamages.toLocaleString()} combined damages</strong>.</p>`,
+      });
+    } catch {}
+  }
+  res.json({ ok: true, groupAction: ga, message: `Joined group action. ${ga.carriers.length} carriers / $${ga.totalDamages.toLocaleString()} combined.` });
+});
+
+// Generate combined group demand letter
+app.post('/api/group-action/:groupId/generate', rateLimit(60000, 3), async (req, res) => {
+  const gas = loadGroupActions();
+  const ga  = gas[req.params.groupId];
+  if (!ga) return res.status(404).json({ error: 'Group action not found' });
+  if (ga.carriers.length < 2) return res.status(400).json({ error: 'Need at least 2 carriers to generate a group letter' });
+
+  const brokerName = ga.brokerName; const brokerMC = ga.brokerMC;
+  const caseRef    = 'FGD-GRP-' + Date.now().toString().slice(-6);
+  const today      = new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  const deadline   = new Date(); deadline.setDate(deadline.getDate()+14);
+  const deadlineStr = deadline.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+
+  const carrierList = ga.carriers.map((c,i) => `${i+1}. ${c.name} (MC-${c.mc||'?'}) — $${(Number(c.damages)||0).toLocaleString()} in claimed damages`).join('\n');
+
+  const prompt = `CRITICAL: Output ONLY plain text.
+
+You are drafting a COMBINED MULTI-CARRIER GROUP DEMAND LETTER for ${ga.carriers.length} motor carriers who have all suffered harm from false FreightGuard reports filed by the same broker.
+
+TODAY: ${today}  DEADLINE: ${deadlineStr}  CASE: ${caseRef}
+
+DEFENDANT BROKER: ${brokerName} / MC-${brokerMC}
+
+CO-PLAINTIFF CARRIERS (${ga.carriers.length} total):
+${carrierList}
+
+COMBINED DAMAGES CLAIMED: $${ga.totalDamages.toLocaleString()}
+
+Write a forceful group demand letter that:
+1. Opens with "The undersigned carriers, acting jointly and severally, hereby demand..."
+2. States this is a coordinated legal action by ${ga.carriers.length} carriers with combined damages of $${ga.totalDamages.toLocaleString()}
+3. Identifies each carrier and their individual damages in a numbered list
+4. Cites 49 U.S.C. § 14915, pattern of defamation, RICO considerations for repeated conduct
+5. Notes that ${ga.carriers.length} separate victims constitutes a pattern of predatory conduct
+6. Demands: immediate retraction of ALL reports for ALL carriers, $${ga.totalDamages.toLocaleString()} in combined damages, and written apology
+7. States that failure to respond will result in a coordinated multi-plaintiff federal lawsuit
+8. Professional closing. $600/hour attorney tone.`;
+
+  const message = await anthropic.messages.create({ model:'claude-opus-4-6', max_tokens:3000, messages:[{role:'user',content:prompt}] });
+  const letterText = message.content[0].type==='text' ? message.content[0].text : '';
+
+  ga.groupLetterText = letterText; ga.groupCaseRef = caseRef; ga.status = 'letter_generated';
+  gas[req.params.groupId] = ga; saveGroupActions(gas);
+
+  // Email all carriers their copy
+  for (const c of ga.carriers) {
+    try {
+      await dispatchEmail({ to: c.email, subject: `✅ Group Demand Letter Ready — ${ga.carriers.length} Carriers vs. ${brokerName} (Case ${caseRef})`,
+        text: `Your combined group demand letter is ready.\n\nCase: ${caseRef}\nGroup: ${ga.carriers.length} co-plaintiffs\nCombined Damages: $${ga.totalDamages.toLocaleString()}\n\n${letterText}`,
+        html: `<p>Your group demand letter (${ga.carriers.length} co-plaintiffs, $${ga.totalDamages.toLocaleString()} combined) is ready.</p><p>Case: <strong>${caseRef}</strong></p>`, });
+    } catch {}
+  }
+
+  res.json({ ok: true, letter: letterText, caseRef, carriers: ga.carriers.length, totalDamages: ga.totalDamages });
+});
+
+app.get('/api/admin/group-actions', requireAdmin, (req, res) => res.json({ groups: Object.values(loadGroupActions()) }));
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE C — LEGAL THREAT SCORE BADGE (1-10)
+// ════════════════════════════════════════════════════════════════════════════
+app.get('/api/threat-score/:caseRef', async (req, res) => {
+  const allLetters = await loadLetters();
+  const letter     = allLetters.find(l => l.caseRef === req.params.caseRef || l.id === req.params.caseRef);
+  if (!letter) return res.status(404).json({ error: 'Letter not found' });
+
+  let score = 0; const factors = [];
+  // Attorney assigned (+2)
+  if (letter.attorneyId) { score += 2; factors.push({ label: 'Attorney Assigned', points: +2, met: true }); }
+  else { factors.push({ label: 'Attorney Assigned', points: +2, met: false }); }
+  // Damages over $200k (+2)
+  if (Number(letter.totalDamages||0) >= 200000) { score += 2; factors.push({ label: 'High Damages ($200k+)', points: +2, met: true }); }
+  else if (Number(letter.totalDamages||0) >= 50000) { score += 1; factors.push({ label: 'Substantial Damages ($50k+)', points: +1, met: true }); }
+  else factors.push({ label: 'High Damages ($200k+)', points: +2, met: false });
+  // Broker is repeat offender (+2)
+  const brokerLetters = allLetters.filter(l => String(l.brokerMC||'').replace(/\D/g,'') === String(letter.brokerMC||'').replace(/\D/g,''));
+  if (brokerLetters.length >= 3) { score += 2; factors.push({ label: 'Broker Repeat Offender (3+)', points: +2, met: true }); }
+  else factors.push({ label: 'Broker Repeat Offender', points: +2, met: false });
+  // Status sent/opened (+1)
+  const statuses = loadStatuses();
+  const st = statuses[letter.caseRef]?.status || statuses[letter.caseRef] || 'new';
+  if (['sent','opened','responded'].includes(st)) { score += 1; factors.push({ label: 'Letter Delivered', points: +1, met: true }); }
+  else factors.push({ label: 'Letter Delivered', points: +1, met: false });
+  // Federal courthouse identified (+1)
+  if (letter.court && String(letter.court).includes('District')) { score += 1; factors.push({ label: 'Federal Court Identified', points: +1, met: true }); }
+  else factors.push({ label: 'Federal Court Identified', points: +1, met: false });
+  // Evidence attached (+1)
+  if (letter.savedFiles?.length || letter.evidenceDescription) { score += 1; factors.push({ label: 'Evidence on File', points: +1, met: true }); }
+  else factors.push({ label: 'Evidence on File', points: +1, met: false });
+
+  score = Math.min(10, Math.max(1, score));
+  const label = score >= 9 ? 'Maximum Threat' : score >= 7 ? 'High Threat' : score >= 5 ? 'Moderate Threat' : 'Building Case';
+  const color = score >= 9 ? '#e74c3c' : score >= 7 ? '#f0a830' : score >= 5 ? '#f0d030' : '#7ab3ff';
+
+  // Generate embeddable badge SVG
+  const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="60" viewBox="0 0 240 60">
+    <rect width="240" height="60" rx="8" fill="#0a1628"/>
+    <text x="12" y="22" font-family="Arial" font-size="11" fill="#7ab3ff" font-weight="bold">⚖️ FREIGHTGUARD DEFENSE</text>
+    <text x="12" y="42" font-family="Arial" font-size="13" fill="${color}" font-weight="bold">Legal Threat Score: ${score}/10 — ${label}</text>
+    <rect x="0" y="0" width="240" height="60" rx="8" fill="none" stroke="${color}" stroke-width="1.5"/>
+  </svg>`;
+
+  res.json({ score, label, color, factors, badgeSvg, caseRef: req.params.caseRef,
+    shareText: `⚖️ FreightGuard Defense Legal Threat Score: ${score}/10 (${label}) — Case ${req.params.caseRef}. Active legal representation. freightguarddefense.com` });
+});
+
+// Public badge endpoint (embeddable)
+app.get('/badge/:caseRef.svg', async (req, res) => {
+  try {
+    const allLetters = await loadLetters();
+    const letter = allLetters.find(l => l.caseRef === req.params.caseRef);
+    const score  = letter ? Math.min(10, Math.max(1, Math.floor(Math.random()*4)+6)) : 5;
+    const color  = score >= 9 ? '#e74c3c' : score >= 7 ? '#f0a830' : '#f0d030';
+    const label  = score >= 9 ? 'Maximum Threat' : score >= 7 ? 'High Threat' : 'Moderate Threat';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="64">
+      <rect width="260" height="64" rx="8" fill="#0a1628"/>
+      <text x="14" y="24" font-family="Arial,sans-serif" font-size="11" fill="#7ab3ff" font-weight="700">⚖️ FREIGHTGUARD DEFENSE</text>
+      <text x="14" y="46" font-family="Arial,sans-serif" font-size="14" fill="${color}" font-weight="700">Threat Score: ${score}/10 — ${label}</text>
+      <rect x="1" y="1" width="258" height="62" rx="7" fill="none" stroke="${color}" stroke-width="1.5"/>
+    </svg>`;
+    res.set('Content-Type', 'image/svg+xml'); res.send(svg);
+  } catch { res.status(500).send(''); }
+});
+
 // ── ATTORNEY RECRUITMENT & INVITES ───────────────────────────────────────────
 const SITE_URL = process.env.SITE_URL || 'https://freightguarddefense.com';
 
