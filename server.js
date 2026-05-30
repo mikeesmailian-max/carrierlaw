@@ -578,7 +578,7 @@ async function dispatchEmail({ to, cc, subject, text, html }) {
 
   // Try Resend first
   if (resendClient) {
-    const fromEmail = cfg('RESEND_FROM_EMAIL') || process.env.RESEND_FROM_EMAIL || 'legal@brokermc.com';
+    const fromEmail = cfg('RESEND_FROM_EMAIL') || process.env.RESEND_FROM_EMAIL || 'legal@freightguarddefense.com';
     const { data, error } = await resendClient.emails.send({
       from:    `${fromName} <${fromEmail}>`,
       to:      Array.isArray(to) ? to : [to],
@@ -856,37 +856,74 @@ ${attorneyBlock}`;
     await saveLetterDB(letter);
     await recordBrokerReportDB(brokerMC, brokerName, carrierName, caseRef);
 
-    // Auto-send email to broker if address provided
-    const autoSent = { sent: false, error: null };
+    // ── 3-PARTY EMAIL DISPATCH (Collection) ─────────────────────────────────
+    const autoSent = { sent: false, brokerSent: false, carrierSent: false, attorneySent: false, error: null };
     if (brokerEmail) {
+      const colSubj    = `FINAL DEMAND FOR PAYMENT — ${brokerName} — Invoice ${invoiceNumber||caseRef} — $${totalOwed.toLocaleString()} Due`;
+      const colHtml    = buildEmailHtmlTracked(letterText, caseRef);
+      const colAttyEmail = attorney ? (attorney.email||'') : '';
+      const ccList     = [carrierEmail, colAttyEmail].filter(Boolean);
+
+      // 1. TO BROKER — CC carrier + attorney
       try {
-        const emailSubject = `FINAL DEMAND FOR PAYMENT — ${brokerName} — Invoice ${invoiceNumber || caseRef}`;
+        await dispatchEmail({ to: brokerEmail, cc: ccList, subject: colSubj, text: letterText, html: colHtml });
+        autoSent.brokerSent = true; autoSent.sent = true;
+        await logAudit(caseRef, 'broker_emailed', carrierEmail, `Collection letter sent to broker ${brokerEmail}`);
+      } catch(e) { autoSent.error = 'Broker: ' + e.message; }
+
+      // 2. CARRIER COPY — dedicated email
+      try {
         await dispatchEmail({
-          to:      brokerEmail,
-          cc:      carrierEmail,
-          subject: emailSubject,
-          text:    letterText,
-          html:    buildEmailHtmlTracked(letterText, caseRef),
+          to: carrierEmail,
+          subject: `✅ Your Copy — Collection Letter Sent to ${brokerName} (Case ${caseRef})`,
+          text: `Your collection demand has been sent to ${brokerName} at ${brokerEmail}.\n\nCase: ${caseRef}\nInvoice: ${invoiceNumber||'N/A'}\nOriginal Amount: $${principal.toLocaleString()}\nAttorney Fees (50%): $${attyFees.toLocaleString()}\nTotal Demanded: $${totalOwed.toLocaleString()}\nPay-By Deadline: ${deadlineStr}\n\nDay 7 & Day 14 follow-up reminders are scheduled.\n\n--- YOUR LETTER ---\n\n${letterText}`,
+          html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;">
+            <div style="background:#0a1628;padding:20px 28px;text-align:center;"><h2 style="color:#fff;margin:0;">💰 FreightGuard Defense</h2><p style="color:#7ab3ff;font-size:12px;margin:4px 0 0;">Collection Letter — Your Copy</p></div>
+            <div style="padding:24px 28px;background:#f9f9f9;">
+              <p style="font-size:14px;">Dear <strong>${carrierName}</strong>,</p>
+              <p style="font-size:13px;color:#555;">Your collection demand has been sent to <strong>${brokerName}</strong> (${brokerEmail}).</p>
+              <table style="font-size:13px;margin:14px 0;">
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">Case:</td><td><strong>${caseRef}</strong></td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">Invoice:</td><td>${invoiceNumber||'N/A'}</td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">Original Amount:</td><td>$${principal.toLocaleString()}</td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">Atty Fees (50%):</td><td>$${attyFees.toLocaleString()}</td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">Total Demanded:</td><td style="font-weight:700;color:#c0392b;font-size:15px;">$${totalOwed.toLocaleString()}</td></tr>
+                <tr><td style="color:#888;padding:4px 12px 4px 0;">Pay-By:</td><td><strong>${deadlineStr}</strong></td></tr>
+                ${colAttyEmail ? `<tr><td style="color:#888;padding:4px 12px 4px 0;">Attorney CC'd:</td><td>${attorney.name} — ${colAttyEmail}</td></tr>` : ''}
+              </table>
+            </div></div>`,
         });
-        // Schedule Day 7 + Day 14 follow-ups
+        autoSent.carrierSent = true;
+      } catch(e) { console.warn('Carrier copy failed:', e.message); }
+
+      // 3. ATTORNEY NOTIFICATION
+      if (colAttyEmail && attorney) {
+        try {
+          await dispatchEmail({
+            to: colAttyEmail,
+            subject: `[FGD Collection Assignment] ${carrierName} vs. ${brokerName} — $${totalOwed.toLocaleString()} (Case ${caseRef})`,
+            text: `New collection letter requires your review (+$100 fee).\nCase: ${caseRef}\nCarrier: ${carrierName}\nBroker: ${brokerName}\nInvoice: ${invoiceNumber||'N/A'}\nTotal: $${totalOwed.toLocaleString()}\n\nPortal: ${process.env.SITE_URL||'https://freightguarddefense.com'}/attorney-portal.html`,
+            html: `<p>Dear ${attorney.name},</p><p>A collection letter needs your review for <strong>$100 fee</strong>.</p><p>Case <strong>${caseRef}</strong> · $${totalOwed.toLocaleString()} demanded from ${brokerName}.</p><p><a href="${process.env.SITE_URL||'https://freightguarddefense.com'}/attorney-portal.html" style="background:#c0392b;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:700;">Review in Portal</a></p>`,
+          });
+          autoSent.attorneySent = true;
+        } catch(e) { console.warn('Attorney notify failed:', e.message); }
+      }
+
+      // Schedule follow-ups
+      if (autoSent.sent) {
         const followups = loadFollowups();
         followups.push({
-          id: Date.now().toString(), caseRef,
-          brokerEmail: req.body.brokerEmail, carrierEmail, brokerName, carrierName,
-          originalSubject: emailSubject,
+          id: Date.now().toString(), caseRef, brokerEmail, carrierEmail, brokerName, carrierName,
+          originalSubject: colSubj,
           pending: [
-            { label: 'Day 7 Reminder',      sendAt: Date.now() + 7  * 86400000, sent: false },
-            { label: 'Day 14 Final Notice', sendAt: Date.now() + 14 * 86400000, sent: false },
+            { label: 'Day 7 Payment Reminder',     sendAt: Date.now() + 7  * 86400000, sent: false },
+            { label: 'Day 14 Final Notice to Sue', sendAt: Date.now() + 14 * 86400000, sent: false },
           ],
         });
         saveFollowups(followups);
-        // Mark status as 'sent'
         const statuses = loadStatuses();
         statuses[caseRef] = { status: 'sent', updatedAt: new Date().toISOString() };
         saveStatuses(statuses);
-        autoSent.sent = true;
-      } catch(emailErr) {
-        autoSent.error = emailErr.message;
       }
     }
 
@@ -1229,18 +1266,87 @@ ${attorneyBlock}`;
 
     const letterText = message.content[0].type === 'text' ? message.content[0].text : '';
 
-    // Auto-send broker email IMMEDIATELY (before Stripe lock — broker always gets the letter)
-    const immediateAutoSent = { sent: false, error: null };
+    // ── 3-PARTY EMAIL DISPATCH ───────────────────────────────────────────────
+    // Sends: 1) Broker (TO) with attorney CC  2) Carrier (separate copy)  3) Attorney (separate copy)
+    const immediateAutoSent = { sent: false, brokerSent: false, carrierSent: false, attorneySent: false, error: null };
+    const attorneyEmail = attorney ? (attorney.email || attorney.email_address || '') : '';
+
     if (req.body.brokerEmail) {
+      const emailSubj    = `FORMAL LEGAL DEMAND — ${brokerName} (MC-${brokerMC}) — FreightGuard Report Retraction & Damages`;
+      const letterHtml   = buildEmailHtmlTracked(letterText, caseRef);
+      const ccList       = [carrierEmail, attorneyEmail].filter(Boolean);
+
+      // 1. TO BROKER — CC carrier + attorney
       try {
-        const emailSubj = `FORMAL LEGAL DEMAND — ${brokerName} — FreightGuard Report Retraction Required`;
         await dispatchEmail({
           to:      req.body.brokerEmail,
-          cc:      carrierEmail,
+          cc:      ccList,
           subject: emailSubj,
           text:    letterText,
-          html:    buildEmailHtmlTracked(letterText, caseRef),
+          html:    letterHtml,
         });
+        immediateAutoSent.brokerSent = true;
+        await logAudit(caseRef, 'broker_emailed', carrierEmail, `Sent to broker ${req.body.brokerEmail}`);
+      } catch(e) { immediateAutoSent.error = 'Broker: ' + e.message; }
+
+      // 2. CARRIER COPY — separate dedicated email
+      try {
+        const carrierHtml = `
+          <div style="font-family:Arial,sans-serif;max-width:680px;margin:0 auto;background:#fff;">
+            <div style="background:#0a1628;padding:24px 32px;text-align:center;">
+              <div style="font-size:28px;margin-bottom:8px;">⚖️</div>
+              <h1 style="color:#fff;font-size:18px;margin:0;">FreightGuard Defense</h1>
+              <p style="color:#7ab3ff;font-size:12px;margin:4px 0 0;">Your Copy — Demand Letter Sent</p>
+            </div>
+            <div style="padding:28px 32px;background:#f9f9f9;border-bottom:1px solid #eee;">
+              <p style="color:#333;font-size:14px;margin:0 0 8px;">Dear <strong>${carrierName}</strong>,</p>
+              <p style="color:#555;font-size:13px;line-height:1.7;">Your demand letter has been drafted and <strong>delivered to ${brokerName}</strong> at <strong>${req.body.brokerEmail}</strong>.</p>
+              <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px;">
+                <tr><td style="padding:6px 0;color:#888;">Case Reference:</td><td style="font-weight:700;color:#1a1a2a;">${caseRef}</td></tr>
+                <tr><td style="padding:6px 0;color:#888;">Broker:</td><td style="color:#333;">${brokerName} (MC-${brokerMC})</td></tr>
+                <tr><td style="padding:6px 0;color:#888;">Damages Claimed:</td><td style="font-weight:700;color:#c0392b;">$${damages.totalDamages.toLocaleString()}</td></tr>
+                <tr><td style="padding:6px 0;color:#888;">Response Deadline:</td><td style="font-weight:700;color:#333;">${deadlineStr}</td></tr>
+                ${attorneyEmail ? `<tr><td style="padding:6px 0;color:#888;">Attorney CC'd:</td><td style="color:#333;">${attorney.name} — ${attorney.email}</td></tr>` : ''}
+              </table>
+              <p style="color:#555;font-size:13px;line-height:1.7;">Automatic follow-up reminders will be sent to the broker on <strong>Day 7</strong> and <strong>Day 14</strong> if no response is received.</p>
+            </div>
+            <div style="padding:24px 32px;background:#fff;">
+              <p style="font-size:12px;font-weight:700;color:#888;text-transform:uppercase;margin-bottom:12px;">Your Letter (Full Copy)</p>
+              <div style="background:#f5f5f5;border-left:4px solid #c0392b;padding:20px;font-family:'Courier New',monospace;font-size:11px;line-height:1.8;color:#333;white-space:pre-wrap;">${letterText.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>
+            </div>
+          </div>`;
+        await dispatchEmail({
+          to:      carrierEmail,
+          subject: `✅ Your Copy — Demand Letter Sent to ${brokerName} (Case ${caseRef})`,
+          text:    `Your demand letter has been sent to ${brokerName} (${req.body.brokerEmail}).\n\nCase: ${caseRef}\nDamages: $${damages.totalDamages.toLocaleString()}\nDeadline: ${deadlineStr}\n\n--- YOUR LETTER ---\n\n${letterText}`,
+          html:    carrierHtml,
+        });
+        immediateAutoSent.carrierSent = true;
+        await logAudit(caseRef, 'carrier_copy_sent', carrierEmail, 'Carrier copy delivered');
+      } catch(e) { immediateAutoSent.error = (immediateAutoSent.error || '') + ' | Carrier: ' + e.message; }
+
+      // 3. ATTORNEY NOTIFICATION — if assigned
+      if (attorneyEmail && attorney) {
+        try {
+          await dispatchEmail({
+            to:      attorneyEmail,
+            subject: `[FGD Assignment] New Letter — ${carrierName} vs. ${brokerName} (Case ${caseRef})`,
+            text:    `You have been assigned to a new demand letter.\n\nCase: ${caseRef}\nCarrier: ${carrierName} (MC-${carrierMC})\nBroker: ${brokerName} (MC-${brokerMC})\nDamages: $${damages.totalDamages.toLocaleString()}\n\nPlease log in to the attorney portal to review and approve: ${process.env.SITE_URL || 'https://freightguarddefense.com'}/attorney-portal.html\n\n--- LETTER FOR REVIEW ---\n\n${letterText}`,
+            html:    `<p>Dear ${attorney.name},</p><p>You have been assigned to a new demand letter requiring your review.</p>
+              <table style="font-family:Arial,sans-serif;font-size:13px;border-collapse:collapse;">
+                <tr><td style="padding:4px 12px 4px 0;color:#888;">Case:</td><td><strong>${caseRef}</strong></td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#888;">Carrier:</td><td>${carrierName} (MC-${carrierMC})</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#888;">Broker:</td><td>${brokerName} (MC-${brokerMC})</td></tr>
+                <tr><td style="padding:4px 12px 4px 0;color:#888;">Damages:</td><td style="color:#c0392b;font-weight:700;">$${damages.totalDamages.toLocaleString()}</td></tr>
+              </table>
+              <p style="margin-top:16px;"><a href="${process.env.SITE_URL || 'https://freightguarddefense.com'}/attorney-portal.html" style="background:#c0392b;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700;">Review Letter → Attorney Portal</a></p>`,
+          });
+          immediateAutoSent.attorneySent = true;
+        } catch(e) { console.warn('Attorney email failed:', e.message); }
+      }
+
+      // Schedule follow-ups (broker)
+      if (immediateAutoSent.brokerSent) {
         const followups = loadFollowups();
         followups.push({
           id: Date.now().toString(), caseRef,
@@ -1253,10 +1359,6 @@ ${attorneyBlock}`;
         });
         saveFollowups(followups);
         immediateAutoSent.sent = true;
-        await logAudit(caseRef, 'broker_emailed', carrierEmail, `Letter emailed to broker ${req.body.brokerEmail}`);
-      } catch(emailErr) {
-        immediateAutoSent.error = emailErr.message;
-        console.warn('Broker email failed:', emailErr.message);
       }
     }
 
