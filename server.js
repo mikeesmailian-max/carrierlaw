@@ -1229,6 +1229,37 @@ ${attorneyBlock}`;
 
     const letterText = message.content[0].type === 'text' ? message.content[0].text : '';
 
+    // Auto-send broker email IMMEDIATELY (before Stripe lock — broker always gets the letter)
+    const immediateAutoSent = { sent: false, error: null };
+    if (req.body.brokerEmail) {
+      try {
+        const emailSubj = `FORMAL LEGAL DEMAND — ${brokerName} — FreightGuard Report Retraction Required`;
+        await dispatchEmail({
+          to:      req.body.brokerEmail,
+          cc:      carrierEmail,
+          subject: emailSubj,
+          text:    letterText,
+          html:    buildEmailHtmlTracked(letterText, caseRef),
+        });
+        const followups = loadFollowups();
+        followups.push({
+          id: Date.now().toString(), caseRef,
+          brokerEmail: req.body.brokerEmail, carrierEmail, brokerName, carrierName,
+          originalSubject: emailSubj,
+          pending: [
+            { label: 'Day 7 Reminder',      sendAt: Date.now() + 7  * 86400000, sent: false },
+            { label: 'Day 14 Final Notice', sendAt: Date.now() + 14 * 86400000, sent: false },
+          ],
+        });
+        saveFollowups(followups);
+        immediateAutoSent.sent = true;
+        await logAudit(caseRef, 'broker_emailed', carrierEmail, `Letter emailed to broker ${req.body.brokerEmail}`);
+      } catch(emailErr) {
+        immediateAutoSent.error = emailErr.message;
+        console.warn('Broker email failed:', emailErr.message);
+      }
+    }
+
     // Save letter (locked until $299 Stripe payment if Stripe is active)
     const stripeActive = !!stripe;
     await addLetterDB({
@@ -1263,7 +1294,7 @@ ${attorneyBlock}`;
       court,
       attorney: attorney || null,
       savedFiles,
-      autoSent,
+      autoSent: immediateAutoSent,
     });
   } catch(err) {
     console.error('Letter generation error:', err);
