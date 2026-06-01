@@ -2502,6 +2502,254 @@ app.get('/badge/:caseRef.svg', async (req, res) => {
   } catch { res.status(500).send(''); }
 });
 
+// ════════════════════════════════════════════════════════════════════════════
+// CARRIER HUB — REGISTRATION, BROKER REPORTING, ALERTS
+// ════════════════════════════════════════════════════════════════════════════
+const CARRIER_REPORTS_FILE = path.join(DATA_DIR, 'carrier_broker_reports.json');
+const CARRIER_REG_FILE     = path.join(DATA_DIR, 'carrier_registrations.json');
+function loadCarrierReports() { return loadJSON(CARRIER_REPORTS_FILE); }
+function saveCarrierReports(d){ saveJSON(CARRIER_REPORTS_FILE, d); }
+function loadCarrierRegs()    { return loadJSON(CARRIER_REG_FILE); }
+function saveCarrierRegs(d)   { saveJSON(CARRIER_REG_FILE, d); }
+
+// Add schema for new tables
+// (runs on next startup)
+if (pgPool) {
+  pgPool.query(`
+    CREATE TABLE IF NOT EXISTS carrier_registrations (
+      id TEXT PRIMARY KEY, mc_number TEXT UNIQUE, dot_number TEXT,
+      company_name TEXT NOT NULL, contact_name TEXT, email TEXT UNIQUE NOT NULL,
+      phone TEXT, password_hash TEXT, state TEXT,
+      watchlist TEXT[] DEFAULT '{}',
+      subscribed_alerts BOOLEAN DEFAULT TRUE,
+      created_at TIMESTAMPTZ DEFAULT NOW(), last_login TIMESTAMPTZ
+    );
+    CREATE TABLE IF NOT EXISTS carrier_broker_reports (
+      id TEXT PRIMARY KEY, broker_mc TEXT NOT NULL, broker_name TEXT,
+      broker_address TEXT, reporter_mc TEXT, reporter_name TEXT,
+      reporter_email TEXT, incident_date DATE,
+      categories TEXT[] NOT NULL,
+      description TEXT NOT NULL, amount_owed NUMERIC DEFAULT 0,
+      load_number TEXT, severity TEXT DEFAULT 'medium',
+      verified BOOLEAN DEFAULT FALSE, upvotes INT DEFAULT 0,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+  `).catch(e => console.warn('Carrier hub schema:', e.message));
+}
+
+const REPORT_CATEGORIES = [
+  { id: 'trigger_happy',       label: '🚨 Trigger-Happy Reporter',         desc: 'Files false FreightGuard/DAT reports against carriers without cause' },
+  { id: 'nonpayment',          label: '💸 Non-Payment / Late Payment',      desc: 'Refuses to pay or consistently delays payment past agreed terms' },
+  { id: 'unauthorized_rebroke',label: '🔄 Unauthorized Re-Brokering',       desc: 'Re-brokers shipments without carrier knowledge or consent' },
+  { id: 'no_authority',        label: '⛔ No Broker / FF Authority',         desc: 'Operating as freight broker without proper FMCSA authority' },
+  { id: 'no_bond',             label: '🔓 No Bond or Trust Fund',           desc: 'Operating without required $75,000 surety bond or trust fund' },
+  { id: 'alias',               label: '🎭 Operates Under Alias',            desc: 'Uses multiple company names/aliases to evade enforcement' },
+  { id: 'fraud',               label: '🚫 Fraudulent Activity',             desc: 'Bait-and-switch rates, fake load postings, or other fraud' },
+  { id: 'unethical',           label: '⚠️ Unethical/Deceptive Practices',   desc: 'Bully tactics, threats, harassment, misrepresentation' },
+  { id: 'rate_reduction',      label: '📉 Forced Rate Reduction',           desc: 'Demands rate cuts after load acceptance under threat' },
+  { id: 'detention',           label: '⏱ Detention/Layover Refusal',       desc: 'Refuses to pay legitimate detention or layover charges' },
+];
+
+app.get('/api/carrier-hub/report-categories', (req, res) => res.json({ categories: REPORT_CATEGORIES }));
+
+// ── CARRIER REGISTRATION ─────────────────────────────────────────────────────
+app.post('/api/carrier-hub/register', rateLimit(60000, 10), async (req, res) => {
+  const { companyName, mcNumber, dotNumber, contactName, email, phone, password, state } = req.body;
+  if (!companyName || !email || !password) return res.status(400).json({ error: 'Company name, email, and password required' });
+  if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+  const regs = loadCarrierRegs();
+  if (regs.find(r => r.email.toLowerCase() === email.toLowerCase()))
+    return res.status(409).json({ error: 'An account with this email already exists' });
+
+  const hash = bcrypt ? await bcrypt.hash(password, 10) : password;
+  const carrier = {
+    id: 'car_' + Date.now(), mcNumber: mcNumber||'', dotNumber: dotNumber||'',
+    companyName, contactName: contactName||'', email: email.toLowerCase(),
+    phone: phone||'', passwordHash: hash, state: state||'',
+    watchlist: [], subscribedAlerts: true,
+    createdAt: new Date().toISOString(),
+  };
+  regs.push(carrier);
+  saveCarrierRegs(regs);
+
+  if (pgPool) await pgPool.query(
+    'INSERT INTO carrier_registrations(id,mc_number,dot_number,company_name,contact_name,email,phone,password_hash,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(email) DO NOTHING',
+    [carrier.id, mcNumber||'', dotNumber||'', companyName, contactName||'', email.toLowerCase(), phone||'', hash, state||'']
+  ).catch(() => {});
+
+  // Welcome email
+  try {
+    await dispatchEmail({ to: email,
+      subject: 'Welcome to FreightGuard Defense Carrier Hub',
+      text: `Welcome ${companyName}!\n\nYour carrier account is active. You can now:\n- Monitor bad brokers and get instant alerts\n- File reports against brokers who harm carriers\n- View the community broker blacklist\n\nLog in at: ${process.env.SITE_URL||'https://freightguarddefense.com'}/carrier-hub.html\n\nFreightGuard Defense`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+        <div style="background:#0a1628;padding:24px;text-align:center;"><h2 style="color:#fff;margin:0;">⚖️ FreightGuard Defense</h2><p style="color:#7ab3ff;font-size:12px;margin:4px 0 0;">Carrier Hub</p></div>
+        <div style="padding:24px;background:#f9f9f9;">
+          <p>Welcome, <strong>${companyName}</strong>!</p>
+          <p>Your account is active. You can now monitor brokers, file reports, and protect your reputation.</p>
+          <p><a href="${process.env.SITE_URL||'https://freightguarddefense.com'}/carrier-hub.html" style="background:#c0392b;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:700;">Access Carrier Hub</a></p>
+        </div></div>`,
+    });
+  } catch {}
+
+  const token = jwt ? jwt.sign({ id: carrier.id, email: carrier.email, companyName, type: 'carrier_hub' }, process.env.JWT_SECRET||'fgd-secret', { expiresIn: '30d' }) : null;
+  res.json({ ok: true, token, carrier: { id: carrier.id, companyName, email, mcNumber, state } });
+});
+
+app.post('/api/carrier-hub/login', rateLimit(60000, 20), async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+  const regs    = loadCarrierRegs();
+  const carrier = regs.find(r => r.email.toLowerCase() === email.toLowerCase());
+  if (!carrier) return res.status(401).json({ error: 'Invalid email or password' });
+  const ok = bcrypt ? await bcrypt.compare(password, carrier.passwordHash||'') : password === carrier.passwordHash;
+  if (!ok) return res.status(401).json({ error: 'Invalid email or password' });
+  const token = jwt ? jwt.sign({ id: carrier.id, email: carrier.email, companyName: carrier.companyName, type: 'carrier_hub' }, process.env.JWT_SECRET||'fgd-secret', { expiresIn: '30d' }) : null;
+  res.json({ ok: true, token, carrier: { id: carrier.id, companyName: carrier.companyName, email: carrier.email, mcNumber: carrier.mcNumber, state: carrier.state } });
+});
+
+function requireCarrierHub(req, res, next) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Login required' });
+  try {
+    const d = jwt.verify(auth.slice(7), process.env.JWT_SECRET||'fgd-secret');
+    if (d.type !== 'carrier_hub') return res.status(401).json({ error: 'Invalid token' });
+    req.carrier = d; next();
+  } catch { return res.status(401).json({ error: 'Session expired' }); }
+}
+
+// ── BROKER REPORTS ────────────────────────────────────────────────────────────
+app.post('/api/carrier-hub/report', rateLimit(60000, 5), async (req, res) => {
+  const { brokerMC, brokerName, brokerAddress, incidentDate, categories,
+          description, amountOwed, loadNumber, severity,
+          reporterName, reporterEmail, reporterMC } = req.body;
+
+  if (!brokerMC || !categories?.length || !description)
+    return res.status(400).json({ error: 'Broker MC, at least one category, and description are required' });
+
+  const id = 'RPT-' + Date.now().toString().slice(-8) + '-' + Math.floor(Math.random()*1000);
+  const report = {
+    id, brokerMC: brokerMC.replace(/\D/g,''), brokerName: brokerName||'',
+    brokerAddress: brokerAddress||'', reporterMC: reporterMC||'',
+    reporterName: reporterName||'Anonymous Carrier', reporterEmail: reporterEmail||'',
+    incidentDate: incidentDate||new Date().toISOString().split('T')[0],
+    categories, description, amountOwed: Number(amountOwed)||0,
+    loadNumber: loadNumber||'', severity: severity||'medium',
+    verified: false, upvotes: 0, createdAt: new Date().toISOString(),
+  };
+
+  const reports = loadCarrierReports();
+  reports.push(report);
+  saveCarrierReports(reports);
+
+  if (pgPool) await pgPool.query(
+    'INSERT INTO carrier_broker_reports(id,broker_mc,broker_name,broker_address,reporter_mc,reporter_name,reporter_email,incident_date,categories,description,amount_owed,load_number,severity) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
+    [id, report.brokerMC, brokerName||'', brokerAddress||'', reporterMC||'', reporterName||'Anonymous Carrier', reporterEmail||'', incidentDate||null, categories, description, Number(amountOwed)||0, loadNumber||'', severity||'medium']
+  ).catch(() => {});
+
+  await logAudit(id, 'broker_report_filed', reporterEmail||'anonymous', `${categories.join(',')} against ${brokerName||'MC-'+brokerMC}`);
+
+  // Alert all watchlist subscribers for this broker
+  const wl = loadWatchlist();
+  const mc = report.brokerMC;
+  const watchers = wl[mc]?.subscribers || [];
+  const catLabels = categories.map(c => REPORT_CATEGORIES.find(r => r.id === c)?.label || c).join(', ');
+
+  for (const watcher of watchers) {
+    if (watcher.email === reporterEmail) continue; // don't notify reporter
+    try {
+      await dispatchEmail({
+        to: watcher.email,
+        subject: `⚠️ New Broker Report Filed: ${brokerName||'MC-'+mc} — ${catLabels.substring(0,60)}`,
+        text: `A carrier just filed a report against ${brokerName||'MC-'+mc} (MC-${mc}) that you're watching.\n\nCategories: ${catLabels}\nSeverity: ${severity||'Medium'}\nIncident Date: ${incidentDate||'Recent'}\n${amountOwed ? `Amount Owed: $${Number(amountOwed).toLocaleString()}` : ''}\nLoad #: ${loadNumber||'N/A'}\n\nDescription:\n${description}\n\nView full report: ${process.env.SITE_URL||'https://freightguarddefense.com'}/carrier-hub.html`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
+          <div style="background:#3d1a1a;padding:16px 24px;border-bottom:3px solid #c0392b;"><h2 style="color:#fff;margin:0;font-size:16px;">⚠️ Broker Watch Alert — FreightGuard Defense</h2></div>
+          <div style="padding:20px 24px;background:#f9f9f9;">
+            <p>A new report was filed against <strong>${brokerName||'MC-'+mc}</strong> (MC-${mc}) — a broker on your watchlist.</p>
+            <table style="font-size:13px;border-collapse:collapse;width:100%;">
+              <tr style="background:#fee;"><td style="padding:8px 12px;color:#888;">Categories:</td><td style="padding:8px 12px;font-weight:700;color:#c0392b;">${catLabels}</td></tr>
+              <tr><td style="padding:8px 12px;color:#888;">Severity:</td><td style="padding:8px 12px;text-transform:capitalize;">${severity||'Medium'}</td></tr>
+              ${amountOwed ? `<tr style="background:#fee;"><td style="padding:8px 12px;color:#888;">Amount Owed:</td><td style="padding:8px 12px;font-weight:700;color:#c0392b;">$${Number(amountOwed).toLocaleString()}</td></tr>` : ''}
+              <tr><td style="padding:8px 12px;color:#888;">Description:</td><td style="padding:8px 12px;">${description.substring(0,300)}${description.length>300?'...':''}</td></tr>
+            </table>
+            <p style="margin-top:16px;"><a href="${process.env.SITE_URL||'https://freightguarddefense.com'}/carrier-hub.html" style="background:#c0392b;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:700;">View Full Report</a></p>
+          </div></div>`,
+      });
+    } catch(e) { console.warn('Watcher alert failed:', e.message); }
+  }
+
+  // Also alert registered carriers watching this broker
+  const regs = loadCarrierRegs();
+  for (const reg of regs.filter(r => r.watchlist?.includes(mc) && r.subscribedAlerts && r.email !== reporterEmail)) {
+    try {
+      await dispatchEmail({
+        to: reg.email,
+        subject: `⚠️ BROKER ALERT: ${brokerName||'MC-'+mc} — New Report Filed`,
+        text: `A carrier reported ${brokerName||'MC-'+mc}: ${catLabels}\n\nDescription: ${description.substring(0,400)}\n\nView: ${process.env.SITE_URL||'https://freightguarddefense.com'}/carrier-hub.html`,
+        html: `<p>New report against <strong>${brokerName||'MC-'+mc}</strong> (watched by you): <strong>${catLabels}</strong>.<br>${description.substring(0,400)}</p>`,
+      });
+    } catch {}
+  }
+
+  res.json({ ok: true, reportId: id, alertsSent: watchers.length, message: `Report filed. ${watchers.length} carriers watching this broker have been notified.` });
+});
+
+// Get broker reports (public feed)
+app.get('/api/carrier-hub/reports', async (req, res) => {
+  const { brokerMC, category, severity, limit = 50, offset = 0 } = req.query;
+  let reports = loadCarrierReports();
+  if (brokerMC) reports = reports.filter(r => r.brokerMC === brokerMC.replace(/\D/g,''));
+  if (category) reports = reports.filter(r => r.categories?.includes(category));
+  if (severity) reports = reports.filter(r => r.severity === severity);
+  reports.sort((a,b) => b.createdAt > a.createdAt ? 1 : -1);
+  const total = reports.length;
+  reports = reports.slice(Number(offset), Number(offset)+Number(limit));
+  res.json({ reports, total, hasMore: total > Number(offset)+Number(limit) });
+});
+
+// Get broker reputation summary
+app.get('/api/carrier-hub/broker-rep/:mc', async (req, res) => {
+  const mc = req.params.mc.replace(/\D/g,'');
+  const reports = loadCarrierReports().filter(r => r.brokerMC === mc);
+  const catCounts = {};
+  for (const r of reports) for (const c of (r.categories||[])) catCounts[c] = (catCounts[c]||0)+1;
+  const topCats = Object.entries(catCounts).sort((a,b)=>b[1]-a[1]).slice(0,5)
+    .map(([id,count]) => ({ ...REPORT_CATEGORIES.find(c=>c.id===id), count }));
+  const totalOwed = reports.reduce((s,r)=>s+(Number(r.amountOwed)||0),0);
+  const isTriggerHappy = (catCounts['trigger_happy']||0) >= 2;
+  res.json({ mc, totalReports: reports.length, topCategories: topCats, totalAmountOwed: totalOwed, isTriggerHappy, riskLevel: reports.length >= 5 ? 'HIGH' : reports.length >= 2 ? 'MEDIUM' : reports.length >= 1 ? 'LOW' : 'NONE', recentReports: reports.slice(0,5) });
+});
+
+// Upvote a report
+app.post('/api/carrier-hub/report/:id/upvote', (req, res) => {
+  const reports = loadCarrierReports();
+  const r = reports.find(r => r.id === req.params.id);
+  if (!r) return res.status(404).json({ error: 'Report not found' });
+  r.upvotes = (r.upvotes||0)+1;
+  saveCarrierReports(reports);
+  res.json({ ok: true, upvotes: r.upvotes });
+});
+
+// Carrier hub watchlist management
+app.post('/api/carrier-hub/watchlist/:mc', requireCarrierHub, (req, res) => {
+  const mc   = req.params.mc.replace(/\D/g,'');
+  const regs = loadCarrierRegs();
+  const carr = regs.find(r => r.id === req.carrier.id);
+  if (!carr) return res.status(404).json({ error: 'Carrier not found' });
+  if (!carr.watchlist) carr.watchlist = [];
+  if (!carr.watchlist.includes(mc)) carr.watchlist.push(mc);
+  saveCarrierRegs(regs);
+  res.json({ ok: true, watchlist: carr.watchlist });
+});
+
+app.get('/api/carrier-hub/me', requireCarrierHub, (req, res) => {
+  const regs = loadCarrierRegs();
+  const carr = regs.find(r => r.id === req.carrier.id);
+  if (!carr) return res.status(404).json({ error: 'Not found' });
+  res.json({ carrier: { ...carr, passwordHash: undefined } });
+});
+
 // ── ATTORNEY RECRUITMENT & INVITES ───────────────────────────────────────────
 const SITE_URL = process.env.SITE_URL || 'https://freightguarddefense.com';
 

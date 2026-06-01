@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Carrier Hub — FreightGuard Defense</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#080d1a;color:#d0dbe8;min-height:100vh;}
+.topbar{background:#0d1625;border-bottom:1px solid rgba(255,255,255,0.08);padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.brand h1{font-size:16px;font-weight:800;color:#fff;} .brand p{font-size:10px;color:#7ab3ff;}
+.nav-links{display:flex;gap:4px;}
+.nav-links a{padding:7px 14px;border-radius:6px;color:#8899aa;font-size:13px;text-decoration:none;font-weight:600;}
+.nav-links a:hover,.nav-links a.active{background:rgba(255,255,255,0.06);color:#fff;}
+.user-bar{display:flex;align-items:center;gap:12px;font-size:13px;}
+.hero{background:linear-gradient(135deg,#080d1a 0%,#0d1a2a 50%,#1a0d0d 100%);padding:56px 40px;text-align:center;border-bottom:1px solid rgba(255,255,255,0.06);}
+.hero h2{font-size:34px;font-weight:900;color:#fff;margin-bottom:12px;}
+.hero p{font-size:15px;color:#8899aa;max-width:600px;margin:0 auto 24px;}
+.hero-badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;}
+.hero-badge{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 16px;font-size:12px;color:#aab8cc;}
+.container{max-width:1100px;margin:0 auto;padding:32px 24px;}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+.card{background:#0d1625;border:1px solid rgba(255,255,255,0.08);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.card-header{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.06);display:flex;justify-content:space-between;align-items:center;}
+.card-header h3{font-size:14px;font-weight:700;color:#fff;}
+.card-body{padding:20px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:6px;}
+.field input,.field select,.field textarea{width:100%;background:#06090f;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;color:#d0dbe8;font-size:13px;outline:none;transition:border-color .2s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#4a8fd8;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.btn{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s;display:inline-flex;align-items:center;gap:6px;}
+.btn:hover{opacity:.85;} .btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-red{background:#c0392b;color:#fff;} .btn-navy{background:#1a2f4a;color:#7ab3ff;border:1px solid #2a4f7a;}
+.btn-green{background:#1a3a1a;color:#40c070;border:1px solid #2a6a2a;}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.15);color:#d0dbe8;}
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5;}
+.alert-success{background:#0a2a1a;border:1px solid #2a6a3a;color:#40c070;}
+.alert-error{background:#2a0a0a;border:1px solid #6a2a2a;color:#f07060;}
+.alert-info{background:#0a1a3a;border:1px solid #2a4a7a;color:#7ab3ff;}
+.alert-warn{background:#2a1a0a;border:1px solid #6a4a1a;color:#f0a830;}
+.tab-nav{display:flex;gap:0;background:#0d1625;border-radius:10px;border:1px solid rgba(255,255,255,0.08);overflow:hidden;margin-bottom:24px;}
+.tab-nav button{flex:1;padding:12px;background:transparent;border:none;color:#8899aa;font-size:13px;font-weight:700;cursor:pointer;border-right:1px solid rgba(255,255,255,0.06);}
+.tab-nav button:last-child{border-right:none;}
+.tab-nav button.active{background:rgba(255,255,255,0.06);color:#fff;}
+.report-card{background:#0d1625;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:18px 20px;margin-bottom:14px;transition:border-color .2s;}
+.report-card:hover{border-color:rgba(255,255,255,0.15);}
+.cat-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;margin:2px;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.3);color:#f07060;}
+.cat-badge.trigger{background:rgba(255,0,0,0.12);border-color:rgba(255,0,0,0.3);color:#ff6b6b;}
+.cat-badge.nonpay{background:rgba(240,168,48,0.12);border-color:rgba(240,168,48,0.3);color:#f0a830;}
+.risk-HIGH{color:#e74c3c;font-weight:800;} .risk-MEDIUM{color:#f0a830;font-weight:700;} .risk-LOW{color:#f0d030;} .risk-NONE{color:#667788;}
+.stat-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:24px;}
+.stat{background:#0d1625;border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:16px 20px;flex:1;min-width:140px;}
+.stat .val{font-size:26px;font-weight:900;color:#fff;} .stat .lbl{font-size:11px;color:#8899aa;text-transform:uppercase;letter-spacing:.5px;margin-top:3px;}
+.category-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.cat-option{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:#06090f;border:1px solid rgba(255,255,255,0.08);border-radius:8px;cursor:pointer;transition:all .15s;}
+.cat-option:hover{border-color:#7ab3ff;background:#0a1020;}
+.cat-option.selected{border-color:#c0392b;background:rgba(192,57,43,0.1);}
+.cat-option input[type=checkbox]{display:none;}
+.cat-label{font-size:12px;font-weight:700;color:#d0dbe8;margin-bottom:2px;}
+.cat-desc{font-size:11px;color:#667788;line-height:1.4;}
+.severity-btn{padding:8px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,0.12);background:transparent;color:#8899aa;transition:all .15s;}
+.severity-btn.active-low{background:#0a2a1a;border-color:#2a6a3a;color:#40c070;}
+.severity-btn.active-medium{background:#2a1a0a;border-color:#6a4a1a;color:#f0a830;}
+.severity-btn.active-high{background:#2a0a0a;border-color:#6a2020;color:#e74c3c;}
+.severity-btn.active-critical{background:#3a0000;border-color:#aa0000;color:#ff4444;}
+.search-bar{display:flex;gap:8px;margin-bottom:20px;}
+.search-bar input{flex:1;background:#0d1625;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;color:#d0dbe8;font-size:13px;outline:none;}
+.login-overlay{display:flex;align-items:center;justify-content:center;min-height:60vh;}
+.login-card{background:#0d1625;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:36px;width:100%;max-width:440px;}
+.tabs-content > div{display:none;} .tabs-content > div.active{display:block;}
+@media(max-width:700px){.grid-2,.field-row,.category-grid{grid-template-columns:1fr;} .container{padding:16px;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="brand"><span style="font-size:22px;">⚖️</span><div><h1>FreightGuard Defense</h1><p>Carrier Hub</p></div></a>
+  <div class="nav-links">
+    <a href="#" onclick="showTab('feed')" id="nav-feed" class="active">📋 Report Feed</a>
+    <a href="#" onclick="showTab('report')" id="nav-report">🚨 File Report</a>
+    <a href="#" onclick="showTab('watchlist')" id="nav-watchlist">👁 Watchlist</a>
+    <a href="#" onclick="showTab('dashboard')" id="nav-dashboard">📊 My Dashboard</a>
+  </div>
+  <div class="user-bar">
+    <span id="userDisplay" style="color:#8899aa;font-size:12px;"></span>
+    <button id="authBtn" onclick="toggleAuthPanel()" class="btn btn-navy" style="padding:7px 16px;font-size:12px;">🔐 Sign In / Register</button>
+    <button id="logoutBtn" onclick="doLogout()" class="btn btn-outline" style="display:none;padding:7px 14px;font-size:12px;">Sign Out</button>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero" id="heroSection">
+  <h2>Carrier Broker Reporting Network</h2>
+  <p>Join thousands of carriers protecting each other. Report bad brokers, monitor watchlists, and get instant alerts when a broker you're watching gets reported.</p>
+  <div class="hero-badges">
+    <div class="hero-badge">🚨 Trigger-Happy Reporters</div>
+    <div class="hero-badge">💸 Non-Payment Brokers</div>
+    <div class="hero-badge">🔄 Unauthorized Re-Brokering</div>
+    <div class="hero-badge">⛔ No Authority</div>
+    <div class="hero-badge">🚫 Fraud</div>
+  </div>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <button onclick="showTab('report');scrollToTop()" class="btn btn-red" style="font-size:15px;padding:13px 28px;">🚨 Report a Broker</button>
+    <button onclick="toggleAuthPanel()" id="heroRegBtn" class="btn btn-navy" style="font-size:15px;padding:13px 28px;">📋 Register Free</button>
+  </div>
+</div>
+
+<!-- Auth Panel -->
+<div id="authPanel" style="display:none;background:#0a0f1e;border-bottom:1px solid rgba(255,255,255,0.08);padding:32px 24px;">
+  <div style="max-width:800px;margin:0 auto;">
+    <div class="tab-nav" style="margin-bottom:20px;">
+      <button onclick="switchAuth('login')" id="authTabLogin" class="active">Sign In</button>
+      <button onclick="switchAuth('register')" id="authTabReg">Create Account</button>
+    </div>
+    <!-- Login -->
+    <div id="authLogin">
+      <div class="grid-2">
+        <div>
+          <div id="loginAlert"></div>
+          <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="carrier@company.com"/></div>
+          <div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="••••••••"/></div>
+          <button class="btn btn-red" onclick="doLogin()" style="width:100%;justify-content:center;padding:12px;">Sign In to Carrier Hub</button>
+        </div>
+        <div style="padding:20px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+          <h4 style="color:#fff;margin-bottom:12px;">Why register?</h4>
+          <ul style="list-style:none;font-size:13px;color:#8899aa;line-height:2.2;">
+            <li>✅ Get instant email alerts on broker activity</li>
+            <li>✅ Add brokers to your personal watchlist</li>
+            <li>✅ See full report details & descriptions</li>
+            <li>✅ Join group actions against repeat offenders</li>
+            <li>✅ Your reports carry "Verified Carrier" badge</li>
+            <li>✅ Free — always</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <!-- Register -->
+    <div id="authRegister" style="display:none;">
+      <div id="regAlert"></div>
+      <div class="grid-2">
+        <div>
+          <div class="field-row">
+            <div class="field"><label>Company Name *</label><input id="regCompany" placeholder="ABC Trucking LLC"/></div>
+            <div class="field"><label>State</label><input id="regState" placeholder="TX" maxlength="2"/></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label>MC Number</label><input id="regMC" placeholder="1234567"/></div>
+            <div class="field"><label>DOT Number</label><input id="regDOT" placeholder="9876543"/></div>
+          </div>
+          <div class="field"><label>Contact Name</label><input id="regContact" placeholder="John Smith"/></div>
+          <div class="field"><label>Email *</label><input id="regEmail" type="email" placeholder="owner@company.com"/></div>
+          <div class="field"><label>Phone</label><input id="regPhone" type="tel" placeholder="(555) 000-0000"/></div>
+          <div class="field"><label>Password * (min 8 chars)</label><input id="regPass" type="password" placeholder="••••••••"/></div>
+          <button class="btn btn-red" onclick="doRegister()" style="width:100%;justify-content:center;padding:12px;margin-top:6px;">Create Free Account</button>
+        </div>
+        <div style="padding:20px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(255,255,255,0.06);">
+          <h4 style="color:#fff;margin-bottom:12px;">100% Free. No credit card.</h4>
+          <p style="font-size:13px;color:#8899aa;line-height:1.8;">Your account lets you monitor bad brokers, report incidents, and protect the carrier community. All reports are verified against FMCSA data.</p>
+          <div style="margin-top:16px;padding:12px;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.2);border-radius:8px;font-size:12px;color:#f07060;">
+            Reports are anonymous by default. Your company name is never shown without permission.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs-content">
+
+    <!-- ═══ FEED TAB ═══ -->
+    <div id="tab-feed" class="active">
+      <div class="stat-row" id="feedStats">
+        <div class="stat"><div class="val" id="statTotal">—</div><div class="lbl">Total Reports</div></div>
+        <div class="stat"><div class="val" id="statBrokers">—</div><div class="lbl">Brokers Reported</div></div>
+        <div class="stat"><div class="val" id="statOwed" style="color:#e74c3c;">—</div><div class="lbl">Total Owed ($)</div></div>
+        <div class="stat"><div class="val" id="statTrigger" style="color:#ff6b6b;">—</div><div class="lbl">Trigger-Happy</div></div>
+      </div>
+      <div class="search-bar">
+        <input id="feedSearch" placeholder="🔍 Search broker name, MC, or category..." oninput="filterFeed(this.value)"/>
+        <select id="feedFilter" onchange="loadFeed()" style="background:#0d1625;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;color:#d0dbe8;font-size:13px;outline:none;">
+          <option value="">All Categories</option>
+          <option value="trigger_happy">🚨 Trigger-Happy</option>
+          <option value="nonpayment">💸 Non-Payment</option>
+          <option value="unauthorized_rebroke">🔄 Unauthorized Re-Brokering</option>
+          <option value="no_authority">⛔ No Authority</option>
+          <option value="no_bond">🔓 No Bond</option>
+          <option value="alias">🎭 Alias</option>
+          <option value="fraud">🚫 Fraud</option>
+          <option value="unethical">⚠️ Unethical</option>
+          <option value="rate_reduction">📉 Forced Rate Reduction</option>
+          <option value="detention">⏱ Detention Refusal</option>
+        </select>
+        <select id="severityFilter" onchange="loadFeed()" style="background:#0d1625;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;color:#d0dbe8;font-size:13px;outline:none;">
+          <option value="">All Severity</option>
+          <option value="critical">🔴 Critical</option>
+          <option value="high">🟠 High</option>
+          <option value="medium">🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+      </div>
+      <div id="feedContainer"><div style="text-align:center;padding:40px;color:#667788;">Loading reports...</div></div>
+      <div id="feedLoadMore" style="text-align:center;margin-top:16px;display:none;">
+        <button class="btn btn-outline" onclick="loadMoreFeed()">Load More Reports</button>
+      </div>
+    </div>
+
+    <!-- ═══ REPORT TAB ═══ -->
+    <div id="tab-report">
+      <div class="card">
+        <div class="card-header"><h3>🚨 File a Broker Report</h3></div>
+        <div class="card-body">
+          <div id="reportAlert"></div>
+          <div class="grid-2">
+            <div>
+              <h4 style="color:#fff;font-size:13px;font-weight:700;margin-bottom:14px;">Broker Information</h4>
+              <div class="field">
+                <label>Broker MC Number *</label>
+                <div style="display:flex;gap:8px;">
+                  <input id="rpt_brokerMC" placeholder="654321" style="flex:1;" oninput="reportBrokerLookup(this.value)"/>
+                  <button onclick="reportBrokerLookup(document.getElementById('rpt_brokerMC').value,true)" class="btn btn-navy" style="padding:8px 12px;font-size:12px;">🔍 Lookup</button>
+                </div>
+                <div id="rpt_fmcsaStatus" style="font-size:11px;margin-top:4px;min-height:16px;color:#7ab3ff;"></div>
+              </div>
+              <div class="field"><label>Broker Company Name *</label><input id="rpt_brokerName" placeholder="Apex Freight Solutions Inc."/></div>
+              <div class="field"><label>Broker Address</label><input id="rpt_brokerAddress" placeholder="456 Commerce Ave, Chicago, IL 60601"/></div>
+              <div class="field-row">
+                <div class="field"><label>Incident Date</label><input id="rpt_date" type="date"/></div>
+                <div class="field"><label>Load / Reference #</label><input id="rpt_loadNum" placeholder="LOAD-88421"/></div>
+              </div>
+              <div class="field"><label>Amount Owed (if applicable)</label><input id="rpt_amount" type="number" placeholder="4500" min="0"/></div>
+              <div>
+                <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:8px;">Severity Level</label>
+                <div style="display:flex;gap:8px;">
+                  <button class="severity-btn" onclick="setSeverity('low',this)">🟢 Low</button>
+                  <button class="severity-btn active-medium" onclick="setSeverity('medium',this)">🟡 Medium</button>
+                  <button class="severity-btn" onclick="setSeverity('high',this)">🟠 High</button>
+                  <button class="severity-btn" onclick="setSeverity('critical',this)">🔴 Critical</button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h4 style="color:#fff;font-size:13px;font-weight:700;margin-bottom:14px;">Report Categories * <span style="font-size:11px;color:#8899aa;font-weight:400;">(select all that apply)</span></h4>
+              <div class="category-grid" id="categoryGrid"></div>
+            </div>
+          </div>
+
+          <div class="field" style="margin-top:16px;">
+            <label>Detailed Description * <span style="font-size:10px;color:#8899aa;font-weight:400;">What happened? Be specific — date, load details, what the broker did, any evidence.</span></label>
+            <textarea id="rpt_description" rows="6" placeholder="Example: On March 14, 2025, broker [Name] filed a false FreightGuard report claiming we abandoned the load. We have the signed BOL and delivery confirmation showing on-time delivery. This is the 3rd time this broker has filed false reports against carriers who dispute their invoices..."></textarea>
+          </div>
+
+          <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:16px;margin-top:8px;">
+            <h4 style="color:#fff;font-size:13px;font-weight:700;margin-bottom:14px;">Your Information <span style="font-size:11px;color:#8899aa;font-weight:400;">(optional — reports can be anonymous)</span></h4>
+            <div class="field-row">
+              <div class="field"><label>Your Company Name</label><input id="rpt_reporterName" placeholder="Your Trucking LLC"/></div>
+              <div class="field"><label>Your MC Number</label><input id="rpt_reporterMC" placeholder="1234567"/></div>
+            </div>
+            <div class="field"><label>Your Email (for updates on this report)</label><input id="rpt_reporterEmail" type="email" placeholder="owner@yourcompany.com"/></div>
+          </div>
+
+          <button class="btn btn-red" id="submitReportBtn" onclick="submitReport()" style="width:100%;justify-content:center;font-size:15px;padding:14px;margin-top:8px;">
+            🚨 Submit Report
+          </button>
+          <p style="font-size:11px;color:#667788;text-align:center;margin-top:8px;">Reports are reviewed by our team. False reports violate our terms of service.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ WATCHLIST TAB ═══ -->
+    <div id="tab-watchlist">
+      <div id="watchlistLoginMsg" style="display:none;" class="alert alert-info">Please <a href="#" onclick="toggleAuthPanel()" style="color:#7ab3ff;">sign in</a> to manage your watchlist.</div>
+      <div class="card">
+        <div class="card-header"><h3>👁 Add Broker to Watchlist</h3></div>
+        <div class="card-body">
+          <div style="display:flex;gap:10px;">
+            <input id="wl_mc" placeholder="Broker MC number (e.g. 654321)" style="flex:1;background:#06090f;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;color:#d0dbe8;font-size:13px;outline:none;"/>
+            <button onclick="addWatchlistMC()" class="btn btn-navy">+ Add to Watchlist</button>
+          </div>
+          <p style="font-size:12px;color:#8899aa;margin-top:8px;">You'll get an email alert whenever a new report is filed against this broker.</p>
+        </div>
+      </div>
+      <div id="watchlistContainer"><div style="text-align:center;padding:32px;color:#667788;">Sign in to see your watchlist.</div></div>
+    </div>
+
+    <!-- ═══ DASHBOARD TAB ═══ -->
+    <div id="tab-dashboard">
+      <div id="dashLoginMsg" class="alert alert-info" style="display:none;">Please <a href="#" onclick="toggleAuthPanel()" style="color:#7ab3ff;">sign in</a> to view your dashboard.</div>
+      <div id="dashContent" style="display:none;">
+        <div class="stat-row" id="dashStats"></div>
+        <div class="card">
+          <div class="card-header"><h3>📋 My Filed Reports</h3></div>
+          <div id="myReports"><div style="padding:20px;text-align:center;color:#667788;">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let _token = localStorage.getItem('carrier_hub_token') || '';
+let _carrier = JSON.parse(localStorage.getItem('carrier_hub_user') || 'null');
+let _selectedSeverity = 'medium';
+let _selectedCategories = new Set();
+let _allReports = [];
+let _feedOffset = 0;
+
+const CATEGORIES = [
+  {id:'trigger_happy',label:'🚨 Trigger-Happy Reporter',desc:'Files false reports against carriers without cause'},
+  {id:'nonpayment',label:'💸 Non-Payment / Late Payment',desc:'Refuses to pay or delays payment past agreed terms'},
+  {id:'unauthorized_rebroke',label:'🔄 Unauthorized Re-Brokering',desc:'Re-brokers shipments without carrier consent'},
+  {id:'no_authority',label:'⛔ No Broker / FF Authority',desc:'Operating without proper FMCSA authority'},
+  {id:'no_bond',label:'🔓 No Bond or Trust Fund',desc:'Operating without required $75,000 surety bond'},
+  {id:'alias',label:'🎭 Operates Under Alias',desc:'Uses multiple names to evade enforcement'},
+  {id:'fraud',label:'🚫 Fraudulent Activity',desc:'Fake loads, bait-and-switch rates, identity fraud'},
+  {id:'unethical',label:'⚠️ Unethical / Deceptive',desc:'Bully tactics, threats, misrepresentation'},
+  {id:'rate_reduction',label:'📉 Forced Rate Reduction',desc:'Demands rate cuts after load acceptance'},
+  {id:'detention',label:'⏱ Detention/Layover Refusal',desc:'Refuses legitimate detention or layover charges'},
+];
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  buildCategoryGrid();
+  loadFeed();
+  loadFeedStats();
+  if (_carrier) updateAuthUI();
+  // Pre-fill today's date
+  document.getElementById('rpt_date').valueAsDate = new Date();
+});
+
+function buildCategoryGrid() {
+  const grid = document.getElementById('categoryGrid');
+  grid.innerHTML = CATEGORIES.map(c => `
+    <div class="cat-option" id="catopt_${c.id}" onclick="toggleCategory('${c.id}')">
+      <input type="checkbox" id="cat_${c.id}"/>
+      <div>
+        <div class="cat-label">${c.label}</div>
+        <div class="cat-desc">${c.desc}</div>
+      </div>
+    </div>`).join('');
+}
+
+function toggleCategory(id) {
+  const el = document.getElementById('catopt_' + id);
+  if (_selectedCategories.has(id)) {
+    _selectedCategories.delete(id); el.classList.remove('selected');
+  } else {
+    _selectedCategories.add(id); el.classList.add('selected');
+  }
+}
+
+function setSeverity(level, btn) {
+  _selectedSeverity = level;
+  document.querySelectorAll('.severity-btn').forEach(b => b.className = 'severity-btn');
+  btn.className = 'severity-btn active-' + level;
+}
+
+// ── AUTH ──────────────────────────────────────────────────────────────────────
+function toggleAuthPanel() {
+  const p = document.getElementById('authPanel');
+  p.style.display = p.style.display === 'none' ? '' : 'none';
+}
+
+function switchAuth(tab) {
+  document.getElementById('authLogin').style.display    = tab==='login'    ? '' : 'none';
+  document.getElementById('authRegister').style.display = tab==='register' ? '' : 'none';
+  document.getElementById('authTabLogin').className = tab==='login' ? 'active' : '';
+  document.getElementById('authTabReg').className   = tab==='register' ? 'active' : '';
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pass  = document.getElementById('loginPass').value;
+  if (!email || !pass) { showAuthAlert('loginAlert','error','Email and password required.'); return; }
+  try {
+    const r = await fetch('/api/carrier-hub/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password:pass}) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    _token   = d.token; _carrier = d.carrier;
+    localStorage.setItem('carrier_hub_token', _token);
+    localStorage.setItem('carrier_hub_user', JSON.stringify(_carrier));
+    document.getElementById('authPanel').style.display = 'none';
+    updateAuthUI();
+    loadWatchlist();
+  } catch(e) { showAuthAlert('loginAlert','error','❌ ' + e.message); }
+}
+
+async function doRegister() {
+  const body = {
+    companyName: document.getElementById('regCompany').value.trim(),
+    mcNumber:    document.getElementById('regMC').value.trim(),
+    dotNumber:   document.getElementById('regDOT').value.trim(),
+    contactName: document.getElementById('regContact').value.trim(),
+    email:       document.getElementById('regEmail').value.trim(),
+    phone:       document.getElementById('regPhone').value.trim(),
+    password:    document.getElementById('regPass').value,
+    state:       document.getElementById('regState').value.trim().toUpperCase(),
+  };
+  if (!body.companyName || !body.email || !body.password) { showAuthAlert('regAlert','error','Company name, email, and password required.'); return; }
+  try {
+    const r = await fetch('/api/carrier-hub/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    _token = d.token; _carrier = d.carrier;
+    localStorage.setItem('carrier_hub_token', _token);
+    localStorage.setItem('carrier_hub_user', JSON.stringify(_carrier));
+    document.getElementById('authPanel').style.display = 'none';
+    updateAuthUI();
+    showAuthAlert('regAlert','success','✅ Account created! Welcome to the Carrier Hub.');
+  } catch(e) { showAuthAlert('regAlert','error','❌ ' + e.message); }
+}
+
+function doLogout() {
+  _token = ''; _carrier = null;
+  localStorage.removeItem('carrier_hub_token');
+  localStorage.removeItem('carrier_hub_user');
+  updateAuthUI();
+}
+
+function updateAuthUI() {
+  const loggedIn = !!_carrier;
+  document.getElementById('authBtn').style.display    = loggedIn ? 'none' : '';
+  document.getElementById('logoutBtn').style.display  = loggedIn ? '' : 'none';
+  document.getElementById('userDisplay').textContent  = loggedIn ? `👤 ${_carrier.companyName}` : '';
+  document.getElementById('heroRegBtn').textContent   = loggedIn ? '📊 My Dashboard' : '📋 Register Free';
+  document.getElementById('heroRegBtn').onclick       = loggedIn ? () => showTab('dashboard') : toggleAuthPanel;
+  if (loggedIn) {
+    // Pre-fill report form
+    if (_carrier.companyName) document.getElementById('rpt_reporterName').value = _carrier.companyName;
+    if (_carrier.mcNumber)    document.getElementById('rpt_reporterMC').value   = _carrier.mcNumber;
+    loadWatchlist();
+    loadDashboard();
+  }
+}
+
+// ── FEED ──────────────────────────────────────────────────────────────────────
+async function loadFeed(reset = true) {
+  if (reset) { _feedOffset = 0; _allReports = []; }
+  const cat = document.getElementById('feedFilter').value;
+  const sev = document.getElementById('severityFilter').value;
+  let url   = `/api/carrier-hub/reports?limit=20&offset=${_feedOffset}`;
+  if (cat) url += '&category=' + cat;
+  if (sev) url += '&severity=' + sev;
+  try {
+    const r = await fetch(url);
+    const d = await r.json();
+    _allReports = reset ? d.reports : [..._allReports, ...d.reports];
+    renderFeed(_allReports);
+    document.getElementById('feedLoadMore').style.display = d.hasMore ? '' : 'none';
+  } catch(e) { document.getElementById('feedContainer').innerHTML = '<div style="padding:20px;color:#f07060;">Error loading reports: ' + e.message + '</div>'; }
+}
+
+async function loadFeedStats() {
+  try {
+    const r = await fetch('/api/carrier-hub/reports?limit=1000');
+    const d = await r.json();
+    const all = d.reports || [];
+    const brokers = new Set(all.map(r => r.brokerMC)).size;
+    const owed    = all.reduce((s,r) => s+(Number(r.amountOwed)||0), 0);
+    const trigger = all.filter(r => r.categories?.includes('trigger_happy')).length;
+    document.getElementById('statTotal').textContent   = all.length;
+    document.getElementById('statBrokers').textContent = brokers;
+    document.getElementById('statOwed').textContent    = '$' + (owed/1000).toFixed(0) + 'k';
+    document.getElementById('statTrigger').textContent = trigger;
+  } catch {}
+}
+
+function loadMoreFeed() {
+  _feedOffset += 20;
+  loadFeed(false);
+}
+
+function filterFeed(term) {
+  const t = term.toLowerCase();
+  const filtered = _allReports.filter(r =>
+    (r.brokerName||'').toLowerCase().includes(t) ||
+    (r.brokerMC||'').includes(t) ||
+    (r.description||'').toLowerCase().includes(t) ||
+    (r.categories||[]).join(' ').includes(t)
+  );
+  renderFeed(filtered);
+}
+
+function renderFeed(reports) {
+  const el = document.getElementById('feedContainer');
+  if (!reports.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:#667788;">No reports found.</div>'; return; }
+  el.innerHTML = reports.map(r => {
+    const catBadges = (r.categories||[]).map(c => {
+      const cat = CATEGORIES.find(x => x.id === c);
+      const cls = c === 'trigger_happy' ? 'trigger' : c === 'nonpayment' ? 'nonpay' : '';
+      return `<span class="cat-badge ${cls}">${cat?.label||c}</span>`;
+    }).join('');
+    const severityColor = {critical:'#ff4444',high:'#e74c3c',medium:'#f0a830',low:'#40c070'}[r.severity]||'#8899aa';
+    const ago = timeAgo(r.createdAt);
+    return `
+      <div class="report-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+          <div>
+            <div style="font-size:15px;font-weight:800;color:#fff;">${esc(r.brokerName||'Unknown Broker')}</div>
+            <div style="font-size:12px;color:#667788;">MC-${r.brokerMC} · ${ago}${r.loadNumber ? ' · Load #'+esc(r.loadNumber) : ''}${r.amountOwed ? ' · <span style="color:#f07060;font-weight:700;">$'+Number(r.amountOwed).toLocaleString()+' owed</span>' : ''}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="background:${severityColor}22;border:1px solid ${severityColor}44;color:${severityColor};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;">${r.severity||'medium'}</span>
+            <button onclick="upvoteReport('${r.id}',this)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);color:#8899aa;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">👍 ${r.upvotes||0}</button>
+            ${_carrier ? `<button onclick="watchFromFeed('${r.brokerMC}','${esc(r.brokerName||'')}',this)" style="background:#0a1a3a;border:1px solid #1a3a6a;color:#7ab3ff;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">👁 Watch</button>` : ''}
+          </div>
+        </div>
+        <div style="margin-bottom:10px;">${catBadges}</div>
+        <div style="font-size:13px;color:#aab8cc;line-height:1.6;">${esc(r.description).substring(0,300)}${r.description.length>300?'<span style="color:#667788;">... <a href="#" onclick="expandReport(this,\''+esc(r.description)+'\');return false;" style="color:#7ab3ff;">read more</a></span>':''}</div>
+        ${r.reporterName && r.reporterName !== 'Anonymous Carrier' ? `<div style="margin-top:8px;font-size:11px;color:#667788;">Filed by ${esc(r.reporterName)}${r.reporterMC?' (MC-'+r.reporterMC+')':''}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function expandReport(link, full) {
+  const p = link.closest('.report-card').querySelector('div[style*="font-size:13px"]');
+  p.textContent = full;
+}
+
+async function upvoteReport(id, btn) {
+  try {
+    const r = await fetch('/api/carrier-hub/report/'+id+'/upvote', {method:'POST'});
+    const d = await r.json();
+    btn.textContent = '👍 ' + d.upvotes;
+    btn.style.color = '#f0a830';
+  } catch {}
+}
+
+async function watchFromFeed(mc, name, btn) {
+  if (!_carrier) { toggleAuthPanel(); return; }
+  try {
+    await fetch('/api/carrier-hub/watchlist/'+mc, { method:'POST', headers:{'Authorization':'Bearer '+_token,'Content-Type':'application/json'} });
+    btn.textContent = '✅ Watching'; btn.style.color = '#40c070'; btn.disabled = true;
+  } catch {}
+}
+
+// ── REPORT FORM ───────────────────────────────────────────────────────────────
+let _reportFmcsaTimer = null;
+function reportBrokerLookup(val, force) {
+  clearTimeout(_reportFmcsaTimer);
+  if (!force && val.replace(/\D/g,'').length < 5) return;
+  _reportFmcsaTimer = setTimeout(async () => {
+    const el = document.getElementById('rpt_fmcsaStatus');
+    el.textContent = '🔍 Looking up...';
+    try {
+      const r = await fetch('/api/fmcsa-lookup?mc=' + val.replace(/\D/g,''));
+      const d = await r.json();
+      if (d.legalName) {
+        if (!document.getElementById('rpt_brokerName').value) document.getElementById('rpt_brokerName').value = d.legalName;
+        if (!document.getElementById('rpt_brokerAddress').value) document.getElementById('rpt_brokerAddress').value = d.address||'';
+        el.textContent = '✓ ' + d.legalName + ' — ' + (d.status||'');
+        el.style.color = d.status?.toLowerCase().includes('active') ? '#40c070' : '#f07060';
+      } else { el.textContent = '⚠ Not found'; el.style.color = '#f0a830'; }
+    } catch { el.textContent = ''; }
+  }, force ? 0 : 800);
+}
+
+async function submitReport() {
+  const brokerMC  = document.getElementById('rpt_brokerMC').value.trim();
+  const brokerName= document.getElementById('rpt_brokerName').value.trim();
+  const desc      = document.getElementById('rpt_description').value.trim();
+  const cats      = Array.from(_selectedCategories);
+  if (!brokerMC)  { showAlert('reportAlert','error','Broker MC number is required.'); return; }
+  if (!cats.length){ showAlert('reportAlert','error','Select at least one category.'); return; }
+  if (!desc || desc.length < 30) { showAlert('reportAlert','error','Please provide a detailed description (at least 30 characters).'); return; }
+
+  const btn = document.getElementById('submitReportBtn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  try {
+    const r = await fetch('/api/carrier-hub/report', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        brokerMC, brokerName, categories: cats, description: desc,
+        brokerAddress: document.getElementById('rpt_brokerAddress').value.trim(),
+        incidentDate:  document.getElementById('rpt_date').value,
+        loadNumber:    document.getElementById('rpt_loadNum').value.trim(),
+        amountOwed:    document.getElementById('rpt_amount').value,
+        severity:      _selectedSeverity,
+        reporterName:  document.getElementById('rpt_reporterName').value.trim() || 'Anonymous Carrier',
+        reporterMC:    document.getElementById('rpt_reporterMC').value.trim(),
+        reporterEmail: document.getElementById('rpt_reporterEmail').value.trim(),
+      }),
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    showAlert('reportAlert','success', `✅ Report submitted (ID: ${d.reportId}). ${d.alertsSent} carriers watching this broker have been notified.`);
+    // Reset form
+    _selectedCategories.clear();
+    document.querySelectorAll('.cat-option').forEach(el => el.classList.remove('selected'));
+    ['rpt_brokerMC','rpt_brokerName','rpt_brokerAddress','rpt_loadNum','rpt_amount','rpt_description'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('rpt_date').valueAsDate = new Date();
+    loadFeed(); loadFeedStats();
+    setTimeout(() => showTab('feed'), 2000);
+  } catch(e) { showAlert('reportAlert','error','❌ ' + e.message); }
+  finally { btn.disabled=false; btn.textContent='🚨 Submit Report'; }
+}
+
+// ── WATCHLIST ─────────────────────────────────────────────────────────────────
+async function loadWatchlist() {
+  if (!_carrier) { document.getElementById('watchlistLoginMsg').style.display=''; return; }
+  document.getElementById('watchlistLoginMsg').style.display='none';
+  try {
+    const r = await fetch('/api/watchlist?email=' + encodeURIComponent(_carrier.email));
+    const d = await r.json();
+    const wl = d.watchlist || [];
+    const el = document.getElementById('watchlistContainer');
+    if (!wl.length) { el.innerHTML = '<div style="text-align:center;padding:32px;color:#667788;">No brokers on watchlist. Add MC numbers above or click "Watch" on any report.</div>'; return; }
+    el.innerHTML = wl.map(b => `
+      <div class="report-card" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:700;color:#fff;">${b.brokerName||'MC-'+b.brokerMC}</div>
+          <div style="font-size:12px;color:#667788;">MC-${b.brokerMC} · Last checked: ${b.lastChecked ? new Date(b.lastChecked).toLocaleDateString() : 'Pending'}</div>
+          <div style="font-size:12px;margin-top:3px;"><span style="color:${b.lastStatus?.toLowerCase().includes('active')?'#40c070':'#f07060'}">${b.lastStatus||'Status pending'}</span></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button onclick="viewBrokerReports('${b.brokerMC}','${esc(b.brokerName||'')}',this)" class="btn btn-navy" style="padding:6px 12px;font-size:12px;">View Reports</button>
+          <button onclick="removeWatchlist('${b.brokerMC}',this)" class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:#f07060;">Remove</button>
+        </div>
+      </div>`).join('');
+  } catch(e) { document.getElementById('watchlistContainer').innerHTML = '<div style="padding:16px;color:#f07060;">'+e.message+'</div>'; }
+}
+
+async function addWatchlistMC() {
+  if (!_carrier) { toggleAuthPanel(); return; }
+  const mc = document.getElementById('wl_mc').value.trim().replace(/\D/g,'');
+  if (!mc || mc.length < 5) { alert('Enter a valid MC number'); return; }
+  try {
+    await fetch('/api/carrier-hub/watchlist/'+mc, { method:'POST', headers:{'Authorization':'Bearer '+_token,'Content-Type':'application/json'} });
+    document.getElementById('wl_mc').value = '';
+    loadWatchlist();
+  } catch(e) { alert(e.message); }
+}
+
+async function removeWatchlist(mc, btn) {
+  try {
+    await fetch('/api/watchlist/'+mc, { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({email:_carrier?.email}) });
+    btn.closest('.report-card').remove();
+  } catch {}
+}
+
+async function viewBrokerReports(mc, name, btn) {
+  showTab('feed');
+  document.getElementById('feedFilter').value = '';
+  const r = await fetch('/api/carrier-hub/reports?brokerMC='+mc);
+  const d = await r.json();
+  _allReports = d.reports || [];
+  renderFeed(_allReports);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  if (!_carrier) { document.getElementById('dashLoginMsg').style.display=''; return; }
+  document.getElementById('dashLoginMsg').style.display='none';
+  document.getElementById('dashContent').style.display='';
+  try {
+    const r = await fetch('/api/carrier-hub/reports?limit=100');
+    const d = await r.json();
+    const mine = (d.reports||[]).filter(r => r.reporterEmail === _carrier.email || r.reporterMC === _carrier.mcNumber);
+    document.getElementById('dashStats').innerHTML = `
+      <div class="stat"><div class="val">${mine.length}</div><div class="lbl">Reports Filed</div></div>
+      <div class="stat"><div class="val">${mine.reduce((s,r)=>s+(r.upvotes||0),0)}</div><div class="lbl">Upvotes Received</div></div>
+      <div class="stat"><div class="val" style="color:#e74c3c;">$${mine.reduce((s,r)=>s+(Number(r.amountOwed)||0),0).toLocaleString()}</div><div class="lbl">Total Reported Owed</div></div>`;
+    document.getElementById('myReports').innerHTML = mine.length
+      ? mine.map(r=>`<div style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px;display:flex;justify-content:space-between;">
+          <div><strong>${r.brokerName||'MC-'+r.brokerMC}</strong> — ${(r.categories||[]).slice(0,2).map(c=>CATEGORIES.find(x=>x.id===c)?.label||c).join(', ')}</div>
+          <div style="color:#667788;">${new Date(r.createdAt).toLocaleDateString()} · 👍 ${r.upvotes||0}</div></div>`).join('')
+      : '<div style="padding:20px;text-align:center;color:#667788;">No reports filed yet.</div>';
+  } catch(e) { document.getElementById('myReports').innerHTML = '<div style="padding:16px;color:#f07060;">'+e.message+'</div>'; }
+}
+
+// ── UTILS ─────────────────────────────────────────────────────────────────────
+function showTab(name) {
+  document.querySelectorAll('.tabs-content > div').forEach(d => d.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  const nav = document.getElementById('nav-'+name);
+  if (nav) nav.classList.add('active');
+  if (name==='watchlist' && _carrier) loadWatchlist();
+  if (name==='dashboard') loadDashboard();
+}
+
+function showAlert(id, type, msg) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const colors={success:'#0a2a1a',error:'#2a0a0a',info:'#0a1a3a',warn:'#2a1a0a'};
+  const borders={success:'#2a6a3a',error:'#6a2a2a',info:'#2a4a7a',warn:'#6a4a1a'};
+  const texts={success:'#40c070',error:'#f07060',info:'#7ab3ff',warn:'#f0a830'};
+  el.innerHTML=`<div style="padding:12px 16px;background:${colors[type]};border:1px solid ${borders[type]};border-radius:8px;color:${texts[type]};font-size:13px;margin-bottom:14px;">${msg}</div>`;
+  setTimeout(()=>{el.innerHTML=''},10000);
+}
+
+function showAuthAlert(id, type, msg) { showAlert(id, type, msg); }
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function timeAgo(ts) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const m = Math.floor(diff/60000), h = Math.floor(m/60), d = Math.floor(h/24);
+  if (d>0) return d+'d ago'; if (h>0) return h+'h ago'; if (m>0) return m+'m ago'; return 'just now';
+}
+
+function scrollToTop() { window.scrollTo({top:0,behavior:'smooth'}); }
+</script>
+</body>
+</html>
