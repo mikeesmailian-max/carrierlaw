@@ -2548,6 +2548,8 @@ const REPORT_CATEGORIES = [
   { id: 'unethical',           label: '⚠️ Unethical/Deceptive Practices',   desc: 'Bully tactics, threats, harassment, misrepresentation' },
   { id: 'rate_reduction',      label: '📉 Forced Rate Reduction',           desc: 'Demands rate cuts after load acceptance under threat' },
   { id: 'detention',           label: '⏱ Detention/Layover Refusal',       desc: 'Refuses to pay legitimate detention or layover charges' },
+  { id: 'tracking_deductions',     label: '📍 Unlawful Tracking Deductions',  desc: 'Deducts pay or withholds payment for not using their tracking app — illegal under FMCSA independent contractor rules' },
+  { id: 'unauthorized_deductions', label: '✂️ Unauthorized Deductions',       desc: 'Makes unauthorized deductions from agreed rate — fuel surcharges, claims, fees, or chargebacks not agreed to in the rate confirmation' },
 ];
 
 app.get('/api/carrier-hub/report-categories', (req, res) => res.json({ categories: REPORT_CATEGORIES }));

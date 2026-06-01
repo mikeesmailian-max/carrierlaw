@@ -99,6 +99,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="hero-badge">🔄 Unauthorized Re-Brokering</div>
     <div class="hero-badge">⛔ No Authority</div>
     <div class="hero-badge">🚫 Fraud</div>
+    <div class="hero-badge">📍 Tracking Deductions</div>
+    <div class="hero-badge">✂️ Unauthorized Deductions</div>
   </div>
   <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
     <button onclick="showTab('report');scrollToTop()" class="btn btn-red" style="font-size:15px;padding:13px 28px;">🚨 Report a Broker</button>
@@ -318,6 +320,8 @@ const CATEGORIES = [
   {id:'unethical',label:'⚠️ Unethical / Deceptive',desc:'Bully tactics, threats, misrepresentation'},
   {id:'rate_reduction',label:'📉 Forced Rate Reduction',desc:'Demands rate cuts after load acceptance'},
   {id:'detention',label:'⏱ Detention/Layover Refusal',desc:'Refuses legitimate detention or layover charges'},
+  {id:'tracking_deductions',label:'📍 Unlawful Tracking Deductions',desc:'Deducts pay for not using their tracking app or refuses payment without mandatory tracking compliance'},
+  {id:'unauthorized_deductions',label:'✂️ Unauthorized Deductions',desc:'Makes unauthorized deductions from agreed rate — fuel surcharges, claims, fees, or chargebacks never agreed to in the rate confirmation'},
 ];
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
