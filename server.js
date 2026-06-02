@@ -2754,6 +2754,274 @@ app.get('/api/carrier-hub/me', requireCarrierHub, (req, res) => {
   res.json({ carrier: { ...carr, passwordHash: undefined } });
 });
 
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 1 — "IS THIS BROKER SAFE?" PUBLIC WIDGET
+// ════════════════════════════════════════════════════════════════════════════
+app.get('/api/broker-safe/:mc', async (req, res) => {
+  const mc       = req.params.mc.replace(/\D/g,'');
+  const reports  = loadCarrierReports().filter(r => r.brokerMC === mc);
+  const letters  = await loadLetters();
+  const demandLetters = letters.filter(l => String(l.brokerMC||'').replace(/\D/g,'') === mc);
+  const trigger  = reports.filter(r => r.categories?.includes('trigger_happy')).length;
+  const nonpay   = reports.filter(r => r.categories?.includes('nonpayment')).length;
+  const fraud    = reports.filter(r => r.categories?.includes('fraud')).length;
+  const totalOwed= reports.reduce((s,r)=>s+(Number(r.amountOwed)||0),0);
+  let riskScore  = 0;
+  if (reports.length >= 1)  riskScore += 20;
+  if (reports.length >= 3)  riskScore += 20;
+  if (reports.length >= 5)  riskScore += 20;
+  if (trigger >= 1)         riskScore += 15;
+  if (nonpay  >= 1)         riskScore += 15;
+  if (fraud   >= 1)         riskScore += 30;
+  if (demandLetters.length >= 1) riskScore += 10;
+  riskScore = Math.min(100, riskScore);
+  const safe    = riskScore < 25;
+  const caution = riskScore >= 25 && riskScore < 60;
+  const danger  = riskScore >= 60;
+  const label   = danger ? 'HIGH RISK' : caution ? 'USE CAUTION' : 'LOW RISK';
+  const color   = danger ? '#e74c3c' : caution ? '#f0a830' : '#27ae60';
+  const emoji   = danger ? '🚨' : caution ? '⚠️' : '✅';
+  res.json({ mc, riskScore, label, color, emoji, safe, reports: reports.length, demandLetters: demandLetters.length, trigger, nonpay, fraud, totalOwed });
+});
+
+// Embeddable widget SVG
+app.get('/widget/broker/:mc.svg', async (req, res) => {
+  const mc = req.params.mc.replace(/\D/g,'');
+  const reports = loadCarrierReports().filter(r => r.brokerMC === mc);
+  const risk = Math.min(100, reports.length * 20 + (reports.filter(r=>r.categories?.includes('fraud')).length*30));
+  const label = risk >= 60 ? 'HIGH RISK' : risk >= 25 ? 'USE CAUTION' : 'LOW RISK';
+  const color = risk >= 60 ? '#e74c3c' : risk >= 25 ? '#f0a830' : '#27ae60';
+  const emoji = risk >= 60 ? '🚨' : risk >= 25 ? '⚠️' : '✅';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="280" height="70">
+    <rect width="280" height="70" rx="8" fill="#0a1628"/>
+    <text x="14" y="22" font-family="Arial,sans-serif" font-size="10" fill="#7ab3ff" font-weight="700">FreightGuard Defense — Broker Check</text>
+    <text x="14" y="44" font-family="Arial,sans-serif" font-size="16" fill="${color}" font-weight="900">${emoji} MC-${mc}: ${label}</text>
+    <text x="14" y="61" font-family="Arial,sans-serif" font-size="10" fill="#667788">${reports.length} carrier report${reports.length!==1?'s':''} · freightguarddefense.com</text>
+    <rect x="1" y="1" width="278" height="68" rx="7" fill="none" stroke="${color}" stroke-width="1.5"/>
+  </svg>`;
+  res.set('Content-Type','image/svg+xml'); res.send(svg);
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 2 — RATE CON RED FLAG ANALYZER
+// ════════════════════════════════════════════════════════════════════════════
+app.post('/api/analyze-ratecon', rateLimit(60000, 10), async (req, res) => {
+  const { text, brokerMC } = req.body;
+  if (!text || text.length < 50) return res.status(400).json({ error: 'Paste the full rate confirmation text' });
+
+  const prompt = `You are a transportation law attorney reviewing a freight broker rate confirmation for red flags that could harm the carrier.
+
+Analyze this rate confirmation and return a JSON response with this exact structure:
+{
+  "riskScore": 1-10,
+  "flags": [
+    { "severity": "critical|high|medium|low", "category": "string", "issue": "string", "quote": "exact text from doc", "recommendation": "string" }
+  ],
+  "summary": "2-3 sentence plain English summary",
+  "missingClauses": ["list of important missing clauses"]
+}
+
+Check for:
+- Vague or one-sided damage/cargo claim language
+- Missing or inadequate detention provisions
+- Re-brokering permission clauses (carrier unknowingly authorizes re-brokering)
+- Unilateral rate reduction clauses
+- Broad indemnification language favoring broker
+- Missing payment terms or excessively long payment windows
+- Tracking/monitoring requirements that could affect independent contractor status
+- Unauthorized deduction language
+- Dispute resolution clauses that favor broker
+- Missing or inadequate cargo liability terms
+- Any language that waives carrier rights
+
+Rate confirmation text:
+${text.substring(0, 4000)}`;
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-opus-4-6', max_tokens: 1500,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    let result = message.content[0].type === 'text' ? message.content[0].text : '{}';
+    // Extract JSON
+    const jsonMatch = result.match(/\{[\s\S]*\}/);
+    if (jsonMatch) result = jsonMatch[0];
+    const parsed = JSON.parse(result);
+
+    // Also check broker reputation if MC provided
+    let brokerRep = null;
+    if (brokerMC) {
+      const mc = brokerMC.replace(/\D/g,'');
+      const rpts = loadCarrierReports().filter(r => r.brokerMC === mc);
+      if (rpts.length > 0) brokerRep = { reports: rpts.length, topIssues: [...new Set(rpts.flatMap(r=>r.categories||[]))].slice(0,3) };
+    }
+
+    res.json({ ...parsed, brokerRep, analyzedAt: new Date().toISOString() });
+  } catch(e) {
+    res.status(500).json({ error: 'Analysis failed: ' + e.message });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 3 — CARRIER REPUTATION SCORE
+// ════════════════════════════════════════════════════════════════════════════
+app.get('/api/carrier-score/:mc', async (req, res) => {
+  const mc = req.params.mc.replace(/\D/g,'');
+  // Check if any reports filed AGAINST this carrier MC
+  const reportsAgainst = loadCarrierReports().filter(r => r.reporterMC === mc && r.categories?.includes('trigger_happy'));
+  // Check FMCSA safety
+  let fmcsaData = {};
+  try {
+    const url = `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${mc}`;
+    const r = await fetch(url, { headers:{'User-Agent':'Mozilla/5.0'}, signal: AbortSignal.timeout ? AbortSignal.timeout(6000) : undefined });
+    const html = await r.text();
+    const sm = html.match(/USDOT Status:<\/A>[\s\S]*?<TD[^>]*class=["']queryfield["'][^>]*>([\s\S]*?)<\/TD>/i);
+    const status = sm ? sm[1].replace(/<!--[\s\S]*?-->/g,'').replace(/<[^>]+>/g,'').trim() : '';
+    const srm = html.match(/Safety Rating:<\/A>[^<]*<\/A>[\s\S]*?<TD[^>]*class=["']queryfield["'][^>]*>([\s\S]*?)<\/TD>/i);
+    fmcsaData = { status, safetyRating: srm ? srm[1].replace(/<[^>]+>/g,'').trim() : '' };
+  } catch {}
+
+  let score = 85; // base score
+  if (fmcsaData.status?.toLowerCase().includes('active'))            score += 5;
+  if (fmcsaData.safetyRating?.toLowerCase().includes('satisfactory')) score += 10;
+  if (fmcsaData.safetyRating?.toLowerCase().includes('conditional')) score -= 20;
+  if (fmcsaData.safetyRating?.toLowerCase().includes('unsatisfactory')) score -= 40;
+  score = Math.min(100, Math.max(0, score));
+  const tier = score >= 90 ? 'PLATINUM' : score >= 75 ? 'GOLD' : score >= 60 ? 'SILVER' : 'NEEDS REVIEW';
+  const color = score >= 90 ? '#a78bfa' : score >= 75 ? '#f0a830' : score >= 60 ? '#aaaaaa' : '#e74c3c';
+  res.json({ mc, score, tier, color, fmcsa: fmcsaData, checkedAt: new Date().toISOString() });
+});
+
+// Public carrier profile
+app.get('/api/carrier-profile/:mc', async (req, res) => {
+  const mc   = req.params.mc.replace(/\D/g,'');
+  const regs = loadCarrierRegs();
+  const carr = regs.find(r => r.mcNumber === mc);
+  if (!carr) return res.status(404).json({ error: 'Carrier not registered' });
+  res.json({ companyName: carr.companyName, mc, state: carr.state, memberSince: carr.createdAt, reportsFilied: loadCarrierReports().filter(r=>r.reporterMC===mc).length });
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 4 — ANONYMOUS TIP LINE + FMCSA COMPLAINT FILING ($49)
+// ════════════════════════════════════════════════════════════════════════════
+const TIPS_FILE = path.join(DATA_DIR, 'tips.json');
+function loadTips()   { return loadJSON(TIPS_FILE);  }
+function saveTips(d)  { saveJSON(TIPS_FILE, d);       }
+
+app.post('/api/tip/submit', rateLimit(60000, 5), async (req, res) => {
+  const { brokerMC, brokerName, description, evidence, tipsterEmail, requestFiling } = req.body;
+  if (!brokerMC || !description || description.length < 50)
+    return res.status(400).json({ error: 'Broker MC and detailed description required' });
+
+  const id  = 'TIP-' + Date.now().toString().slice(-8);
+  const tip = { id, brokerMC: brokerMC.replace(/\D/g,''), brokerName, description, evidence: evidence||'', tipsterEmail: tipsterEmail||'', requestFiling: !!requestFiling, status: 'received', createdAt: new Date().toISOString() };
+  const tips = loadTips(); tips.push(tip); saveTips(tips);
+
+  // Notify admin
+  try {
+    await dispatchEmail({
+      to: process.env.ADMIN_EMAIL || 'mikee@megafleetcorp.com',
+      subject: `[TIP RECEIVED] ${brokerName||'MC-'+tip.brokerMC} — ${requestFiling ? '💳 FILING REQUESTED ($49)' : 'Review Only'}`,
+      text: `New tip received.\nBroker: ${brokerName||'MC-'+tip.brokerMC}\nFiling Requested: ${requestFiling}\nDescription:\n${description}\n\nTip ID: ${id}`,
+      html: `<p><strong>Tip ID: ${id}</strong></p><p>Broker: ${brokerName||'MC-'+tip.brokerMC} (MC-${tip.brokerMC})</p>${requestFiling?'<p style="color:#c0392b;font-weight:700;">💳 FMCSA COMPLAINT FILING REQUESTED — $49 pending</p>':''}<p>${description}</p>`,
+    });
+  } catch {}
+
+  res.json({ ok: true, tipId: id, message: requestFiling ? 'Tip received. An attorney will review within 48 hours and contact you about filing.' : 'Tip received. Our team will review within 48 hours.' });
+});
+
+app.post('/api/tip/request-filing', rateLimit(60000, 10), async (req, res) => {
+  const { tipId, email } = req.body;
+  if (!stripe) return res.json({ devMode: true });
+  try {
+    const baseUrl = process.env.BASE_URL || 'https://freightguarddefense.com';
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'], customer_email: email||undefined,
+      line_items: [{ price_data: { currency:'usd', product_data:{ name:'FMCSA Complaint Filing Service', description:'Attorney-reviewed FMCSA complaint filed on your behalf within 48 hours.' }, unit_amount:4900 }, quantity:1 }],
+      mode: 'payment',
+      success_url: `${baseUrl}/carrier-hub.html?tip_paid=1&tip=${tipId}`,
+      cancel_url:  `${baseUrl}/carrier-hub.html`,
+      metadata: { tipId, service: 'fmcsa_complaint' },
+    });
+    res.json({ url: session.url });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/admin/tips', requireAdmin, (req, res) => res.json({ tips: loadTips().reverse() }));
+
+// ════════════════════════════════════════════════════════════════════════════
+// FEATURE 5 — WEEKLY BAD BROKER BULLETIN
+// ════════════════════════════════════════════════════════════════════════════
+async function sendWeeklyBulletin() {
+  const reports  = loadCarrierReports();
+  const regs     = loadCarrierRegs().filter(r => r.subscribedAlerts !== false);
+  const oneWeekAgo = Date.now() - 7*24*3600*1000;
+  const thisWeek = reports.filter(r => new Date(r.createdAt).getTime() > oneWeekAgo);
+
+  if (!thisWeek.length && !reports.length) return;
+
+  // Top brokers this week
+  const brokerCounts = {};
+  thisWeek.forEach(r => { brokerCounts[r.brokerMC] = brokerCounts[r.brokerMC] || {mc:r.brokerMC,name:r.brokerName,count:0,cats:new Set(),owed:0}; brokerCounts[r.brokerMC].count++; (r.categories||[]).forEach(c=>brokerCounts[r.brokerMC].cats.add(c)); brokerCounts[r.brokerMC].owed+=Number(r.amountOwed)||0; });
+  const topBrokers = Object.values(brokerCounts).sort((a,b)=>b.count-a.count).slice(0,5);
+  const triggerCount = thisWeek.filter(r=>r.categories?.includes('trigger_happy')).length;
+  const totalOwed   = thisWeek.reduce((s,r)=>s+(Number(r.amountOwed)||0),0);
+  const siteUrl     = process.env.SITE_URL||'https://freightguarddefense.com';
+
+  const topBrokerRows = topBrokers.map((b,i) =>
+    `<tr style="background:${i%2?'#f9f9f9':'#fff'}"><td style="padding:8px 12px;font-weight:700;">#${i+1}</td><td style="padding:8px 12px;">${b.name||'MC-'+b.mc}</td><td style="padding:8px 12px;text-align:center;">${b.count}</td><td style="padding:8px 12px;color:#c0392b;">$${b.owed.toLocaleString()}</td><td style="padding:8px 12px;font-size:11px;">${[...b.cats].slice(0,2).join(', ')}</td></tr>`
+  ).join('');
+
+  const html = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:0;">
+<div style="max-width:640px;margin:0 auto;">
+  <div style="background:#0a1628;padding:28px 32px;">
+    <h1 style="color:#fff;font-size:20px;margin:0;">⚖️ FreightGuard Defense</h1>
+    <p style="color:#7ab3ff;font-size:13px;margin:6px 0 0;">Weekly Bad Broker Bulletin — ${new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}</p>
+  </div>
+  <div style="background:#fff;padding:28px 32px;">
+    <div style="display:flex;gap:16px;margin-bottom:24px;">
+      <div style="flex:1;background:#fff3f3;border:1px solid #fcc;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#e74c3c;">${thisWeek.length}</div><div style="font-size:11px;color:#888;text-transform:uppercase;margin-top:4px;">Reports This Week</div></div>
+      <div style="flex:1;background:#fff8f0;border:1px solid #fde8c8;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#f0a830;">${triggerCount}</div><div style="font-size:11px;color:#888;text-transform:uppercase;margin-top:4px;">Trigger-Happy</div></div>
+      <div style="flex:1;background:#f0fff4;border:1px solid #c8f0d8;border-radius:8px;padding:16px;text-align:center;"><div style="font-size:28px;font-weight:900;color:#27ae60;">$${(totalOwed/1000).toFixed(0)}k</div><div style="font-size:11px;color:#888;text-transform:uppercase;margin-top:4px;">Owed by Brokers</div></div>
+    </div>
+    <h3 style="font-size:15px;color:#1a1a2a;border-bottom:2px solid #e74c3c;padding-bottom:8px;margin-bottom:16px;">🚨 Most Reported Brokers This Week</h3>
+    ${topBrokers.length ? `<table style="width:100%;border-collapse:collapse;font-size:13px;"><thead><tr style="background:#1a1a2a;color:#fff;"><th style="padding:8px 12px;text-align:left;">#</th><th style="padding:8px 12px;text-align:left;">Broker</th><th style="padding:8px 12px;text-align:center;">Reports</th><th style="padding:8px 12px;">$ Owed</th><th style="padding:8px 12px;">Top Issues</th></tr></thead><tbody>${topBrokerRows}</tbody></table>` : '<p style="color:#888;">No new reports this week — great news!</p>'}
+    <div style="margin-top:24px;background:#f0f4ff;border-radius:8px;padding:16px;text-align:center;">
+      <p style="font-size:13px;color:#333;margin-bottom:12px;">Need to report a broker or file a demand letter?</p>
+      <a href="${siteUrl}/carrier-hub.html" style="background:#c0392b;color:#fff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700;margin-right:8px;">🚨 File a Report</a>
+      <a href="${siteUrl}" style="background:#1a2f4a;color:#7ab3ff;padding:10px 24px;border-radius:6px;text-decoration:none;font-weight:700;border:1px solid #2a5a8a;">⚖️ Get Demand Letter</a>
+    </div>
+  </div>
+  <div style="background:#f5f5f5;padding:16px 32px;text-align:center;font-size:11px;color:#999;">FreightGuard Defense · ${siteUrl}<br>You're receiving this because you registered at Carrier Hub. <a href="${siteUrl}/carrier-hub.html" style="color:#999;">Unsubscribe</a></div>
+</div></body></html>`;
+
+  const text = `FreightGuard Defense — Weekly Bad Broker Bulletin\n\n${thisWeek.length} reports this week · ${triggerCount} trigger-happy · $${totalOwed.toLocaleString()} owed\n\nTop brokers:\n${topBrokers.map((b,i)=>`${i+1}. ${b.name||'MC-'+b.mc} — ${b.count} reports`).join('\n')}\n\nView full report: ${siteUrl}/carrier-hub.html`;
+
+  let sent = 0;
+  for (const reg of regs) {
+    try {
+      await dispatchEmail({ to: reg.email, subject: `⚠️ Weekly Bad Broker Bulletin — ${thisWeek.length} Reports This Week | FreightGuard Defense`, text, html });
+      sent++;
+      await new Promise(r => setTimeout(r, 150)); // rate limit
+    } catch(e) { console.warn('Bulletin email failed:', reg.email, e.message); }
+  }
+  console.log(`[Bulletin] Sent to ${sent}/${regs.length} carriers`);
+}
+
+// Every Monday at 8am (run weekly check every hour, send on Monday)
+setInterval(() => {
+  const now = new Date();
+  if (now.getDay() === 1 && now.getHours() === 8 && now.getMinutes() < 60) {
+    sendWeeklyBulletin().catch(e => console.error('Bulletin error:', e));
+  }
+}, 3600000);
+
+// Admin trigger
+app.post('/api/admin/send-bulletin', requireAdmin, async (req, res) => {
+  sendWeeklyBulletin().catch(e => console.error(e));
+  res.json({ ok: true, message: 'Weekly bulletin sending in background' });
+});
+
 // ── ATTORNEY RECRUITMENT & INVITES ───────────────────────────────────────────
 const SITE_URL = process.env.SITE_URL || 'https://freightguarddefense.com';
 

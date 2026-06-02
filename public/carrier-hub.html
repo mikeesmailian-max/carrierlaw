@@ -81,6 +81,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <a href="#" onclick="showTab('report')" id="nav-report">🚨 File Report</a>
     <a href="#" onclick="showTab('watchlist')" id="nav-watchlist">👁 Watchlist</a>
     <a href="#" onclick="showTab('dashboard')" id="nav-dashboard">📊 My Dashboard</a>
+    <a href="#" onclick="showTab('broker-check')" id="nav-broker-check">🔍 Broker Check</a>
+    <a href="#" onclick="showTab('ratecon')" id="nav-ratecon">📋 Rate Con Check</a>
+    <a href="#" onclick="showTab('tip')" id="nav-tip">📢 File a Tip</a>
   </div>
   <div class="user-bar">
     <span id="userDisplay" style="color:#8899aa;font-size:12px;"></span>
@@ -296,6 +299,65 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="card">
           <div class="card-header"><h3>📋 My Filed Reports</h3></div>
           <div id="myReports"><div style="padding:20px;text-align:center;color:#667788;">Loading...</div></div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ═══ BROKER CHECK TAB ═══ -->
+    <div id="tab-broker-check">
+      <div class="card">
+        <div class="card-header"><h3>🔍 Is This Broker Safe? — Live Risk Check</h3></div>
+        <div class="card-body">
+          <p style="font-size:13px;color:#8899aa;margin-bottom:16px;">Enter any broker MC to get their community risk score, report history, and red flags instantly.</p>
+          <div style="display:flex;gap:8px;margin-bottom:20px;">
+            <input id="bc_mc" placeholder="Broker MC number (e.g. 654321)" style="flex:1;background:#06090f;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:11px 14px;color:#d0dbe8;font-size:13px;outline:none;" oninput="if(this.value.replace(/\D/g,'').length>=5) brokerSafeCheck(this.value)"/>
+            <button onclick="brokerSafeCheck(document.getElementById('bc_mc').value)" class="btn btn-red">Check Now</button>
+          </div>
+          <div id="bc_result"></div>
+          <div style="margin-top:24px;padding:14px 16px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(255,255,255,0.06);">
+            <div style="font-size:12px;font-weight:700;color:#7ab3ff;margin-bottom:6px;">📎 Embed on Your Website or Load Board Profile</div>
+            <code id="embedCode" style="display:block;background:#06090f;border:1px solid rgba(255,255,255,0.1);border-radius:6px;padding:10px;font-size:11px;color:#40c070;word-break:break-all;">&lt;img src="https://freightguarddefense.com/widget/broker/[MC_NUMBER].svg" /&gt;</code>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ RATE CON TAB ═══ -->
+    <div id="tab-ratecon">
+      <div class="card">
+        <div class="card-header"><h3>📋 Rate Confirmation Red Flag Analyzer</h3></div>
+        <div class="card-body">
+          <p style="font-size:13px;color:#8899aa;margin-bottom:16px;">Paste your rate con — AI flags dangerous clauses: missing detention, re-brokering permissions, unauthorized deductions, and more.</p>
+          <div id="rc_alert"></div>
+          <div class="field"><label>Broker MC (optional)</label><input id="rc_mc" placeholder="654321" style="max-width:200px;"/></div>
+          <div class="field"><label>Paste Full Rate Confirmation Text *</label><textarea id="rc_text" rows="9" placeholder="Copy and paste everything from your rate confirmation — carrier name, rates, all terms and fine print..."></textarea></div>
+          <button class="btn btn-red" id="rc_btn" onclick="analyzeRateCon()" style="width:100%;justify-content:center;padding:13px;font-size:15px;">🔍 Analyze for Red Flags</button>
+          <p style="font-size:11px;color:#667788;text-align:center;margin-top:8px;">AI analysis takes 10–15 seconds · Confidential</p>
+          <div id="rc_result" style="margin-top:20px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ TIP TAB ═══ -->
+    <div id="tab-tip">
+      <div class="card">
+        <div class="card-header"><h3>📢 Anonymous Tip Line — Report FMCSA Violations</h3></div>
+        <div class="card-body">
+          <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.2);border-radius:8px;padding:12px 16px;margin-bottom:18px;"><div style="font-weight:700;color:#e74c3c;margin-bottom:3px;">🛡️ 100% Anonymous</div><div style="font-size:13px;color:#aab8cc;">Your identity is never revealed. Report brokers with no authority, bond fraud, or any FMCSA violation.</div></div>
+          <div id="tip_alert"></div>
+          <div class="field-row">
+            <div class="field"><label>Broker MC *</label><input id="tip_mc" placeholder="654321" oninput="tipFmcsaLookup(this.value)"/><div id="tip_mc_status" style="font-size:11px;margin-top:4px;color:#7ab3ff;min-height:14px;"></div></div>
+            <div class="field"><label>Broker Company Name</label><input id="tip_name" placeholder="Apex Freight Solutions"/></div>
+          </div>
+          <div class="field"><label>Describe the Violation * (be specific — dates, amounts, load numbers)</label><textarea id="tip_desc" rows="6" placeholder="Example: This broker's authority was revoked in March 2025 but they're still posting loads on DAT. Rate con #LOAD-88421 dated April 15 — they refused to pay $4,200 after delivery..."></textarea></div>
+          <div class="field"><label>Evidence (links, document names, load numbers)</label><textarea id="tip_evidence" rows="2" placeholder="BOL #, email chain, payment record, load board screenshots..."></textarea></div>
+          <div class="field"><label>Your Email (optional — for attorney follow-up)</label><input id="tip_email" type="email" placeholder="Leave blank to stay fully anonymous"/></div>
+          <div style="border:1px solid rgba(240,168,48,0.3);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+            <div><div style="font-weight:700;color:#f0a830;font-size:14px;">⚖️ FMCSA Complaint Filing — $49</div><div style="font-size:12px;color:#8899aa;">Attorney reviews & files official FMCSA complaint within 48 hours</div></div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="tip_filing" style="width:16px;height:16px;accent-color:#f0a830;"/> <span style="font-size:13px;color:#f0a830;font-weight:700;">Add FMCSA Filing (+$49)</span></label>
+          </div>
+          <button class="btn btn-red" id="tip_btn" onclick="submitTip()" style="width:100%;justify-content:center;padding:13px;font-size:15px;">📢 Submit Anonymous Tip</button>
         </div>
       </div>
     </div>
@@ -758,6 +820,132 @@ function flash(el) {
   el.style.borderColor = '#40c070';
   el.style.background  = 'rgba(40,192,112,0.08)';
   setTimeout(() => { el.style.borderColor=''; el.style.background=''; }, 2000);
+}
+
+// ── FEATURE 1: BROKER SAFE CHECK ─────────────────────────────────────────────
+async function brokerSafeCheck(mc) {
+  const clean = mc.replace(/\D/g,'');
+  if (clean.length < 5) return;
+  const el = document.getElementById('bc_result');
+  el.innerHTML = '<div style="text-align:center;padding:24px;color:#7ab3ff;">🔍 Checking broker safety...</div>';
+  try {
+    const r = await fetch('/api/broker-safe/' + clean);
+    const d = await r.json();
+    const barWidth = Math.min(100, d.riskScore || 0);
+    el.innerHTML = `
+      <div style="background:${d.color}11;border:2px solid ${d.color}44;border-radius:10px;padding:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+          <div><div style="font-size:28px;font-weight:900;color:${d.color};">${d.emoji} ${d.label}</div><div style="font-size:13px;color:#8899aa;margin-top:2px;">MC-${clean}</div></div>
+          <div style="text-align:right;"><div style="font-size:42px;font-weight:900;color:${d.color};">${d.riskScore}</div><div style="font-size:11px;color:#8899aa;">Risk Score / 100</div></div>
+        </div>
+        <div style="background:rgba(255,255,255,0.08);border-radius:6px;height:8px;margin-bottom:20px;"><div style="background:${d.color};width:${barWidth}%;height:100%;border-radius:6px;transition:width .5s;"></div></div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
+          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#fff;">${d.reports||0}</div><div style="font-size:11px;color:#8899aa;">Carrier Reports</div></div>
+          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#fff;">${d.demandLetters||0}</div><div style="font-size:11px;color:#8899aa;">Demand Letters</div></div>
+          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#ff6b6b;">${d.trigger||0}</div><div style="font-size:11px;color:#8899aa;">Trigger-Happy</div></div>
+          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#f0a830;">$${((d.totalOwed||0)/1000).toFixed(0)}k</div><div style="font-size:11px;color:#8899aa;">Reported Owed</div></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <a href="/carrier-hub.html#" onclick="document.getElementById('feedFilter').value='';loadFeed();showTab('feed');document.getElementById('feedSearch').value='${clean}';filterFeed('${clean}');return false;" class="btn btn-navy" style="font-size:12px;padding:7px 14px;">📋 View All Reports</a>
+          <button onclick="document.getElementById('wl_mc').value='${clean}';addWatchlistMC();" class="btn btn-green" style="font-size:12px;padding:7px 14px;">👁 Add to Watchlist</button>
+          <button onclick="navigator.clipboard.writeText('${clean}');showToast('MC copied!','success')" class="btn btn-outline" style="font-size:12px;padding:7px 14px;">📋 Copy MC</button>
+        </div>
+      </div>`;
+    // Update embed code
+    const embedEl = document.getElementById('embedCode');
+    if (embedEl) embedEl.textContent = '<img src="https://freightguarddefense.com/widget/broker/' + clean + '.svg" alt="Broker Safety — MC-' + clean + '" />';
+  } catch(e) { el.innerHTML = '<div style="padding:16px;color:#f07060;">Error: ' + e.message + '</div>'; }
+}
+
+// ── FEATURE 2: RATE CON ANALYZER ─────────────────────────────────────────────
+async function analyzeRateCon() {
+  const text = document.getElementById('rc_text').value.trim();
+  const mc   = document.getElementById('rc_mc').value.trim();
+  if (!text || text.length < 50) { showAlert('rc_alert','error','Paste the full rate confirmation text first.'); return; }
+  const btn = document.getElementById('rc_btn');
+  btn.disabled = true; btn.textContent = '⏳ Analyzing... (10–15 seconds)';
+  try {
+    const r = await fetch('/api/analyze-ratecon', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text,brokerMC:mc}) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    const scoreColor = d.riskScore>=7?'#e74c3c':d.riskScore>=5?'#f0a830':'#27ae60';
+    const flags = (d.flags||[]).sort((a,b)=>['critical','high','medium','low'].indexOf(a.severity)-['critical','high','medium','low'].indexOf(b.severity));
+    const sevColor = {critical:'#e74c3c',high:'#f07060',medium:'#f0a830',low:'#40c070'};
+    document.getElementById('rc_result').innerHTML = `
+      <div style="border:1px solid rgba(255,255,255,0.08);border-radius:10px;overflow:hidden;">
+        <div style="background:${scoreColor}18;border-bottom:1px solid rgba(255,255,255,0.06);padding:18px 20px;display:flex;justify-content:space-between;align-items:center;">
+          <div><div style="font-size:16px;font-weight:800;color:#fff;">Rate Con Risk Score</div><div style="font-size:13px;color:#8899aa;margin-top:3px;">${d.summary||''}</div></div>
+          <div style="font-size:48px;font-weight:900;color:${scoreColor};">${d.riskScore||0}<span style="font-size:16px;color:#8899aa;">/10</span></div>
+        </div>
+        ${(d.missingClauses||[]).length ? `<div style="padding:14px 20px;background:rgba(240,168,48,0.08);border-bottom:1px solid rgba(255,255,255,0.06);"><div style="font-size:12px;font-weight:700;color:#f0a830;margin-bottom:8px;">⚠️ MISSING CLAUSES</div>${d.missingClauses.map(c=>`<div style="font-size:12px;color:#aab8cc;padding:3px 0;">• ${esc(c)}</div>`).join('')}</div>` : ''}
+        <div style="padding:16px 20px;">
+          ${flags.map(f=>`<div style="margin-bottom:12px;padding:12px 14px;background:rgba(255,255,255,0.03);border-left:3px solid ${sevColor[f.severity]||'#888'};border-radius:0 6px 6px 0;">
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:700;color:${sevColor[f.severity]};">${f.severity?.toUpperCase()||''} — ${esc(f.category||'')}</span></div>
+            <div style="font-size:13px;color:#d0dbe8;margin-bottom:6px;">${esc(f.issue||'')}</div>
+            ${f.quote?`<div style="font-size:11px;color:#667788;font-style:italic;margin-bottom:6px;">"${esc(f.quote.substring(0,120))}"</div>`:''}
+            <div style="font-size:12px;color:#7ab3ff;">💡 ${esc(f.recommendation||'')}</div>
+          </div>`).join('')}
+          ${d.brokerRep ? `<div style="margin-top:12px;padding:12px;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.2);border-radius:8px;font-size:12px;color:#f07060;"><strong>⚠️ Broker Alert:</strong> This broker has ${d.brokerRep.reports} community report${d.brokerRep.reports!==1?'s':''} — top issues: ${d.brokerRep.topIssues.join(', ')}</div>` : ''}
+        </div>
+      </div>`;
+  } catch(e) { showAlert('rc_alert','error','❌ ' + e.message); }
+  finally { btn.disabled=false; btn.textContent='🔍 Analyze for Red Flags'; }
+}
+
+// ── FEATURE 4: TIP LINE ───────────────────────────────────────────────────────
+let _tipFmcsaTimer = null;
+function tipFmcsaLookup(val) {
+  clearTimeout(_tipFmcsaTimer);
+  if (val.replace(/\D/g,'').length < 5) return;
+  _tipFmcsaTimer = setTimeout(async () => {
+    const el = document.getElementById('tip_mc_status');
+    el.textContent = '🔍 Checking...';
+    try {
+      const r = await fetch('/api/fmcsa-lookup?mc='+val.replace(/\D/g,''));
+      const d = await r.json();
+      if (d.legalName) {
+        if (!document.getElementById('tip_name').value) document.getElementById('tip_name').value = d.legalName;
+        el.textContent = '✓ ' + d.legalName + ' — ' + (d.status||'');
+        el.style.color = d.status?.toLowerCase().includes('active') ? '#40c070' : '#f07060';
+      } else { el.textContent = '⚠ Not found'; el.style.color = '#f0a830'; }
+    } catch { el.textContent = ''; }
+  }, 700);
+}
+
+async function submitTip() {
+  const mc   = document.getElementById('tip_mc').value.trim();
+  const desc = document.getElementById('tip_desc').value.trim();
+  if (!mc)              { showAlert('tip_alert','error','Broker MC is required.'); return; }
+  if (desc.length < 50) { showAlert('tip_alert','error','Please provide more detail (at least 50 characters).'); return; }
+  const btn = document.getElementById('tip_btn');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  try {
+    const r = await fetch('/api/tip/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
+      brokerMC:mc, brokerName:document.getElementById('tip_name').value.trim(),
+      description:desc, evidence:document.getElementById('tip_evidence').value.trim(),
+      tipsterEmail:document.getElementById('tip_email').value.trim(),
+      requestFiling:document.getElementById('tip_filing').checked,
+    })});
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    if (document.getElementById('tip_filing').checked) {
+      const sr = await fetch('/api/tip/request-filing', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tipId:d.tipId,email:document.getElementById('tip_email').value.trim()})});
+      const sd = await sr.json();
+      if (sd.url) { window.location.href = sd.url; return; }
+    }
+    showAlert('tip_alert','success', `✅ Tip submitted (${d.tipId}). ${d.message}`);
+    ['tip_mc','tip_name','tip_desc','tip_evidence','tip_email'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('tip_filing').checked = false;
+  } catch(e) { showAlert('tip_alert','error','❌ ' + e.message); }
+  finally { btn.disabled=false; btn.textContent='📢 Submit Anonymous Tip'; }
+}
+
+function showToast(msg, type) {
+  const t = document.createElement('div');
+  const colors = {success:'#27ae60',error:'#e74c3c',warn:'#f0a830',info:'#7ab3ff'};
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;background:${colors[type]||'#333'};color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
+  t.textContent = msg; document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3500);
 }
 </script>
 </body>
