@@ -149,8 +149,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <div class="field"><label>State</label><input id="regState" placeholder="TX" maxlength="2"/></div>
           </div>
           <div class="field-row">
-            <div class="field"><label>MC Number</label><input id="regMC" placeholder="1234567"/></div>
-            <div class="field"><label>DOT Number</label><input id="regDOT" placeholder="9876543"/></div>
+            <div class="field"><label>MC Number</label><input id="regMC" placeholder="1234567" oninput="regFmcsaLookup('mc',this.value)"/><div id="regMcStatus" style="font-size:11px;margin-top:4px;min-height:14px;color:#7ab3ff;transition:all .2s;"></div></div>
+            <div class="field"><label>DOT Number</label><input id="regDOT" placeholder="9876543" oninput="regFmcsaLookup('dot',this.value)"/><div id="regDotStatus" style="font-size:11px;margin-top:4px;min-height:14px;color:#7ab3ff;transition:all .2s;"></div></div>
           </div>
           <div class="field"><label>Contact Name</label><input id="regContact" placeholder="John Smith"/></div>
           <div class="field"><label>Email *</label><input id="regEmail" type="email" placeholder="owner@company.com"/></div>
@@ -711,6 +711,54 @@ function timeAgo(ts) {
 }
 
 function scrollToTop() { window.scrollTo({top:0,behavior:'smooth'}); }
+
+// ── FMCSA AUTO-FILL ON REGISTRATION ──────────────────────────────────────────
+let _regFmcsaTimer = null;
+function regFmcsaLookup(type, val) {
+  clearTimeout(_regFmcsaTimer);
+  if (val.replace(/\D/g,'').length < 5) return;
+  _regFmcsaTimer = setTimeout(() => _doRegFmcsa(type, val.replace(/\D/g,'')), 700);
+}
+
+async function _doRegFmcsa(type, val) {
+  const statusEl = document.getElementById(type === 'mc' ? 'regMcStatus' : 'regDotStatus');
+  statusEl.textContent = '🔍 Looking up carrier info...';
+  statusEl.style.color = '#7ab3ff';
+  try {
+    const r = await fetch('/api/fmcsa-lookup?' + (type==='mc' ? 'mc=' : 'dot=') + val);
+    const d = await r.json();
+    if (d.legalName) {
+      // Auto-fill company name if blank
+      const co = document.getElementById('regCompany');
+      if (!co.value.trim()) { co.value = d.legalName; flash(co); }
+
+      // Cross-fill MC ↔ DOT
+      if (type==='mc' && d.dotNumber) { const f=document.getElementById('regDOT'); if(!f.value){f.value=d.dotNumber;flash(f);} }
+      if (type==='dot' && d.mcNumber)  { const f=document.getElementById('regMC');  if(!f.value){f.value=d.mcNumber; flash(f);} }
+
+      // Auto-fill state from address
+      if (d.address) {
+        const sm = d.address.match(/\b([A-Z]{2})\b(?=\s*\d{5}|\s*$)/);
+        if (sm) { const f=document.getElementById('regState'); if(!f.value){f.value=sm[1];flash(f);} }
+      }
+
+      // Auto-fill phone
+      if (d.phone) { const f=document.getElementById('regPhone'); if(!f.value){f.value=d.phone;flash(f);} }
+
+      statusEl.style.color = '#40c070';
+      statusEl.innerHTML = `✅ <strong>${d.legalName}</strong> — ${d.status||''} ${d.address ? '· '+d.address : ''}`;
+    } else {
+      statusEl.style.color = '#f0a830';
+      statusEl.textContent = '⚠ Not found — enter details manually';
+    }
+  } catch { statusEl.style.color='#f07060'; statusEl.textContent='Lookup failed — enter manually'; }
+}
+
+function flash(el) {
+  el.style.borderColor = '#40c070';
+  el.style.background  = 'rgba(40,192,112,0.08)';
+  setTimeout(() => { el.style.borderColor=''; el.style.background=''; }, 2000);
+}
 </script>
 </body>
 </html>
