@@ -3630,6 +3630,266 @@ async function runFollowupScheduler() {
 setInterval(runFollowupScheduler, 3600000);
 setTimeout(runFollowupScheduler, 30000);
 
+
+// ── WEEKLY BROKER BLACKLIST EMAIL ─────────────────────────────────────────────
+
+function buildWeeklyEmailHTML({ reports, weekOf, totalAmount, totalCarriers }) {
+  const topBrokers = reports.slice(0, 10);
+  const categoryLabels = {
+    trigger_happy:        '🚨 False Report',
+    nonpayment:           '💸 Non-Payment',
+    unauthorized_rebroke: '🔄 Re-Brokering',
+    no_authority:         '⛔ No Authority',
+    no_bond:              '🔓 No Bond',
+    alias:                '🎭 Alias',
+    fraud:                '🚫 Fraud',
+    unethical:            '⚠️ Unethical',
+    rate_reduction:       '📉 Rate Cut',
+    detention:            '⏱ Detention',
+    tracking_deductions:  '📍 Tracking',
+    unauthorized_deductions: '✂️ Deductions',
+  };
+
+  const brokerRows = topBrokers.map((b, i) => {
+    const cats = (b.categories || []).slice(0,2).map(c => categoryLabels[c] || c).join(' &nbsp;·&nbsp; ');
+    const amtStr = b.amount_owed > 0 ? `$${Number(b.amount_owed).toLocaleString()}` : '—';
+    const severityColor = b.severity === 'high' ? '#c0392b' : b.severity === 'low' ? '#1a7a3c' : '#9a6e00';
+    return `
+    <tr>
+      <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;font-weight:700;color:#1d1d1f;font-size:14px;">${i+1}. ${b.broker_name || 'Unknown Broker'}</td>
+      <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;color:#6e6e73;font-size:13px;">MC-${b.broker_mc || 'N/A'}</td>
+      <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;text-align:center;">
+        <span style="background:${severityColor}18;color:${severityColor};font-size:11px;font-weight:800;padding:4px 10px;border-radius:100px;text-transform:uppercase;letter-spacing:0.5px;">${b.severity || 'medium'}</span>
+      </td>
+      <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;color:#c0392b;font-weight:700;font-size:14px;">${amtStr}</td>
+      <td style="padding:14px 16px;border-bottom:1px solid #f0f0f0;color:#6e6e73;font-size:12px;">${cats || '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const noReports = topBrokers.length === 0;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Weekly Broker Blacklist — FreightGuard Defense</title>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+
+<!-- WRAPPER -->
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f5f5f7;padding:40px 20px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+  <!-- HEADER -->
+  <tr><td style="background:linear-gradient(170deg,#1d1d1f 0%,#2d2d2f 100%);border-radius:20px 20px 0 0;padding:40px 44px 36px;text-align:center;">
+    <div style="display:inline-flex;align-items:center;gap:10px;margin-bottom:24px;">
+      <div style="width:40px;height:40px;background:#c0392b;border-radius:10px;display:inline-block;line-height:40px;text-align:center;font-size:20px;">🛡️</div>
+      <span style="font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;vertical-align:middle;margin-left:10px;">FreightGuard Defense</span>
+    </div>
+    <h1 style="margin:0 0 10px;font-size:32px;font-weight:800;color:#ffffff;letter-spacing:-1px;line-height:1.1;">Weekly Broker<br>Blacklist Report</h1>
+    <p style="margin:0;font-size:15px;color:rgba(255,255,255,0.55);font-weight:400;">Week of ${weekOf}</p>
+  </td></tr>
+
+  <!-- STAT BAR -->
+  <tr><td style="background:#c0392b;padding:0;">
+    <table width="100%" cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="padding:20px 0;text-align:center;border-right:1px solid rgba(255,255,255,0.2);">
+        <div style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-1px;">${reports.length}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;font-weight:600;">New Reports</div>
+      </td>
+      <td style="padding:20px 0;text-align:center;border-right:1px solid rgba(255,255,255,0.2);">
+        <div style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-1px;">$${Number(totalAmount).toLocaleString()}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;font-weight:600;">Owed to Carriers</div>
+      </td>
+      <td style="padding:20px 0;text-align:center;">
+        <div style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-1px;">${totalCarriers}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.8px;margin-top:4px;font-weight:600;">Carriers Reporting</div>
+      </td>
+    </tr>
+    </table>
+  </td></tr>
+
+  <!-- MAIN CARD -->
+  <tr><td style="background:#ffffff;padding:36px 44px;">
+
+    ${noReports ? `
+    <div style="text-align:center;padding:40px 0;">
+      <div style="font-size:48px;margin-bottom:16px;">✅</div>
+      <h2 style="font-size:22px;font-weight:800;color:#1d1d1f;margin:0 0 8px;">All clear this week!</h2>
+      <p style="font-size:16px;color:#6e6e73;margin:0;">No new broker reports were filed in the past 7 days.</p>
+    </div>
+    ` : `
+    <h2 style="font-size:20px;font-weight:800;color:#1d1d1f;margin:0 0 6px;letter-spacing:-0.5px;">⚠️ Brokers Reported This Week</h2>
+    <p style="font-size:14px;color:#6e6e73;margin:0 0 24px;">These brokers were flagged by carriers in our network. Share with your driver community.</p>
+
+    <!-- TABLE -->
+    <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #f0f0f0;border-radius:14px;overflow:hidden;border-collapse:separate;border-spacing:0;">
+      <thead>
+        <tr style="background:#fafafa;">
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#6e6e73;border-bottom:1.5px solid #ebebeb;">Broker Name</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#6e6e73;border-bottom:1.5px solid #ebebeb;">MC#</th>
+          <th style="padding:12px 16px;text-align:center;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#6e6e73;border-bottom:1.5px solid #ebebeb;">Risk</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#6e6e73;border-bottom:1.5px solid #ebebeb;">Amt Owed</th>
+          <th style="padding:12px 16px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#6e6e73;border-bottom:1.5px solid #ebebeb;">Category</th>
+        </tr>
+      </thead>
+      <tbody>${brokerRows}</tbody>
+    </table>
+    `}
+
+    <!-- CTA -->
+    <div style="margin-top:32px;text-align:center;">
+      <a href="https://freightguarddefense.com/broker411.html" style="display:inline-block;background:#c0392b;color:#ffffff;font-size:16px;font-weight:700;padding:16px 40px;border-radius:100px;text-decoration:none;letter-spacing:-0.2px;box-shadow:0 4px 20px rgba(192,57,43,0.35);">View Full Blacklist →</a>
+    </div>
+
+    <!-- DIVIDER -->
+    <hr style="border:none;border-top:1px solid #f0f0f0;margin:32px 0;">
+
+    <!-- REPORT A BROKER -->
+    <h3 style="font-size:17px;font-weight:800;color:#1d1d1f;margin:0 0 10px;letter-spacing:-0.3px;">🚨 Have a Bad Broker to Report?</h3>
+    <p style="font-size:14px;color:#6e6e73;line-height:1.6;margin:0 0 20px;">If a broker hasn't paid you, filed a false FreightGuard report, or ripped you off — file a report and let our network of attorneys fight back.</p>
+    <table cellpadding="0" cellspacing="0">
+    <tr>
+      <td style="padding-right:12px;"><a href="https://freightguarddefense.com/carrier-hub.html" style="display:inline-block;background:#1d1d1f;color:#ffffff;font-size:14px;font-weight:700;padding:13px 24px;border-radius:100px;text-decoration:none;">Report a Broker</a></td>
+      <td><a href="https://freightguarddefense.com" style="display:inline-block;background:transparent;color:#1d1d1f;font-size:14px;font-weight:700;padding:12px 24px;border-radius:100px;text-decoration:none;border:1.5px solid #e0e0e0;">Fight a False Report</a></td>
+    </tr>
+    </table>
+
+  </td></tr>
+
+  <!-- FOOTER -->
+  <tr><td style="background:#f5f5f7;border-radius:0 0 20px 20px;padding:28px 44px;text-align:center;">
+    <p style="font-size:13px;color:#6e6e73;margin:0 0 8px;">FreightGuard Defense · freightguarddefense.com</p>
+    <p style="font-size:12px;color:#aaa;margin:0;">You're receiving this because you have a carrier account with us.<br>
+    <a href="https://freightguarddefense.com/carrier-hub.html" style="color:#6e6e73;">Manage alert preferences</a> &nbsp;·&nbsp; <a href="https://freightguarddefense.com/carrier-hub.html?unsubscribe=1" style="color:#6e6e73;">Unsubscribe</a></p>
+  </td></tr>
+
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
+// ── SEND WEEKLY REPORT (manual trigger or cron) ───────────────────────────────
+async function sendWeeklyBrokerReport(triggeredBy = 'cron') {
+  if (!resendClient) {
+    console.warn('[Weekly Email] Resend not configured — skipping');
+    return { sent: 0, skipped: true };
+  }
+
+  const fromEmail = process.env.RESEND_FROM_EMAIL || 'reports@freightguarddefense.com';
+  const fromName  = 'FreightGuard Defense';
+  const weekOf    = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
+  // Get reports from the past 7 days
+  const reportsResult = pgPool
+    ? await pgPool.query(`
+        SELECT broker_mc, broker_name, reporter_name, reporter_email,
+               categories, amount_owed, severity, created_at
+        FROM carrier_broker_reports
+        WHERE created_at >= NOW() - INTERVAL '7 days'
+        ORDER BY severity DESC, amount_owed DESC
+      `).catch(() => null)
+    : null;
+
+  const reports      = reportsResult ? reportsResult.rows : [];
+  const totalAmount  = reports.reduce((s, r) => s + Number(r.amount_owed || 0), 0);
+  const totalCarriers= new Set(reports.map(r => r.reporter_email).filter(Boolean)).size;
+
+  // Get all subscribed carriers
+  const usersResult = pgPool
+    ? await pgPool.query(`
+        SELECT email, company_name, contact_name
+        FROM carrier_registrations
+        WHERE subscribed_alerts = TRUE AND email IS NOT NULL AND email != ''
+      `).catch(() => null)
+    : null;
+
+  const subscribers = usersResult ? usersResult.rows : [];
+  console.log(`[Weekly Email] Sending to ${subscribers.length} subscribers | ${reports.length} reports | triggered by: ${triggeredBy}`);
+
+  if (subscribers.length === 0) {
+    console.log('[Weekly Email] No subscribers — nothing to send');
+    return { sent: 0, subscribers: 0, reports: reports.length };
+  }
+
+  const html    = buildWeeklyEmailHTML({ reports, weekOf, totalAmount, totalCarriers });
+  const subject = reports.length > 0
+    ? `⚠️ ${reports.length} Broker${reports.length > 1 ? 's' : ''} Reported This Week — FreightGuard Defense`
+    : `✅ All Clear This Week — FreightGuard Defense Broker Report`;
+
+  let sent = 0;
+  let errors = 0;
+
+  // Send in batches of 50 (Resend rate limits)
+  const batchSize = 50;
+  for (let i = 0; i < subscribers.length; i += batchSize) {
+    const batch = subscribers.slice(i, i + batchSize);
+    await Promise.all(batch.map(async (user) => {
+      try {
+        const personalizedHtml = html.replace(
+          '🛡️</div>',
+          `🛡️</div><p style="font-size:13px;color:rgba(255,255,255,0.45);margin:8px 0 0;">Hello, ${user.contact_name || user.company_name || 'Carrier'}!</p>`
+        );
+        const { error } = await resendClient.emails.send({
+          from: `${fromName} <${fromEmail}>`,
+          to:   user.email,
+          subject,
+          html: personalizedHtml,
+        });
+        if (error) { errors++; console.error(`[Weekly Email] Failed ${user.email}:`, error); }
+        else sent++;
+      } catch(e) {
+        errors++;
+        console.error(`[Weekly Email] Error sending to ${user.email}:`, e.message);
+      }
+    }));
+    if (i + batchSize < subscribers.length) await new Promise(r => setTimeout(r, 500)); // rate-limit pause
+  }
+
+  console.log(`[Weekly Email] ✅ Sent: ${sent} | Errors: ${errors}`);
+  return { sent, errors, subscribers: subscribers.length, reports: reports.length };
+}
+
+// ── ADMIN ENDPOINT: manual trigger ───────────────────────────────────────────
+app.post('/api/admin/send-weekly-report', requireAdmin, async (req, res) => {
+  try {
+    const result = await sendWeeklyBrokerReport('admin-manual');
+    res.json({ ok: true, ...result });
+  } catch(e) {
+    console.error('[Weekly Email] Error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── WEEKLY CRON: every Monday at 7 AM server time ────────────────────────────
+(function scheduleWeeklyEmail() {
+  let lastSentWeek = null;
+
+  function getWeekKey() {
+    const now = new Date();
+    const yr  = now.getFullYear();
+    const wk  = Math.floor((now - new Date(yr, 0, 1)) / 604800000);
+    return `${yr}-W${wk}`;
+  }
+
+  setInterval(async () => {
+    const now  = new Date();
+    const day  = now.getDay();   // 1 = Monday
+    const hour = now.getHours(); // 7 AM
+    const wk   = getWeekKey();
+
+    if (day === 1 && hour === 7 && lastSentWeek !== wk) {
+      console.log('[Weekly Email] 🕖 Monday 7 AM — firing weekly report...');
+      lastSentWeek = wk;
+      await sendWeeklyBrokerReport('cron').catch(e => console.error('[Weekly Email] Cron error:', e));
+    }
+  }, 60 * 1000); // check every minute
+})();
+
+
 // ── START ─────────────────────────────────────────────────────
 const server = app.listen(PORT, () => {
   console.log('');

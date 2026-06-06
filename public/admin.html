@@ -233,6 +233,21 @@ tr:hover td{background:rgba(0,0,0,0.015);}
       <div class="page-title">Dashboard Overview</div>
       <div class="page-sub">Real-time platform stats and API health</div>
 
+      <!-- WEEKLY EMAIL CARD -->
+      <div style="background:#fff;border:1px solid rgba(0,0,0,0.07);border-radius:18px;padding:28px 32px;margin-bottom:24px;box-shadow:0 2px 8px rgba(0,0,0,0.04),0 8px 24px rgba(0,0,0,0.06);display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;">
+        <div>
+          <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:#c0392b;margin-bottom:6px;">Weekly Broker Blacklist Email</div>
+          <div style="font-size:20px;font-weight:800;color:#1d1d1f;letter-spacing:-0.5px;margin-bottom:6px;">Send to All Subscribed Carriers</div>
+          <div style="font-size:14px;color:#6e6e73;">Auto-sends every Monday at 7 AM. Click to trigger immediately.</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+          <div id="weeklyEmailStatus" style="font-size:13px;color:#6e6e73;"></div>
+          <button id="sendWeeklyBtn" onclick="sendWeeklyReport()" style="background:#c0392b;color:#fff;border:none;border-radius:100px;padding:14px 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:all 0.2s;display:flex;align-items:center;gap:8px;box-shadow:0 2px 12px rgba(192,57,43,0.3);">
+            <span>📧</span> Send Now
+          </button>
+        </div>
+      </div>
+
       <div class="stat-grid" id="statGrid">
         <div class="section-loading"><span class="spin"></span></div>
       </div>
@@ -1367,6 +1382,31 @@ function showInviteAlert(id, type, msg) {
   el.innerHTML = `<div style="padding:10px 14px;background:${colors[type]};border:1px solid ${borders[type]};border-radius:6px;color:${texts[type]};font-size:15px;margin-bottom:8px;">${msg}</div>`;
   setTimeout(() => { el.innerHTML = ''; }, 8000);
 }
+
+
+  // ── WEEKLY EMAIL ───────────────────────────────────────────────
+  async function sendWeeklyReport() {
+    const btn    = document.getElementById('sendWeeklyBtn');
+    const status = document.getElementById('weeklyEmailStatus');
+    btn.disabled = true;
+    btn.innerHTML = '<span style="width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;"></span> Sending...';
+    status.textContent = '';
+    try {
+      const res  = await fetch('/api/admin/send-weekly-report', { method: 'POST', headers: { 'Authorization': 'Bearer ' + adminToken } });
+      const data = await res.json();
+      if (data.ok) {
+        status.innerHTML = '<span style="color:#1a7a3c;font-weight:700;">✅ Sent to ' + data.sent + ' carriers</span>';
+        btn.innerHTML = '📧 Send Now';
+      } else {
+        status.innerHTML = '<span style="color:#c0392b;font-weight:700;">❌ ' + (data.error || 'Error') + '</span>';
+        btn.innerHTML = '📧 Send Now';
+      }
+    } catch(e) {
+      status.innerHTML = '<span style="color:#c0392b;font-weight:700;">❌ Network error</span>';
+      btn.innerHTML = '📧 Send Now';
+    }
+    btn.disabled = false;
+  }
 
 </script>
 </body>
