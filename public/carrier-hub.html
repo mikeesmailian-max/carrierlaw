@@ -148,8 +148,22 @@ tr:hover td{background:rgba(0,0,0,0.015);}
 .tab{padding:12px 20px;font-size:15px;font-weight:600;color:#6e6e73;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;transition:all 0.2s;border-radius:8px 8px 0 0;}
 .tab:hover{color:#1d1d1f;background:rgba(0,0,0,0.03);}
 .tab.active{color:#1d1d1f;border-bottom-color:#1d1d1f;font-weight:700;}
-.tabs-content>div{display:none;}
-.tabs-content>div.active{display:block;}
+.tabs-content>div{display:none;opacity:0;}
+.tabs-content>div.active{display:block;animation:tabFadeIn 0.2s ease forwards;}
+@keyframes tabFadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:translateY(0);}}
+/* Badge counts */
+.nav-badge{background:#c0392b;color:#fff;font-size:10px;font-weight:800;padding:2px 6px;border-radius:100px;margin-left:4px;vertical-align:middle;display:none;}
+.nav-badge.show{display:inline-block;}
+/* Hamburger */
+#hamburger{display:none;background:none;border:none;color:#fff;font-size:22px;cursor:pointer;padding:4px 8px;border-radius:6px;line-height:1;}
+#hamburger:hover{background:rgba(255,255,255,0.1);}
+@media(max-width:900px){
+  .nav-links{display:none;position:absolute;top:68px;left:0;right:0;background:rgba(29,29,31,0.98);backdrop-filter:blur(20px);flex-direction:column;padding:12px 16px;gap:4px;border-bottom:1px solid rgba(255,255,255,0.08);z-index:200;}
+  .nav-links.open{display:flex;}
+  .nav-links a{padding:12px 16px;border-radius:10px;}
+  #hamburger{display:block;}
+  .topbar{position:relative;}
+}
 
 /* DAMAGE CALC */
 .damage-preview{background:#f5f5f7;border:1px solid rgba(0,0,0,0.07);border-radius:14px;padding:20px 24px;margin-top:16px;}
@@ -197,10 +211,11 @@ tr:hover td{background:rgba(0,0,0,0.015);}
 
 <div class="topbar">
   <a href="/" class="brand"><span style="font-size:22px;">⚖️</span><div><h1>FreightGuard Defense</h1><p>Carrier Hub</p></div></a>
-  <div class="nav-links">
-    <a href="#" onclick="showTab('feed');return false;" id="nav-feed" class="active">📋 Report Feed</a>
+  <button id="hamburger" onclick="toggleHamburger()" aria-label="Menu">☰</button>
+  <div class="nav-links" id="navLinks">
+    <a href="#" onclick="showTab('feed');return false;" id="nav-feed" class="active">📋 Report Feed<span class="nav-badge" id="badge-feed"></span></a>
     <a href="#" onclick="showTab('report');return false;" id="nav-report">🚨 File Report</a>
-    <a href="#" onclick="showTab('watchlist');return false;" id="nav-watchlist">👁 Watchlist</a>
+    <a href="#" onclick="showTab('watchlist');return false;" id="nav-watchlist">👁 Watchlist<span class="nav-badge" id="badge-watchlist"></span></a>
     <a href="#" onclick="showTab('dashboard');return false;" id="nav-dashboard">📊 My Dashboard</a>
     <a href="#" onclick="showTab('broker-check');return false;" id="nav-broker-check">🔍 Broker Check</a>
     <a href="#" onclick="showTab('ratecon');return false;" id="nav-ratecon">📋 Rate Con Check</a>
@@ -526,6 +541,25 @@ document.addEventListener('DOMContentLoaded', () => {
   if (_carrier) updateAuthUI();
   // Pre-fill today's date
   document.getElementById('rpt_date').valueAsDate = new Date();
+  // 2+5. URL hash routing takes priority, then localStorage
+  const validTabs = ['feed','report','watchlist','dashboard','broker-check','ratecon','tip'];
+  const hash = window.location.hash.replace('#','');
+  const saved = (()=>{ try { return localStorage.getItem('fgd_lastTab'); } catch(e){ return null; } })();
+  const startTab = validTabs.includes(hash) ? hash : (validTabs.includes(saved) ? saved : 'feed');
+  if (startTab !== 'feed') showTab(startTab);
+});
+
+// 3. Hamburger toggle
+function toggleHamburger() {
+  document.getElementById('navLinks').classList.toggle('open');
+}
+// Close nav when clicking outside on mobile
+document.addEventListener('click', e => {
+  const nav = document.getElementById('navLinks');
+  const hb = document.getElementById('hamburger');
+  if (nav.classList.contains('open') && !nav.contains(e.target) && e.target !== hb) {
+    nav.classList.remove('open');
+  }
 });
 
 function buildCategoryGrid() {
@@ -804,6 +838,7 @@ async function loadWatchlist() {
     const d = await r.json();
     const wl = d.watchlist || [];
     const el = document.getElementById('watchlistContainer');
+    updateWatchlistBadge(wl.length);
     if (!wl.length) { el.innerHTML = '<div style="text-align:center;padding:32px;color:#667788;">No brokers on watchlist. Add MC numbers above or click "Watch" on any report.</div>'; return; }
     el.innerHTML = wl.map(b => `
       <div class="report-card" style="display:flex;justify-content:space-between;align-items:center;">
@@ -818,6 +853,13 @@ async function loadWatchlist() {
         </div>
       </div>`).join('');
   } catch(e) { document.getElementById('watchlistContainer').innerHTML = '<div style="padding:16px;color:#f07060;">'+e.message+'</div>'; }
+}
+
+// 4. Watchlist badge update (called after render)
+function updateWatchlistBadge(count) {
+  const b = document.getElementById('badge-watchlist');
+  if (count > 0) { b.textContent = count > 99 ? '99+' : count; b.classList.add('show'); }
+  else { b.classList.remove('show'); }
 }
 
 async function addWatchlistMC() {
@@ -871,11 +913,19 @@ async function loadDashboard() {
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 function showTab(name) {
+  const validTabs = ['feed','report','watchlist','dashboard','broker-check','ratecon','tip'];
+  if (!validTabs.includes(name)) name = 'feed';
   document.querySelectorAll('.tabs-content > div').forEach(d => d.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
   const nav = document.getElementById('nav-'+name);
   if (nav) nav.classList.add('active');
+  // Close hamburger on mobile
+  document.getElementById('navLinks').classList.remove('open');
+  // 5. Persist last tab
+  try { localStorage.setItem('fgd_lastTab', name); } catch(e){}
+  // 2. URL hash
+  history.replaceState(null, '', '#' + name);
   if (name==='watchlist' && _carrier) loadWatchlist();
   if (name==='dashboard') loadDashboard();
 }
