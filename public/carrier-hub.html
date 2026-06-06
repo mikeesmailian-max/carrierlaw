@@ -5,42 +5,42 @@
 <title>Carrier Hub — FreightGuard Defense</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4f8;color:#1a2942;min-height:100vh;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f4f8;color:#1a2942;font-size:16px;min-height:100vh;}
 .topbar{background:#1a2942;border-bottom:1px solid #d8e4ee;padding:0 32px;display:flex;align-items:center;justify-content:space-between;height:60px;position:sticky;top:0;z-index:100;}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
 .brand h1{font-size:16px;font-weight:800;color:#fff;} .brand p{font-size:10px;color:#7ab3ff;}
 .nav-links{display:flex;gap:4px;}
-.nav-links a{padding:7px 14px;border-radius:6px;color:#4a6580;font-size:13px;text-decoration:none;font-weight:600;}
+.nav-links a{padding:7px 14px;border-radius:6px;color:#4a6580;font-size:15px;text-decoration:none;font-weight:600;}
 .nav-links a:hover,.nav-links a.active{background:rgba(26,41,66,0.05);color:#fff;}
-.user-bar{display:flex;align-items:center;gap:12px;font-size:13px;}
+.user-bar{display:flex;align-items:center;gap:12px;font-size:15px;}
 .hero{background:linear-gradient(135deg,#1a2942 0%,#1e3a5f 50%,#243050 100%);padding:56px 40px;text-align:center;border-bottom:1px solid rgba(26,41,66,0.05);}
-.hero h2{font-size:34px;font-weight:900;color:#fff;margin-bottom:12px;}
+.hero h2{font-size:34px;font-weight:900;color:#1a2942;margin-bottom:12px;}
 .hero p{font-size:15px;color:#4a6580;max-width:600px;margin:0 auto 24px;}
 .hero-badges{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:28px;}
-.hero-badge{background:rgba(26,41,66,0.05);border:1px solid #c8d8e8;border-radius:8px;padding:8px 16px;font-size:12px;color:#4a6580;}
+.hero-badge{background:rgba(26,41,66,0.05);border:1px solid #c8d8e8;border-radius:8px;padding:8px 16px;font-size:14px;color:rgba(255,255,255,0.75);}
 .container{max-width:1100px;margin:0 auto;padding:32px 24px;}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
 .card{background:#ffffff;border:1px solid #c8d8e8;border-radius:12px;overflow:hidden;margin-bottom:20px;}
 .card-header{padding:16px 20px;border-bottom:1px solid rgba(26,41,66,0.05);display:flex;justify-content:space-between;align-items:center;}
-.card-header h3{font-size:14px;font-weight:700;color:#fff;}
+.card-header h3{font-size:14px;font-weight:700;color:#1a2942;}
 .card-body{padding:20px;}
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:6px;}
-.field input,.field select,.field textarea{width:100%;background:#ffffff;border:1px solid #c8d8e8;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:13px;outline:none;transition:border-color .2s;}
+.field input,.field select,.field textarea{width:100%;background:#ffffff;border:1px solid #c8d8e8;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:15px;outline:none;transition:border-color .2s;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:#4a8fd8;}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.btn{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s;display:inline-flex;align-items:center;gap:6px;}
+.btn{padding:10px 20px;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;border:none;transition:opacity .15s;display:inline-flex;align-items:center;gap:6px;}
 .btn:hover{opacity:.85;} .btn:disabled{opacity:.4;cursor:not-allowed;}
 .btn-red{background:#c0392b;color:#fff;} .btn-navy{background:#1e3a5f;color:#fff;border:1px solid #1a3050;}
 .btn-green{background:#1a7a3c;color:#fff;border:1px solid #156633;}
-.btn-outline{background:transparent;border:1px solid #b8cce0;color:#1a2942;}
-.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;line-height:1.5;}
-.alert-success{background:#d4edda;border:1px solid #28a745;color:#155724;}
-.alert-error{background:#f8d7da;border:1px solid #dc3545;color:#721c24;}
-.alert-info{background:#cce5ff;border:1px solid #004085;color:#004085;}
-.alert-warn{background:#fff3cd;border:1px solid #856404;color:#856404;}
+.btn-outline{background:transparent;border:1px solid #c0d0e0;color:#1a2942;font-size:15px;}
+.alert{padding:12px 16px;border-radius:8px;font-size:15px;margin-bottom:14px;line-height:1.5;}
+.alert-success{background:#edfaf2;border:1px solid #7fd8a8;color:#0e5c30;}
+.alert-error{background:#fdf0ef;border:1px solid #e8a49a;color:#8b1c14;}
+.alert-info{background:#e8f4fe;border:1px solid #5ba7e0;color:#0c4a8c;}
+.alert-warn{background:#fdf8e8;border:1px solid #d4a017;color:#7a5500;}
 .tab-nav{display:flex;gap:0;background:#e4ecf4;border-radius:10px;border:1px solid #c8d8e8;overflow:hidden;margin-bottom:24px;}
-.tab-nav button{flex:1;padding:12px;background:transparent;border:none;color:#4a6580;font-size:13px;font-weight:700;cursor:pointer;border-right:1px solid #c8d8e8;}
+.tab-nav button{flex:1;padding:12px;background:transparent;border:none;color:#4a6580;font-size:15px;font-weight:700;cursor:pointer;border-right:1px solid #c8d8e8;}
 .tab-nav button:last-child{border-right:none;}
 .tab-nav button.active{background:#1e3a5f;color:#fff;}
 .report-card{background:#ffffff;border:1px solid #c8d8e8;border-radius:10px;padding:18px 20px;margin-bottom:14px;transition:border-color .2s;}
@@ -57,15 +57,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .cat-option:hover{border-color:#7ab3ff;background:#0a1020;}
 .cat-option.selected{border-color:#c0392b;background:rgba(192,57,43,0.1);}
 .cat-option input[type=checkbox]{display:none;}
-.cat-label{font-size:12px;font-weight:700;color:#1a2942;margin-bottom:2px;}
+.cat-label{font-size:14px;font-weight:700;color:#1a2942;margin-bottom:2px;}
 .cat-desc{font-size:11px;color:#667788;line-height:1.4;}
-.severity-btn{padding:8px 16px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid #c0d0e0;background:transparent;color:#4a6580;transition:all .15s;}
+.severity-btn{padding:8px 16px;border-radius:6px;font-size:14px;font-weight:700;cursor:pointer;border:1px solid #c0d0e0;background:transparent;color:#4a6580;transition:all .15s;}
 .severity-btn.active-low{background:#0a2a1a;border-color:#2a6a3a;color:#40c070;}
 .severity-btn.active-medium{background:#2a1a0a;border-color:#6a4a1a;color:#f0a830;}
 .severity-btn.active-high{background:#2a0a0a;border-color:#6a2020;color:#e74c3c;}
 .severity-btn.active-critical{background:#3a0000;border-color:#aa0000;color:#ff4444;}
 .search-bar{display:flex;gap:8px;margin-bottom:20px;}
-.search-bar input{flex:1;background:#0d1625;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:13px;outline:none;}
+.search-bar input{flex:1;background:#0d1625;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:15px;outline:none;}
 .login-overlay{display:flex;align-items:center;justify-content:center;min-height:60vh;}
 .login-card{background:#0d1625;border:1px solid #c8d8e8;border-radius:14px;padding:36px;width:100%;max-width:440px;}
 .tabs-content > div{display:none;} .tabs-content > div.active{display:block;}
@@ -86,9 +86,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <a href="#" onclick="showTab('tip')" id="nav-tip">📢 File a Tip</a>
   </div>
   <div class="user-bar">
-    <span id="userDisplay" style="color:#4a6580;font-size:12px;"></span>
-    <button id="authBtn" onclick="toggleAuthPanel()" class="btn btn-navy" style="padding:7px 16px;font-size:12px;">🔐 Sign In / Register</button>
-    <button id="logoutBtn" onclick="doLogout()" class="btn btn-outline" style="display:none;padding:7px 14px;font-size:12px;">Sign Out</button>
+    <span id="userDisplay" style="color:#4a6580;font-size:14px;"></span>
+    <button id="authBtn" onclick="toggleAuthPanel()" class="btn btn-navy" style="padding:7px 16px;font-size:14px;">🔐 Sign In / Register</button>
+    <button id="logoutBtn" onclick="doLogout()" class="btn btn-outline" style="display:none;padding:7px 14px;font-size:14px;">Sign Out</button>
   </div>
 </div>
 
@@ -131,7 +131,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <div style="padding:20px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(26,41,66,0.05);">
           <h4 style="color:#fff;margin-bottom:12px;">Why register?</h4>
-          <ul style="list-style:none;font-size:13px;color:#4a6580;line-height:2.2;">
+          <ul style="list-style:none;font-size:15px;color:#4a6580;line-height:2.2;">
             <li>✅ Get instant email alerts on broker activity</li>
             <li>✅ Add brokers to your personal watchlist</li>
             <li>✅ See full report details & descriptions</li>
@@ -163,8 +163,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         </div>
         <div style="padding:20px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(26,41,66,0.05);">
           <h4 style="color:#fff;margin-bottom:12px;">100% Free. No credit card.</h4>
-          <p style="font-size:13px;color:#4a6580;line-height:1.8;">Your account lets you monitor bad brokers, report incidents, and protect the carrier community. All reports are verified against FMCSA data.</p>
-          <div style="margin-top:16px;padding:12px;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.2);border-radius:8px;font-size:12px;color:#f07060;">
+          <p style="font-size:15px;color:#4a6580;line-height:1.8;">Your account lets you monitor bad brokers, report incidents, and protect the carrier community. All reports are verified against FMCSA data.</p>
+          <div style="margin-top:16px;padding:12px;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.2);border-radius:8px;font-size:14px;color:#f07060;">
             Reports are anonymous by default. Your company name is never shown without permission.
           </div>
         </div>
@@ -186,7 +186,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
       <div class="search-bar">
         <input id="feedSearch" placeholder="🔍 Search broker name, MC, or category..." oninput="filterFeed(this.value)"/>
-        <select id="feedFilter" onchange="loadFeed()" style="background:#0d1625;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:13px;outline:none;">
+        <select id="feedFilter" onchange="loadFeed()" style="background:#0d1625;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:15px;outline:none;">
           <option value="">All Categories</option>
           <option value="trigger_happy">🚨 Trigger-Happy</option>
           <option value="nonpayment">💸 Non-Payment</option>
@@ -199,7 +199,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <option value="rate_reduction">📉 Forced Rate Reduction</option>
           <option value="detention">⏱ Detention Refusal</option>
         </select>
-        <select id="severityFilter" onchange="loadFeed()" style="background:#0d1625;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:13px;outline:none;">
+        <select id="severityFilter" onchange="loadFeed()" style="background:#0d1625;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:15px;outline:none;">
           <option value="">All Severity</option>
           <option value="critical">🔴 Critical</option>
           <option value="high">🟠 High</option>
@@ -221,12 +221,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div id="reportAlert"></div>
           <div class="grid-2">
             <div>
-              <h4 style="color:#fff;font-size:13px;font-weight:700;margin-bottom:14px;">Broker Information</h4>
+              <h4 style="color:#fff;font-size:15px;font-weight:700;margin-bottom:14px;">Broker Information</h4>
               <div class="field">
                 <label>Broker MC Number *</label>
                 <div style="display:flex;gap:8px;">
                   <input id="rpt_brokerMC" placeholder="654321" style="flex:1;" oninput="reportBrokerLookup(this.value)"/>
-                  <button onclick="reportBrokerLookup(document.getElementById('rpt_brokerMC').value,true)" class="btn btn-navy" style="padding:8px 12px;font-size:12px;">🔍 Lookup</button>
+                  <button onclick="reportBrokerLookup(document.getElementById('rpt_brokerMC').value,true)" class="btn btn-navy" style="padding:8px 12px;font-size:14px;">🔍 Lookup</button>
                 </div>
                 <div id="rpt_fmcsaStatus" style="font-size:11px;margin-top:4px;min-height:16px;color:#7ab3ff;"></div>
               </div>
@@ -248,7 +248,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               </div>
             </div>
             <div>
-              <h4 style="color:#fff;font-size:13px;font-weight:700;margin-bottom:14px;">Report Categories * <span style="font-size:11px;color:#4a6580;font-weight:400;">(select all that apply)</span></h4>
+              <h4 style="color:#fff;font-size:15px;font-weight:700;margin-bottom:14px;">Report Categories * <span style="font-size:11px;color:#4a6580;font-weight:400;">(select all that apply)</span></h4>
               <div class="category-grid" id="categoryGrid"></div>
             </div>
           </div>
@@ -259,7 +259,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           </div>
 
           <div style="border-top:1px solid rgba(26,41,66,0.05);padding-top:16px;margin-top:8px;">
-            <h4 style="color:#fff;font-size:13px;font-weight:700;margin-bottom:14px;">Your Information <span style="font-size:11px;color:#4a6580;font-weight:400;">(optional — reports can be anonymous)</span></h4>
+            <h4 style="color:#fff;font-size:15px;font-weight:700;margin-bottom:14px;">Your Information <span style="font-size:11px;color:#4a6580;font-weight:400;">(optional — reports can be anonymous)</span></h4>
             <div class="field-row">
               <div class="field"><label>Your Company Name</label><input id="rpt_reporterName" placeholder="Your Trucking LLC"/></div>
               <div class="field"><label>Your MC Number</label><input id="rpt_reporterMC" placeholder="1234567"/></div>
@@ -282,10 +282,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="card-header"><h3>👁 Add Broker to Watchlist</h3></div>
         <div class="card-body">
           <div style="display:flex;gap:10px;">
-            <input id="wl_mc" placeholder="Broker MC number (e.g. 654321)" style="flex:1;background:#ffffff;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:13px;outline:none;"/>
+            <input id="wl_mc" placeholder="Broker MC number (e.g. 654321)" style="flex:1;background:#ffffff;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:#1a2942;font-size:15px;outline:none;"/>
             <button onclick="addWatchlistMC()" class="btn btn-navy">+ Add to Watchlist</button>
           </div>
-          <p style="font-size:12px;color:#4a6580;margin-top:8px;">You'll get an email alert whenever a new report is filed against this broker.</p>
+          <p style="font-size:14px;color:#4a6580;margin-top:8px;">You'll get an email alert whenever a new report is filed against this broker.</p>
         </div>
       </div>
       <div id="watchlistContainer"><div style="text-align:center;padding:32px;color:#667788;">Sign in to see your watchlist.</div></div>
@@ -309,14 +309,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="card">
         <div class="card-header"><h3>🔍 Is This Broker Safe? — Live Risk Check</h3></div>
         <div class="card-body">
-          <p style="font-size:13px;color:#4a6580;margin-bottom:16px;">Enter any broker MC to get their community risk score, report history, and red flags instantly.</p>
+          <p style="font-size:15px;color:#4a6580;margin-bottom:16px;">Enter any broker MC to get their community risk score, report history, and red flags instantly.</p>
           <div style="display:flex;gap:8px;margin-bottom:20px;">
-            <input id="bc_mc" placeholder="Broker MC number (e.g. 654321)" style="flex:1;background:#ffffff;border:1px solid #c0d0e0;border-radius:8px;padding:11px 14px;color:#1a2942;font-size:13px;outline:none;" oninput="if(this.value.replace(/\D/g,'').length>=5) brokerSafeCheck(this.value)"/>
+            <input id="bc_mc" placeholder="Broker MC number (e.g. 654321)" style="flex:1;background:#ffffff;border:1px solid #c0d0e0;border-radius:8px;padding:11px 14px;color:#1a2942;font-size:15px;outline:none;" oninput="if(this.value.replace(/\D/g,'').length>=5) brokerSafeCheck(this.value)"/>
             <button onclick="brokerSafeCheck(document.getElementById('bc_mc').value)" class="btn btn-red">Check Now</button>
           </div>
           <div id="bc_result"></div>
           <div style="margin-top:24px;padding:14px 16px;background:rgba(255,255,255,0.03);border-radius:8px;border:1px solid rgba(26,41,66,0.05);">
-            <div style="font-size:12px;font-weight:700;color:#7ab3ff;margin-bottom:6px;">📎 Embed on Your Website or Load Board Profile</div>
+            <div style="font-size:14px;font-weight:700;color:#7ab3ff;margin-bottom:6px;">📎 Embed on Your Website or Load Board Profile</div>
             <code id="embedCode" style="display:block;background:#ffffff;border:1px solid #c8d8e8;border-radius:6px;padding:10px;font-size:11px;color:#40c070;word-break:break-all;">&lt;img src="https://freightguarddefense.com/widget/broker/[MC_NUMBER].svg" /&gt;</code>
           </div>
         </div>
@@ -328,7 +328,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="card">
         <div class="card-header"><h3>📋 Rate Confirmation Red Flag Analyzer</h3></div>
         <div class="card-body">
-          <p style="font-size:13px;color:#4a6580;margin-bottom:16px;">Paste your rate con — AI flags dangerous clauses: missing detention, re-brokering permissions, unauthorized deductions, and more.</p>
+          <p style="font-size:15px;color:#4a6580;margin-bottom:16px;">Paste your rate con — AI flags dangerous clauses: missing detention, re-brokering permissions, unauthorized deductions, and more.</p>
           <div id="rc_alert"></div>
           <div class="field"><label>Broker MC (optional)</label><input id="rc_mc" placeholder="654321" style="max-width:200px;"/></div>
           <div class="field"><label>Paste Full Rate Confirmation Text *</label><textarea id="rc_text" rows="9" placeholder="Copy and paste everything from your rate confirmation — carrier name, rates, all terms and fine print..."></textarea></div>
@@ -344,7 +344,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="card">
         <div class="card-header"><h3>📢 Anonymous Tip Line — Report FMCSA Violations</h3></div>
         <div class="card-body">
-          <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.2);border-radius:8px;padding:12px 16px;margin-bottom:18px;"><div style="font-weight:700;color:#e74c3c;margin-bottom:3px;">🛡️ 100% Anonymous</div><div style="font-size:13px;color:#4a6580;">Your identity is never revealed. Report brokers with no authority, bond fraud, or any FMCSA violation.</div></div>
+          <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.2);border-radius:8px;padding:12px 16px;margin-bottom:18px;"><div style="font-weight:700;color:#e74c3c;margin-bottom:3px;">🛡️ 100% Anonymous</div><div style="font-size:15px;color:#4a6580;">Your identity is never revealed. Report brokers with no authority, bond fraud, or any FMCSA violation.</div></div>
           <div id="tip_alert"></div>
           <div class="field-row">
             <div class="field"><label>Broker MC *</label><input id="tip_mc" placeholder="654321" oninput="tipFmcsaLookup(this.value)"/><div id="tip_mc_status" style="font-size:11px;margin-top:4px;color:#7ab3ff;min-height:14px;"></div></div>
@@ -354,8 +354,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           <div class="field"><label>Evidence (links, document names, load numbers)</label><textarea id="tip_evidence" rows="2" placeholder="BOL #, email chain, payment record, load board screenshots..."></textarea></div>
           <div class="field"><label>Your Email (optional — for attorney follow-up)</label><input id="tip_email" type="email" placeholder="Leave blank to stay fully anonymous"/></div>
           <div style="border:1px solid rgba(240,168,48,0.3);border-radius:8px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
-            <div><div style="font-weight:700;color:#f0a830;font-size:14px;">⚖️ FMCSA Complaint Filing — $49</div><div style="font-size:12px;color:#4a6580;">Attorney reviews & files official FMCSA complaint within 48 hours</div></div>
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="tip_filing" style="width:16px;height:16px;accent-color:#f0a830;"/> <span style="font-size:13px;color:#f0a830;font-weight:700;">Add FMCSA Filing (+$49)</span></label>
+            <div><div style="font-weight:700;color:#f0a830;font-size:14px;">⚖️ FMCSA Complaint Filing — $49</div><div style="font-size:14px;color:#4a6580;">Attorney reviews & files official FMCSA complaint within 48 hours</div></div>
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="tip_filing" style="width:16px;height:16px;accent-color:#f0a830;"/> <span style="font-size:15px;color:#f0a830;font-weight:700;">Add FMCSA Filing (+$49)</span></label>
           </div>
           <button class="btn btn-red" id="tip_btn" onclick="submitTip()" style="width:100%;justify-content:center;padding:13px;font-size:15px;">📢 Submit Anonymous Tip</button>
         </div>
@@ -568,8 +568,8 @@ function renderFeed(reports) {
       <div class="report-card">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
           <div>
-            <div style="font-size:15px;font-weight:800;color:#fff;">${esc(r.brokerName||'Unknown Broker')}</div>
-            <div style="font-size:12px;color:#667788;">MC-${r.brokerMC} · ${ago}${r.loadNumber ? ' · Load #'+esc(r.loadNumber) : ''}${r.amountOwed ? ' · <span style="color:#f07060;font-weight:700;">$'+Number(r.amountOwed).toLocaleString()+' owed</span>' : ''}</div>
+            <div style="font-size:15px;font-weight:800;color:#1a2942;">${esc(r.brokerName||'Unknown Broker')}</div>
+            <div style="font-size:14px;color:#667788;">MC-${r.brokerMC} · ${ago}${r.loadNumber ? ' · Load #'+esc(r.loadNumber) : ''}${r.amountOwed ? ' · <span style="color:#f07060;font-weight:700;">$'+Number(r.amountOwed).toLocaleString()+' owed</span>' : ''}</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
             <span style="background:${severityColor}22;border:1px solid ${severityColor}44;color:${severityColor};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;">${r.severity||'medium'}</span>
@@ -578,7 +578,7 @@ function renderFeed(reports) {
           </div>
         </div>
         <div style="margin-bottom:10px;">${catBadges}</div>
-        <div style="font-size:13px;color:#4a6580;line-height:1.6;">${esc(r.description).substring(0,300)}${r.description.length>300?'<span style="color:#667788;">... <a href="#" onclick="expandReport(this,\''+esc(r.description)+'\');return false;" style="color:#7ab3ff;">read more</a></span>':''}</div>
+        <div style="font-size:15px;color:#4a6580;line-height:1.6;">${esc(r.description).substring(0,300)}${r.description.length>300?'<span style="color:#667788;">... <a href="#" onclick="expandReport(this,\''+esc(r.description)+'\');return false;" style="color:#7ab3ff;">read more</a></span>':''}</div>
         ${r.reporterName && r.reporterName !== 'Anonymous Carrier' ? `<div style="margin-top:8px;font-size:11px;color:#667788;">Filed by ${esc(r.reporterName)}${r.reporterMC?' (MC-'+r.reporterMC+')':''}</div>` : ''}
       </div>`;
   }).join('');
@@ -681,12 +681,12 @@ async function loadWatchlist() {
       <div class="report-card" style="display:flex;justify-content:space-between;align-items:center;">
         <div>
           <div style="font-weight:700;color:#fff;">${b.brokerName||'MC-'+b.brokerMC}</div>
-          <div style="font-size:12px;color:#667788;">MC-${b.brokerMC} · Last checked: ${b.lastChecked ? new Date(b.lastChecked).toLocaleDateString() : 'Pending'}</div>
-          <div style="font-size:12px;margin-top:3px;"><span style="color:${b.lastStatus?.toLowerCase().includes('active')?'#40c070':'#f07060'}">${b.lastStatus||'Status pending'}</span></div>
+          <div style="font-size:14px;color:#667788;">MC-${b.brokerMC} · Last checked: ${b.lastChecked ? new Date(b.lastChecked).toLocaleDateString() : 'Pending'}</div>
+          <div style="font-size:14px;margin-top:3px;"><span style="color:${b.lastStatus?.toLowerCase().includes('active')?'#40c070':'#f07060'}">${b.lastStatus||'Status pending'}</span></div>
         </div>
         <div style="display:flex;gap:8px;">
-          <button onclick="viewBrokerReports('${b.brokerMC}','${esc(b.brokerName||'')}',this)" class="btn btn-navy" style="padding:6px 12px;font-size:12px;">View Reports</button>
-          <button onclick="removeWatchlist('${b.brokerMC}',this)" class="btn btn-outline" style="padding:6px 12px;font-size:12px;color:#f07060;">Remove</button>
+          <button onclick="viewBrokerReports('${b.brokerMC}','${esc(b.brokerName||'')}',this)" class="btn btn-navy" style="padding:6px 12px;font-size:14px;">View Reports</button>
+          <button onclick="removeWatchlist('${b.brokerMC}',this)" class="btn btn-outline" style="padding:6px 12px;font-size:14px;color:#f07060;">Remove</button>
         </div>
       </div>`).join('');
   } catch(e) { document.getElementById('watchlistContainer').innerHTML = '<div style="padding:16px;color:#f07060;">'+e.message+'</div>'; }
@@ -734,7 +734,7 @@ async function loadDashboard() {
       <div class="stat"><div class="val">${mine.reduce((s,r)=>s+(r.upvotes||0),0)}</div><div class="lbl">Upvotes Received</div></div>
       <div class="stat"><div class="val" style="color:#e74c3c;">$${mine.reduce((s,r)=>s+(Number(r.amountOwed)||0),0).toLocaleString()}</div><div class="lbl">Total Reported Owed</div></div>`;
     document.getElementById('myReports').innerHTML = mine.length
-      ? mine.map(r=>`<div style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:13px;display:flex;justify-content:space-between;">
+      ? mine.map(r=>`<div style="padding:12px 20px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:15px;display:flex;justify-content:space-between;">
           <div><strong>${r.brokerName||'MC-'+r.brokerMC}</strong> — ${(r.categories||[]).slice(0,2).map(c=>CATEGORIES.find(x=>x.id===c)?.label||c).join(', ')}</div>
           <div style="color:#667788;">${new Date(r.createdAt).toLocaleDateString()} · 👍 ${r.upvotes||0}</div></div>`).join('')
       : '<div style="padding:20px;text-align:center;color:#667788;">No reports filed yet.</div>';
@@ -758,7 +758,7 @@ function showAlert(id, type, msg) {
   const colors={success:'#0a2a1a',error:'#2a0a0a',info:'#0a1a3a',warn:'#2a1a0a'};
   const borders={success:'#2a6a3a',error:'#6a2a2a',info:'#2a4a7a',warn:'#6a4a1a'};
   const texts={success:'#40c070',error:'#f07060',info:'#7ab3ff',warn:'#f0a830'};
-  el.innerHTML=`<div style="padding:12px 16px;background:${colors[type]};border:1px solid ${borders[type]};border-radius:8px;color:${texts[type]};font-size:13px;margin-bottom:14px;">${msg}</div>`;
+  el.innerHTML=`<div style="padding:12px 16px;background:${colors[type]};border:1px solid ${borders[type]};border-radius:8px;color:${texts[type]};font-size:15px;margin-bottom:14px;">${msg}</div>`;
   setTimeout(()=>{el.innerHTML=''},10000);
 }
 
@@ -835,20 +835,20 @@ async function brokerSafeCheck(mc) {
     el.innerHTML = `
       <div style="background:${d.color}11;border:2px solid ${d.color}44;border-radius:10px;padding:24px;">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
-          <div><div style="font-size:28px;font-weight:900;color:${d.color};">${d.emoji} ${d.label}</div><div style="font-size:13px;color:#4a6580;margin-top:2px;">MC-${clean}</div></div>
+          <div><div style="font-size:28px;font-weight:900;color:${d.color};">${d.emoji} ${d.label}</div><div style="font-size:15px;color:#4a6580;margin-top:2px;">MC-${clean}</div></div>
           <div style="text-align:right;"><div style="font-size:42px;font-weight:900;color:${d.color};">${d.riskScore}</div><div style="font-size:11px;color:#4a6580;">Risk Score / 100</div></div>
         </div>
         <div style="background:#d8e4ee;border-radius:6px;height:8px;margin-bottom:20px;"><div style="background:${d.color};width:${barWidth}%;height:100%;border-radius:6px;transition:width .5s;"></div></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;">
-          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#fff;">${d.reports||0}</div><div style="font-size:11px;color:#4a6580;">Carrier Reports</div></div>
-          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#fff;">${d.demandLetters||0}</div><div style="font-size:11px;color:#4a6580;">Demand Letters</div></div>
+          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#1a2942;">${d.reports||0}</div><div style="font-size:11px;color:#4a6580;">Carrier Reports</div></div>
+          <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#1a2942;">${d.demandLetters||0}</div><div style="font-size:11px;color:#4a6580;">Demand Letters</div></div>
           <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#ff6b6b;">${d.trigger||0}</div><div style="font-size:11px;color:#4a6580;">Trigger-Happy</div></div>
           <div style="text-align:center;background:rgba(255,255,255,0.04);border-radius:8px;padding:12px;"><div style="font-size:22px;font-weight:800;color:#f0a830;">$${((d.totalOwed||0)/1000).toFixed(0)}k</div><div style="font-size:11px;color:#4a6580;">Reported Owed</div></div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <a href="/carrier-hub.html#" onclick="document.getElementById('feedFilter').value='';loadFeed();showTab('feed');document.getElementById('feedSearch').value='${clean}';filterFeed('${clean}');return false;" class="btn btn-navy" style="font-size:12px;padding:7px 14px;">📋 View All Reports</a>
-          <button onclick="document.getElementById('wl_mc').value='${clean}';addWatchlistMC();" class="btn btn-green" style="font-size:12px;padding:7px 14px;">👁 Add to Watchlist</button>
-          <button onclick="navigator.clipboard.writeText('${clean}');showToast('MC copied!','success')" class="btn btn-outline" style="font-size:12px;padding:7px 14px;">📋 Copy MC</button>
+          <a href="/carrier-hub.html#" onclick="document.getElementById('feedFilter').value='';loadFeed();showTab('feed');document.getElementById('feedSearch').value='${clean}';filterFeed('${clean}');return false;" class="btn btn-navy" style="font-size:14px;padding:7px 14px;">📋 View All Reports</a>
+          <button onclick="document.getElementById('wl_mc').value='${clean}';addWatchlistMC();" class="btn btn-green" style="font-size:14px;padding:7px 14px;">👁 Add to Watchlist</button>
+          <button onclick="navigator.clipboard.writeText('${clean}');showToast('MC copied!','success')" class="btn btn-outline" style="font-size:14px;padding:7px 14px;">📋 Copy MC</button>
         </div>
       </div>`;
     // Update embed code
@@ -874,18 +874,18 @@ async function analyzeRateCon() {
     document.getElementById('rc_result').innerHTML = `
       <div style="border:1px solid #d8e4ee;border-radius:10px;overflow:hidden;">
         <div style="background:${scoreColor}18;border-bottom:1px solid rgba(26,41,66,0.05);padding:18px 20px;display:flex;justify-content:space-between;align-items:center;">
-          <div><div style="font-size:16px;font-weight:800;color:#fff;">Rate Con Risk Score</div><div style="font-size:13px;color:#4a6580;margin-top:3px;">${d.summary||''}</div></div>
+          <div><div style="font-size:16px;font-weight:800;color:#1a2942;">Rate Con Risk Score</div><div style="font-size:15px;color:#4a6580;margin-top:3px;">${d.summary||''}</div></div>
           <div style="font-size:48px;font-weight:900;color:${scoreColor};">${d.riskScore||0}<span style="font-size:16px;color:#4a6580;">/10</span></div>
         </div>
-        ${(d.missingClauses||[]).length ? `<div style="padding:14px 20px;background:rgba(240,168,48,0.08);border-bottom:1px solid rgba(26,41,66,0.05);"><div style="font-size:12px;font-weight:700;color:#f0a830;margin-bottom:8px;">⚠️ MISSING CLAUSES</div>${d.missingClauses.map(c=>`<div style="font-size:12px;color:#4a6580;padding:3px 0;">• ${esc(c)}</div>`).join('')}</div>` : ''}
+        ${(d.missingClauses||[]).length ? `<div style="padding:14px 20px;background:rgba(240,168,48,0.08);border-bottom:1px solid rgba(26,41,66,0.05);"><div style="font-size:14px;font-weight:700;color:#f0a830;margin-bottom:8px;">⚠️ MISSING CLAUSES</div>${d.missingClauses.map(c=>`<div style="font-size:14px;color:#4a6580;padding:3px 0;">• ${esc(c)}</div>`).join('')}</div>` : ''}
         <div style="padding:16px 20px;">
           ${flags.map(f=>`<div style="margin-bottom:12px;padding:12px 14px;background:rgba(255,255,255,0.03);border-left:3px solid ${sevColor[f.severity]||'#888'};border-radius:0 6px 6px 0;">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:12px;font-weight:700;color:${sevColor[f.severity]};">${f.severity?.toUpperCase()||''} — ${esc(f.category||'')}</span></div>
-            <div style="font-size:13px;color:#1a2942;margin-bottom:6px;">${esc(f.issue||'')}</div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="font-size:14px;font-weight:700;color:${sevColor[f.severity]};">${f.severity?.toUpperCase()||''} — ${esc(f.category||'')}</span></div>
+            <div style="font-size:15px;color:#1a2942;margin-bottom:6px;">${esc(f.issue||'')}</div>
             ${f.quote?`<div style="font-size:11px;color:#667788;font-style:italic;margin-bottom:6px;">"${esc(f.quote.substring(0,120))}"</div>`:''}
-            <div style="font-size:12px;color:#7ab3ff;">💡 ${esc(f.recommendation||'')}</div>
+            <div style="font-size:14px;color:#7ab3ff;">💡 ${esc(f.recommendation||'')}</div>
           </div>`).join('')}
-          ${d.brokerRep ? `<div style="margin-top:12px;padding:12px;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.2);border-radius:8px;font-size:12px;color:#f07060;"><strong>⚠️ Broker Alert:</strong> This broker has ${d.brokerRep.reports} community report${d.brokerRep.reports!==1?'s':''} — top issues: ${d.brokerRep.topIssues.join(', ')}</div>` : ''}
+          ${d.brokerRep ? `<div style="margin-top:12px;padding:12px;background:rgba(192,57,43,0.1);border:1px solid rgba(192,57,43,0.2);border-radius:8px;font-size:14px;color:#f07060;"><strong>⚠️ Broker Alert:</strong> This broker has ${d.brokerRep.reports} community report${d.brokerRep.reports!==1?'s':''} — top issues: ${d.brokerRep.topIssues.join(', ')}</div>` : ''}
         </div>
       </div>`;
   } catch(e) { showAlert('rc_alert','error','❌ ' + e.message); }
@@ -943,7 +943,7 @@ async function submitTip() {
 function showToast(msg, type) {
   const t = document.createElement('div');
   const colors = {success:'#27ae60',error:'#e74c3c',warn:'#f0a830',info:'#7ab3ff'};
-  t.style.cssText = `position:fixed;bottom:24px;right:24px;background:${colors[type]||'#333'};color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;background:${colors[type]||'#333'};color:#fff;padding:12px 20px;border-radius:8px;font-size:15px;font-weight:700;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);`;
   t.textContent = msg; document.body.appendChild(t);
   setTimeout(()=>t.remove(), 3500);
 }
