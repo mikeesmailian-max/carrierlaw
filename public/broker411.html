@@ -6,7 +6,7 @@
 <meta name="description" content="Look up any freight broker by MC or DOT number. See carrier reports, violations, non-payment history, and demand letters filed. The carrier-side answer to Carrier411.">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-:root{--red:#c0392b;--red2:#e74c3c;--navy:#080d1a;--card:#0d1625;--border:rgba(255,255,255,0.08);--text:#d0dbe8;--muted:#8899aa;--gold:#f0a830;--green:#27ae60;}
+:root{--red:#c0392b;--red2:#e74c3c;--navy:#f0f4f8;--card:#ffffff;--border:#c8d8e8;--text:#1a2942;--muted:#4a6580;--gold:#b8860b;--green:#1a7a3c;}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--navy);color:var(--text);min-height:100vh;}
 
 /* TOPBAR */
@@ -15,7 +15,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .brand-icon{font-size:24px;} .brand h1{font-size:16px;font-weight:900;color:#fff;} .brand p{font-size:10px;color:#7ab3ff;}
 .topbar-links{display:flex;gap:4px;}
 .topbar-links a{padding:7px 14px;border-radius:6px;color:var(--muted);font-size:13px;text-decoration:none;font-weight:600;transition:all .15s;}
-.topbar-links a:hover,.topbar-links a.active{background:rgba(255,255,255,0.06);color:#fff;}
+.topbar-links a:hover,.topbar-links a.active{background:rgba(26,41,66,0.05);color:#fff;}
 
 /* HERO SEARCH */
 .hero{background:linear-gradient(160deg,#050810 0%,#0d0505 40%,#0a1020 100%);padding:64px 24px 48px;text-align:center;border-bottom:1px solid rgba(192,57,43,0.2);}
@@ -26,7 +26,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* SEARCH BOX */
 .search-box{max-width:680px;margin:0 auto;position:relative;}
-.search-inner{display:flex;gap:0;background:#0d1625;border:2px solid rgba(192,57,43,0.4);border-radius:12px;overflow:hidden;transition:border-color .2s;box-shadow:0 8px 40px rgba(192,57,43,0.15);}
+.search-inner{display:flex;gap:0;background:#ffffff;border:2px solid rgba(192,57,43,0.4);border-radius:12px;overflow:hidden;transition:border-color .2s;box-shadow:0 8px 40px rgba(192,57,43,0.15);}
 .search-inner:focus-within{border-color:#c0392b;box-shadow:0 8px 40px rgba(192,57,43,0.3);}
 .search-type{background:rgba(192,57,43,0.12);border:none;border-right:1px solid rgba(192,57,43,0.2);color:#f07060;font-size:13px;font-weight:700;padding:0 16px;cursor:pointer;white-space:nowrap;outline:none;}
 .search-input{flex:1;background:transparent;border:none;color:#fff;font-size:16px;padding:16px 18px;outline:none;}
@@ -65,7 +65,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .cat-pill.trigger{background:rgba(255,0,0,0.1);border-color:rgba(255,80,80,0.3);color:#ff6b6b;}
 .cat-pill.nonpay{background:rgba(240,168,48,0.1);border-color:rgba(240,168,48,0.3);color:#f0a830;}
 .cat-pill.fraud{background:rgba(192,57,43,0.15);border-color:rgba(192,57,43,0.3);color:#e74c3c;}
-.cat-pill.other{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.12);color:#aab8cc;}
+.cat-pill.other{background:rgba(255,255,255,0.05);border-color:#c0d0e0;color:#4a6580;}
 
 /* REPORT CARDS */
 .report-item{border-bottom:1px solid rgba(255,255,255,0.05);padding:16px 20px;}
@@ -73,13 +73,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .sev-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0;margin-top:5px;}
 
 /* TABS */
-.tab-bar{display:flex;gap:0;background:#06090f;border-bottom:1px solid var(--border);}
+.tab-bar{display:flex;gap:0;background:#ffffff;border-bottom:1px solid var(--border);}
 .tab-btn{padding:12px 20px;background:transparent;border:none;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
 .tab-btn.active{color:#fff;border-bottom-color:var(--red2);}
 
 /* REPORT FORM */
 .cat-select-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
-.cat-opt{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:#06090f;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;}
+.cat-opt{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:#ffffff;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;}
 .cat-opt:hover{border-color:#7ab3ff;}
 .cat-opt.sel{border-color:var(--red);background:rgba(192,57,43,0.08);}
 .cat-opt-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
@@ -89,7 +89,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* INPUTS */
 .field{margin-bottom:14px;}
 .field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:6px;}
-.field input,.field select,.field textarea{width:100%;background:#06090f;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s;}
+.field input,.field select,.field textarea{width:100%;background:#ffffff;border:1px solid #c0d0e0;border-radius:8px;padding:10px 14px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s;}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:#4a8fd8;}
 .field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 
@@ -98,11 +98,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .btn:hover{opacity:.85;} .btn:disabled{opacity:.4;cursor:not-allowed;}
 .btn-red{background:var(--red);color:#fff;} .btn-gold{background:var(--gold);color:#000;}
 .btn-navy{background:#1a2f4a;color:#7ab3ff;border:1px solid #2a5a8a;} .btn-green{background:#0a2a1a;color:#40c070;border:1px solid #1a5a2a;}
-.btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--text);}
+.btn-outline{background:transparent;border:1px solid #b8cce0;color:var(--text);}
 
 /* SEVERITY */
 .sev-bar{display:flex;gap:6px;margin-top:6px;}
-.sev-opt{flex:1;padding:8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:transparent;color:var(--muted);text-align:center;transition:all .15s;}
+.sev-opt{flex:1;padding:8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid #c8d8e8;background:transparent;color:var(--muted);text-align:center;transition:all .15s;}
 .sev-opt.s-low.active{background:#0a2a1a;border-color:#1a5a2a;color:#40c070;}
 .sev-opt.s-medium.active{background:#2a1a0a;border-color:#6a4a1a;color:#f0a830;}
 .sev-opt.s-high.active{background:#2a0a0a;border-color:#6a1a1a;color:#f07060;}
@@ -117,10 +117,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* ALERT */
 .alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;}
-.alert-success{background:#0a2a1a;border:1px solid #2a6a3a;color:#40c070;}
-.alert-error{background:#2a0a0a;border:1px solid #6a2a2a;color:#f07060;}
-.alert-warn{background:#2a1a0a;border:1px solid #6a4a1a;color:#f0a830;}
-.alert-info{background:#0a1a3a;border:1px solid #2a4a7a;color:#7ab3ff;}
+.alert-success{background:#d4edda;border:1px solid #28a745;color:#155724;}
+.alert-error{background:#f8d7da;border:1px solid #dc3545;color:#721c24;}
+.alert-warn{background:#fff3cd;border:1px solid #856404;color:#856404;}
+.alert-info{background:#cce5ff;border:1px solid #004085;color:#004085;}
 
 /* PLACEHOLDER */
 .placeholder{text-align:center;padding:60px 24px;color:var(--muted);}
@@ -161,7 +161,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <input class="search-input" id="searchInput" placeholder="Enter broker MC number..." oninput="handleSearchInput(this.value)" onkeydown="if(event.key==='Enter')doSearch()"/>
       <button class="search-btn" onclick="doSearch()">🔍 Search Broker</button>
     </div>
-    <div id="searchSuggestions" style="position:absolute;width:100%;background:#0d1625;border:1px solid var(--border);border-radius:0 0 10px 10px;z-index:100;display:none;"></div>
+    <div id="searchSuggestions" style="position:absolute;width:100%;background:#ffffff;border:1px solid var(--border);border-radius:0 0 10px 10px;z-index:100;display:none;"></div>
     <div class="search-examples">Try: <span onclick="quickSearch('654321','mc')">MC-654321</span> <span onclick="quickSearch('1166119','dot')">DOT-1166119</span> <span onclick="quickSearch('Landstar','name')">Landstar</span></div>
   </div>
 </div>
@@ -357,7 +357,7 @@ function renderProfile(mc, d) {
           <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
             <div class="risk-ring">
               <svg width="90" height="90" viewBox="0 0 90 90">
-                <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(26,41,66,0.05)" stroke-width="8"/>
                 <circle cx="45" cy="45" r="36" fill="none" stroke="${riskColor}" stroke-width="8" stroke-dasharray="${circle}" stroke-dashoffset="${dashOff}" stroke-linecap="round"/>
               </svg>
               <div class="val" style="color:${riskColor};">${riskScore}<div class="lbl-s">${riskLabel}</div></div>
@@ -430,7 +430,7 @@ function renderProfile(mc, d) {
       <div id="ptab-file" style="display:none;">
         <div class="card-body">
           <div id="ptab_alert"></div>
-          <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.15);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#aab8cc;">
+          <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.15);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#4a6580;">
             Filing a report against <strong style="color:#fff;">${esc(f.legalName||'MC-'+mc)}</strong> (MC-${mc}). All FreightGuard Defense subscribers watching this broker will be <strong style="color:#f0a830;">instantly notified</strong> with full broker details.
           </div>
           ${buildInlineReportForm(mc, f.legalName||'')}
@@ -480,7 +480,7 @@ async function loadRecentFeed() {
           <div style="font-size:11px;color:${sevCol};font-weight:700;text-transform:uppercase;">${r.severity||'medium'}</div>
         </div>
         <div style="margin-bottom:6px;">${cats}</div>
-        <div style="font-size:12px;color:#aab8cc;line-height:1.6;">${esc(r.description).substring(0,180)}${r.description.length>180?'…':''}</div>
+        <div style="font-size:12px;color:#4a6580;line-height:1.6;">${esc(r.description).substring(0,180)}${r.description.length>180?'…':''}</div>
         <div style="font-size:11px;color:var(--muted);margin-top:6px;">${timeAgo(r.createdAt)}${r.amountOwed?` · <span style="color:#f07060;font-weight:700;">$${Number(r.amountOwed).toLocaleString()} owed</span>`:''}</div>
       </div>`;
     }).join('');
@@ -546,7 +546,7 @@ function buildInlineReportForm(preFillMC, preFillName) {
     </div>
     <div class="field"><label>Amount Owed (if any)</label><input id="rf_amount" type="number" min="0" placeholder="4500"/></div>
     <div class="field"><label>Full Description * <span style="font-size:10px;color:var(--muted);font-weight:400;">(be specific — dates, amounts, what happened)</span></label><textarea id="rf_desc" rows="6" placeholder="Describe exactly what this broker did. Include dates, load numbers, amounts, any communications. The more detail, the more effective the alert sent to watching carriers..."></textarea></div>
-    <hr style="border-color:rgba(255,255,255,0.06);margin:16px 0;">
+    <hr style="border-color:rgba(26,41,66,0.05);margin:16px 0;">
     <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Your Information <span style="font-weight:400;">(optional — reports can be anonymous)</span></div>
     <div class="field-row">
       <div class="field"><label>Your Company</label><input id="rf_rcomp" placeholder="Your Trucking LLC"/></div>
@@ -559,7 +559,7 @@ function buildInlineReportForm(preFillMC, preFillName) {
     <div class="field"><label>Your Email <span style="font-weight:400;">(for confirmation + watchlist alerts)</span></label><input id="rf_remail" type="email" placeholder="owner@yourcompany.com"/></div>
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
       <input type="checkbox" id="rf_also_letter" style="width:16px;height:16px;accent-color:#c0392b;" checked/>
-      <label for="rf_also_letter" style="font-size:13px;color:#d0dbe8;cursor:pointer;">Also generate a <strong style="color:#f0a830;">demand letter</strong> ($299) — legal action + community report simultaneously</label>
+      <label for="rf_also_letter" style="font-size:13px;color:#1a2942;cursor:pointer;">Also generate a <strong style="color:#f0a830;">demand letter</strong> ($299) — legal action + community report simultaneously</label>
     </div>
     <button class="btn btn-red" id="rf_submit_btn" onclick="submitFullReport()" style="width:100%;justify-content:center;padding:14px;font-size:15px;">🚨 Submit Report — Alert All Subscribers</button>
     <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">Every registered carrier watching this broker receives an instant email with full broker details.</p>`;
