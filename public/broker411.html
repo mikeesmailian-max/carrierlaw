@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Broker411 — Carrier Protection Network | FreightGuard Defense</title>
+<meta name="description" content="Look up any freight broker by MC or DOT number. See carrier reports, violations, non-payment history, and demand letters filed. The carrier-side answer to Carrier411.">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--red:#c0392b;--red2:#e74c3c;--navy:#080d1a;--card:#0d1625;--border:rgba(255,255,255,0.08);--text:#d0dbe8;--muted:#8899aa;--gold:#f0a830;--green:#27ae60;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--navy);color:var(--text);min-height:100vh;}
+
+/* TOPBAR */
+.topbar{background:#0a0f1e;border-bottom:1px solid var(--border);padding:0 32px;height:58px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;backdrop-filter:blur(10px);}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.brand-icon{font-size:24px;} .brand h1{font-size:16px;font-weight:900;color:#fff;} .brand p{font-size:10px;color:#7ab3ff;}
+.topbar-links{display:flex;gap:4px;}
+.topbar-links a{padding:7px 14px;border-radius:6px;color:var(--muted);font-size:13px;text-decoration:none;font-weight:600;transition:all .15s;}
+.topbar-links a:hover,.topbar-links a.active{background:rgba(255,255,255,0.06);color:#fff;}
+
+/* HERO SEARCH */
+.hero{background:linear-gradient(160deg,#050810 0%,#0d0505 40%,#0a1020 100%);padding:64px 24px 48px;text-align:center;border-bottom:1px solid rgba(192,57,43,0.2);}
+.hero-badge{display:inline-block;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.3);color:#f07060;font-size:11px;font-weight:700;padding:5px 14px;border-radius:20px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:20px;}
+.hero h2{font-size:42px;font-weight:900;color:#fff;margin-bottom:14px;line-height:1.15;}
+.hero h2 span{color:var(--red2);}
+.hero p{font-size:16px;color:var(--muted);max-width:580px;margin:0 auto 32px;line-height:1.7;}
+
+/* SEARCH BOX */
+.search-box{max-width:680px;margin:0 auto;position:relative;}
+.search-inner{display:flex;gap:0;background:#0d1625;border:2px solid rgba(192,57,43,0.4);border-radius:12px;overflow:hidden;transition:border-color .2s;box-shadow:0 8px 40px rgba(192,57,43,0.15);}
+.search-inner:focus-within{border-color:#c0392b;box-shadow:0 8px 40px rgba(192,57,43,0.3);}
+.search-type{background:rgba(192,57,43,0.12);border:none;border-right:1px solid rgba(192,57,43,0.2);color:#f07060;font-size:13px;font-weight:700;padding:0 16px;cursor:pointer;white-space:nowrap;outline:none;}
+.search-input{flex:1;background:transparent;border:none;color:#fff;font-size:16px;padding:16px 18px;outline:none;}
+.search-input::placeholder{color:var(--muted);}
+.search-btn{background:var(--red);color:#fff;border:none;font-size:14px;font-weight:800;padding:0 28px;cursor:pointer;transition:background .15s;white-space:nowrap;}
+.search-btn:hover{background:#a93226;}
+.search-examples{margin-top:12px;font-size:12px;color:var(--muted);}
+.search-examples span{color:#7ab3ff;cursor:pointer;margin:0 6px;} .search-examples span:hover{text-decoration:underline;}
+
+/* STATS BAR */
+.stats-bar{background:#0a0f1e;border-bottom:1px solid var(--border);padding:14px 32px;display:flex;gap:32px;justify-content:center;flex-wrap:wrap;}
+.stat-item{text-align:center;} .stat-item .val{font-size:20px;font-weight:900;color:#fff;} .stat-item .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+
+/* MAIN LAYOUT */
+.main{max-width:1160px;margin:0 auto;padding:32px 24px;}
+.grid-3{display:grid;grid-template-columns:340px 1fr;gap:24px;}
+
+/* CARDS */
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-bottom:20px;}
+.card-title{padding:14px 20px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:#fff;display:flex;justify-content:space-between;align-items:center;}
+.card-body{padding:20px;}
+
+/* BROKER PROFILE */
+.profile-banner{background:linear-gradient(135deg,rgba(192,57,43,0.12),rgba(8,13,26,0.9));border-bottom:1px solid rgba(192,57,43,0.2);padding:28px;}
+.profile-name{font-size:24px;font-weight:900;color:#fff;margin-bottom:4px;}
+.profile-mc{font-size:13px;color:#7ab3ff;font-weight:700;margin-bottom:12px;}
+.profile-detail{font-size:12px;color:var(--muted);line-height:2;}
+.risk-ring{width:90px;height:90px;position:relative;flex-shrink:0;}
+.risk-ring svg{transform:rotate(-90deg);}
+.risk-ring .val{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:22px;font-weight:900;}
+.risk-ring .lbl-s{font-size:8px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
+
+/* CATEGORIES */
+.cat-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.cat-pill{padding:4px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid;}
+.cat-pill.trigger{background:rgba(255,0,0,0.1);border-color:rgba(255,80,80,0.3);color:#ff6b6b;}
+.cat-pill.nonpay{background:rgba(240,168,48,0.1);border-color:rgba(240,168,48,0.3);color:#f0a830;}
+.cat-pill.fraud{background:rgba(192,57,43,0.15);border-color:rgba(192,57,43,0.3);color:#e74c3c;}
+.cat-pill.other{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.12);color:#aab8cc;}
+
+/* REPORT CARDS */
+.report-item{border-bottom:1px solid rgba(255,255,255,0.05);padding:16px 20px;}
+.report-item:last-child{border-bottom:none;}
+.sev-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;flex-shrink:0;margin-top:5px;}
+
+/* TABS */
+.tab-bar{display:flex;gap:0;background:#06090f;border-bottom:1px solid var(--border);}
+.tab-btn{padding:12px 20px;background:transparent;border:none;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.tab-btn.active{color:#fff;border-bottom-color:var(--red2);}
+
+/* REPORT FORM */
+.cat-select-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.cat-opt{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:#06090f;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;}
+.cat-opt:hover{border-color:#7ab3ff;}
+.cat-opt.sel{border-color:var(--red);background:rgba(192,57,43,0.08);}
+.cat-opt-icon{font-size:16px;flex-shrink:0;margin-top:1px;}
+.cat-opt-label{font-size:12px;font-weight:700;color:var(--text);}
+.cat-opt-desc{font-size:10px;color:var(--muted);margin-top:1px;line-height:1.4;}
+
+/* INPUTS */
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:6px;}
+.field input,.field select,.field textarea{width:100%;background:#06090f;border:1px solid rgba(255,255,255,0.12);border-radius:8px;padding:10px 14px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#4a8fd8;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+
+/* BUTTONS */
+.btn{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;display:inline-flex;align-items:center;gap:6px;transition:opacity .15s;}
+.btn:hover{opacity:.85;} .btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn-red{background:var(--red);color:#fff;} .btn-gold{background:var(--gold);color:#000;}
+.btn-navy{background:#1a2f4a;color:#7ab3ff;border:1px solid #2a5a8a;} .btn-green{background:#0a2a1a;color:#40c070;border:1px solid #1a5a2a;}
+.btn-outline{background:transparent;border:1px solid rgba(255,255,255,0.15);color:var(--text);}
+
+/* SEVERITY */
+.sev-bar{display:flex;gap:6px;margin-top:6px;}
+.sev-opt{flex:1;padding:8px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid rgba(255,255,255,0.1);background:transparent;color:var(--muted);text-align:center;transition:all .15s;}
+.sev-opt.s-low.active{background:#0a2a1a;border-color:#1a5a2a;color:#40c070;}
+.sev-opt.s-medium.active{background:#2a1a0a;border-color:#6a4a1a;color:#f0a830;}
+.sev-opt.s-high.active{background:#2a0a0a;border-color:#6a1a1a;color:#f07060;}
+.sev-opt.s-critical.active{background:#3a0000;border-color:#aa0000;color:#ff4444;}
+
+/* SIDEBAR MOST REPORTED */
+.broker-row{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background .15s;}
+.broker-row:hover{background:rgba(255,255,255,0.03);}
+.broker-rank{font-size:11px;font-weight:900;color:var(--muted);width:18px;}
+.broker-name{font-size:13px;font-weight:700;color:#fff;flex:1;}
+.broker-count{font-size:11px;font-weight:700;padding:2px 8px;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.25);border-radius:20px;color:#f07060;white-space:nowrap;}
+
+/* ALERT */
+.alert{padding:12px 16px;border-radius:8px;font-size:13px;margin-bottom:14px;}
+.alert-success{background:#0a2a1a;border:1px solid #2a6a3a;color:#40c070;}
+.alert-error{background:#2a0a0a;border:1px solid #6a2a2a;color:#f07060;}
+.alert-warn{background:#2a1a0a;border:1px solid #6a4a1a;color:#f0a830;}
+.alert-info{background:#0a1a3a;border:1px solid #2a4a7a;color:#7ab3ff;}
+
+/* PLACEHOLDER */
+.placeholder{text-align:center;padding:60px 24px;color:var(--muted);}
+.placeholder .icon{font-size:56px;margin-bottom:16px;opacity:.4;}
+
+/* RESPONSIVE */
+@media(max-width:800px){.grid-3{grid-template-columns:1fr;} .hero h2{font-size:28px;} .cat-select-grid,.field-row{grid-template-columns:1fr;} .topbar-links{display:none;} .stats-bar{gap:16px;padding:12px 16px;}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a href="/" class="brand"><span class="brand-icon">⚖️</span><div><h1>FreightGuard Defense</h1><p>Carrier Protection Network</p></div></a>
+  <div class="topbar-links">
+    <a href="/">🏠 Home</a>
+    <a href="/carrier-hub.html">🚛 Carrier Hub</a>
+    <a href="/attorney-portal.html">⚖️ Attorneys</a>
+    <a href="/broker411.html" class="active">📋 Broker411</a>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <a href="/carrier-hub.html" class="btn btn-navy" style="font-size:12px;padding:7px 14px;text-decoration:none;">Sign In / Register</a>
+    <a href="/" class="btn btn-red" style="font-size:12px;padding:7px 14px;text-decoration:none;">⚖️ Get Demand Letter</a>
+  </div>
+</div>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="hero-badge">🛡️ The Carrier-Side Answer to Carrier411</div>
+  <h2>Know Who You're<br>Hauling For. <span>Before</span> You Load.</h2>
+  <p>Search any freight broker by MC# or DOT#. See real carrier reports, payment violations, false reporting history, demand letters filed, and live FMCSA data.</p>
+  <div class="search-box">
+    <div class="search-inner">
+      <select class="search-type" id="searchType" onchange="updatePlaceholder()">
+        <option value="mc">MC #</option>
+        <option value="dot">DOT #</option>
+        <option value="name">Name</option>
+      </select>
+      <input class="search-input" id="searchInput" placeholder="Enter broker MC number..." oninput="handleSearchInput(this.value)" onkeydown="if(event.key==='Enter')doSearch()"/>
+      <button class="search-btn" onclick="doSearch()">🔍 Search Broker</button>
+    </div>
+    <div id="searchSuggestions" style="position:absolute;width:100%;background:#0d1625;border:1px solid var(--border);border-radius:0 0 10px 10px;z-index:100;display:none;"></div>
+    <div class="search-examples">Try: <span onclick="quickSearch('654321','mc')">MC-654321</span> <span onclick="quickSearch('1166119','dot')">DOT-1166119</span> <span onclick="quickSearch('Landstar','name')">Landstar</span></div>
+  </div>
+</div>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-item"><div class="val" id="gs_reports">—</div><div class="lbl">Total Reports</div></div>
+  <div class="stat-item"><div class="val" id="gs_brokers">—</div><div class="lbl">Brokers Flagged</div></div>
+  <div class="stat-item"><div class="val" id="gs_owed" style="color:#e74c3c;">—</div><div class="lbl">Total Owed</div></div>
+  <div class="stat-item"><div class="val" id="gs_letters">—</div><div class="lbl">Demand Letters Filed</div></div>
+</div>
+
+<div class="main">
+  <div class="grid-3">
+
+    <!-- LEFT: MOST REPORTED SIDEBAR -->
+    <div>
+      <div class="card">
+        <div class="card-title">🚨 Most Reported Brokers</div>
+        <div id="mostReportedList"><div style="padding:20px;text-align:center;color:var(--muted);font-size:12px;">Loading...</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📢 File a Report</div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Report a broker for non-payment, false reporting, fraud, or other violations. All subscribers get instant email alerts.</p>
+          <button onclick="showReportTab()" class="btn btn-red" style="width:100%;justify-content:center;">🚨 Report a Broker</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">📧 Get Alerts</div>
+        <div class="card-body">
+          <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">Register free to get instant email alerts when a broker you're watching gets reported.</p>
+          <a href="/carrier-hub.html" class="btn btn-navy" style="width:100%;justify-content:center;text-decoration:none;">👁 Register Free</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: RESULTS AREA -->
+    <div>
+      <!-- Default placeholder -->
+      <div id="defaultView">
+        <div class="card">
+          <div class="tab-bar">
+            <button class="tab-btn active" onclick="switchMainTab('recent',this)">📋 Recent Reports</button>
+            <button class="tab-btn" onclick="switchMainTab('report-form',this)">🚨 File a Report</button>
+          </div>
+          <div id="main-recent">
+            <div id="recentFeed"><div style="padding:24px;text-align:center;color:var(--muted);">Loading recent reports...</div></div>
+          </div>
+          <div id="main-report-form" style="display:none;">
+            <div class="card-body" id="reportFormContainer"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Broker Profile (shown after search) -->
+      <div id="profileView" style="display:none;">
+        <div id="profileContainer"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const CATMAP = {trigger_happy:'🚨 Trigger-Happy Reporter',nonpayment:'💸 Non-Payment',unauthorized_rebroke:'🔄 Unauthorized Re-Brokering',no_authority:'⛔ No Authority',no_bond:'🔓 No Bond',alias:'🎭 Alias',fraud:'🚫 Fraud',unethical:'⚠️ Unethical',rate_reduction:'📉 Rate Reduction',detention:'⏱ Detention Refusal',tracking_deductions:'📍 Tracking Deductions',unauth_deductions:'✂️ Unauthorized Deductions'};
+const CATDESC = {trigger_happy:'Files false FreightGuard/DAT reports without cause',nonpayment:'Refuses to pay or delays beyond agreed terms',unauthorized_rebroke:'Re-brokers shipments without carrier knowledge',no_authority:'Operating without FMCSA broker authority',no_bond:'No required $75k surety bond',alias:'Uses multiple names to evade enforcement',fraud:'Fake loads, bait-and-switch, identity fraud',unethical:'Bully tactics, threats, misrepresentation',rate_reduction:'Demands rate cuts after load acceptance',detention:'Refuses detention or layover charges',tracking_deductions:'Deducts pay for not using tracking app',unauth_deductions:'Unauthorized chargebacks or deductions'};
+const SEVCOL = {critical:'#ff4444',high:'#f07060',medium:'#f0a830',low:'#40c070'};
+let _selCats = new Set(); let _selSev = 'medium'; let _searchTimer = null;
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  loadGlobalStats(); loadMostReported(); loadRecentFeed();
+  buildReportForm();
+  // Check URL params
+  const p = new URLSearchParams(window.location.search);
+  if (p.get('mc')) { document.getElementById('searchInput').value = p.get('mc'); doSearch(); }
+  if (p.get('report')) showReportTab();
+});
+
+// ── SEARCH ────────────────────────────────────────────────────────────────────
+function updatePlaceholder() {
+  const t = document.getElementById('searchType').value;
+  document.getElementById('searchInput').placeholder = t==='mc' ? 'Enter broker MC number...' : t==='dot' ? 'Enter DOT number...' : 'Enter broker company name...';
+}
+
+function handleSearchInput(val) {
+  clearTimeout(_searchTimer);
+  const type = document.getElementById('searchType').value;
+  if (type === 'name' && val.length >= 2) {
+    _searchTimer = setTimeout(() => showSuggestions(val), 400);
+  } else { hideSuggestions(); }
+}
+
+async function showSuggestions(q) {
+  try {
+    const r = await fetch('/api/broker411/search?q=' + encodeURIComponent(q));
+    const d = await r.json();
+    const el = document.getElementById('searchSuggestions');
+    if (!d.results?.length) { el.style.display='none'; return; }
+    el.innerHTML = d.results.map(b => `<div onclick="quickSearch('${b.mc}','mc')" style="padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border);font-size:13px;display:flex;justify-content:space-between;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''"><div><strong>${esc(b.name||'MC-'+b.mc)}</strong><div style="font-size:11px;color:var(--muted);">MC-${b.mc} ${b.address?'· '+b.address.substring(0,40):''}</div></div><div style="font-size:11px;color:#f07060;font-weight:700;">${b.reports} report${b.reports!==1?'s':''}</div></div>`).join('');
+    el.style.display = '';
+  } catch { hideSuggestions(); }
+}
+
+function hideSuggestions() { document.getElementById('searchSuggestions').style.display='none'; }
+
+function quickSearch(val, type) {
+  document.getElementById('searchType').value = type;
+  document.getElementById('searchInput').value = val;
+  hideSuggestions(); doSearch();
+}
+
+async function doSearch() {
+  const val  = document.getElementById('searchInput').value.trim();
+  const type = document.getElementById('searchType').value;
+  if (!val) return;
+  hideSuggestions();
+  showProfileLoading();
+
+  let mc = val.replace(/\D/g,'');
+  if (type === 'dot' && mc) {
+    const r = await fetch('/api/broker411/by-dot/' + mc);
+    const d = await r.json();
+    if (d.mc) mc = d.mc;
+    else { showProfileError('DOT-'+mc+' not found. Try searching by MC number.'); return; }
+  } else if (type === 'name') {
+    const r = await fetch('/api/broker411/search?q=' + encodeURIComponent(val));
+    const d = await r.json();
+    if (d.results?.length) mc = d.results[0].mc;
+    else { showProfileError(`No broker found matching "${val}". Try the MC number directly.`); return; }
+  }
+
+  if (!mc || mc.length < 5) { showProfileError('Enter a valid MC or DOT number (at least 5 digits).'); return; }
+  loadBrokerProfile(mc);
+}
+
+// ── BROKER PROFILE ────────────────────────────────────────────────────────────
+function showProfileLoading() {
+  document.getElementById('defaultView').style.display = 'none';
+  document.getElementById('profileView').style.display = '';
+  document.getElementById('profileContainer').innerHTML = '<div style="text-align:center;padding:60px;color:#7ab3ff;font-size:14px;">🔍 Loading broker profile...</div>';
+}
+
+function showProfileError(msg) {
+  document.getElementById('defaultView').style.display = 'none';
+  document.getElementById('profileView').style.display = '';
+  document.getElementById('profileContainer').innerHTML = `<div class="card"><div class="card-body"><div class="alert alert-warn">⚠️ ${esc(msg)}</div></div></div>`;
+}
+
+async function loadBrokerProfile(mc) {
+  try {
+    const r = await fetch('/api/broker411/profile/' + mc);
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    renderProfile(mc, d);
+    window.history.replaceState({}, '', '/broker411.html?mc=' + mc);
+  } catch(e) { showProfileError('Failed to load profile: ' + e.message); }
+}
+
+function renderProfile(mc, d) {
+  const f        = d.fmcsa || {};
+  const stats    = d.stats || {};
+  const riskScore = stats.riskScore || 0;
+  const riskColor = riskScore >= 60 ? '#e74c3c' : riskScore >= 30 ? '#f0a830' : '#27ae60';
+  const riskLabel = riskScore >= 60 ? 'HIGH RISK' : riskScore >= 30 ? 'USE CAUTION' : 'LOW RISK';
+  const circle   = 2 * Math.PI * 36;
+  const dashOff  = circle * (1 - riskScore/100);
+
+  // Category pills from reports
+  const cats = d.categories || {};
+  const catPills = Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([id,cnt]) => {
+    const cls = id==='trigger_happy'?'trigger':id==='nonpayment'?'nonpay':id==='fraud'?'fraud':'other';
+    return `<span class="cat-pill ${cls}">${CATMAP[id]||id} (${cnt})</span>`;
+  }).join('');
+
+  const container = document.getElementById('profileContainer');
+  container.innerHTML = `
+    <!-- PROFILE HEADER -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="profile-banner">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+          <div style="flex:1;">
+            <div class="profile-name">${esc(f.legalName || 'MC-'+mc)}</div>
+            ${f.dbaName ? `<div style="font-size:13px;color:var(--muted);margin-bottom:4px;">DBA: ${esc(f.dbaName)}</div>` : ''}
+            <div class="profile-mc">MC-${mc}${f.dotNumber ? ' · DOT-'+f.dotNumber : ''} · ${esc(f.entityType||'Broker')}</div>
+            <div class="profile-detail">
+              ${f.address ? `📍 ${esc(f.address)}<br>` : ''}
+              ${f.phone   ? `📞 ${esc(f.phone)}<br>` : ''}
+              <span style="color:${f.status?.toLowerCase().includes('active')?'#27ae60':'#e74c3c'};font-weight:700;">● FMCSA: ${esc(f.status||'Unknown')}</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+            <div class="risk-ring">
+              <svg width="90" height="90" viewBox="0 0 90 90">
+                <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+                <circle cx="45" cy="45" r="36" fill="none" stroke="${riskColor}" stroke-width="8" stroke-dasharray="${circle}" stroke-dashoffset="${dashOff}" stroke-linecap="round"/>
+              </svg>
+              <div class="val" style="color:${riskColor};">${riskScore}<div class="lbl-s">${riskLabel}</div></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
+              <button onclick="watchBroker('${mc}','${esc(f.legalName||'')}',this)" class="btn btn-navy" style="font-size:11px;padding:6px 12px;">👁 Watch</button>
+              <a href="/?broker=${mc}" class="btn btn-red" style="font-size:11px;padding:6px 12px;text-decoration:none;">⚖️ Letter</a>
+            </div>
+          </div>
+        </div>
+        ${catPills ? `<div class="cat-grid" style="margin-top:16px;">${catPills}</div>` : ''}
+      </div>
+
+      <!-- STATS ROW -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);">
+        ${[['🚨',stats.totalReports||0,'Carrier Reports'],['⚖️',stats.totalDemandLetters||0,'Demand Letters'],['💸','$'+((stats.totalOwed||0)/1000).toFixed(0)+'k','Reported Owed'],['👁',stats.watcherCount||0,'Watching']].map(([icon,val,lbl])=>`
+          <div style="padding:16px;text-align:center;border-right:1px solid var(--border);">
+            <div style="font-size:18px;margin-bottom:4px;">${icon}</div>
+            <div style="font-size:20px;font-weight:900;color:#fff;">${val}</div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">${lbl}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- TABS: Reports / Demand Letters / File Report -->
+    <div class="card">
+      <div class="tab-bar">
+        <button class="tab-btn active" onclick="switchProfileTab('reports',this)">📋 Reports (${(d.reports||[]).length})</button>
+        <button class="tab-btn" onclick="switchProfileTab('letters',this)">⚖️ Demand Letters (${(d.demandLetters||[]).length})</button>
+        <button class="tab-btn" onclick="switchProfileTab('file',this)">🚨 File a Report</button>
+      </div>
+
+      <!-- REPORTS TAB -->
+      <div id="ptab-reports">
+        ${(d.reports||[]).length === 0
+          ? '<div class="placeholder"><div class="icon">📋</div><p>No carrier reports yet for this broker.</p></div>'
+          : (d.reports||[]).map(r => {
+              const sevCol = SEVCOL[r.severity||'medium']||'#f0a830';
+              const cats   = (r.categories||[]).map(c=>`<span class="cat-pill ${c==='trigger_happy'?'trigger':c==='nonpayment'?'nonpay':c==='fraud'?'fraud':'other'}">${CATMAP[c]||c}</span>`).join('');
+              return `<div class="report-item">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+                  <div style="display:flex;gap:8px;align-items:flex-start;">
+                    <div class="sev-dot" style="background:${sevCol};margin-top:5px;"></div>
+                    <div>
+                      <div style="font-size:11px;color:${sevCol};font-weight:700;text-transform:uppercase;">${r.severity||'medium'} SEVERITY${r.amountOwed ? ' · <span style=color:#f07060>$'+Number(r.amountOwed).toLocaleString()+' owed</span>' : ''}</div>
+                      <div style="font-size:11px;color:var(--muted);margin-top:1px;">${timeAgo(r.createdAt)}${r.loadNumber?' · Load #'+esc(r.loadNumber):''}</div>
+                    </div>
+                  </div>
+                  <button onclick="upvote('${r.id}',this)" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;">👍 ${r.upvotes||0}</button>
+                </div>
+                <div style="margin-bottom:8px;">${cats}</div>
+                <div style="font-size:13px;color:#c0cfe0;line-height:1.65;">${esc(r.description).substring(0,400)}${r.description.length>400?'…':''}</div>
+                <div style="margin-top:8px;font-size:11px;color:var(--muted);">Filed by ${esc(r.reporterName||'Anonymous Carrier')}${r.reporterMC?' (MC-'+r.reporterMC+')':''}${r.incidentDate?' · Incident: '+r.incidentDate:''}</div>
+              </div>`;
+            }).join('')
+        }
+        ${(d.reports||[]).length > 0 ? `<div style="padding:14px 20px;"><button onclick="document.querySelector('#ptab-file .tab-btn') || switchProfileTab('file',null)" class="btn btn-red" style="width:100%;justify-content:center;" onclick="switchProfileTab('file',document.querySelectorAll('.tab-btn')[2])">🚨 Add Your Report</button></div>` : ''}
+      </div>
+
+      <!-- LETTERS TAB -->
+      <div id="ptab-letters" style="display:none;">
+        ${(d.demandLetters||[]).length === 0
+          ? `<div class="placeholder"><div class="icon">⚖️</div><p>No demand letters on record yet.</p><a href="/" class="btn btn-red" style="text-decoration:none;margin-top:16px;">Generate a Demand Letter — $299</a></div>`
+          : (d.demandLetters||[]).map(l=>`<div class="report-item" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><div><div style="font-size:13px;font-weight:700;color:#fff;">${esc(l.carrierName||'Carrier')} <span style="color:#7ab3ff;font-size:11px;">Case ${esc(l.caseRef)}</span></div><div style="font-size:11px;color:var(--muted);margin-top:2px;">${timeAgo(l.ts)}</div></div><div style="font-size:15px;font-weight:800;color:#e74c3c;">$${Number(l.totalDamages||0).toLocaleString()}</div></div>`).join('')
+        }
+        ${(d.demandLetters||[]).length > 0 ? `<div style="padding:14px 20px;"><a href="/" class="btn btn-red" style="text-decoration:none;width:100%;justify-content:center;">⚖️ Add Your Demand Letter — $299</a></div>` : ''}
+      </div>
+
+      <!-- FILE REPORT TAB -->
+      <div id="ptab-file" style="display:none;">
+        <div class="card-body">
+          <div id="ptab_alert"></div>
+          <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.15);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:13px;color:#aab8cc;">
+            Filing a report against <strong style="color:#fff;">${esc(f.legalName||'MC-'+mc)}</strong> (MC-${mc}). All FreightGuard Defense subscribers watching this broker will be <strong style="color:#f0a830;">instantly notified</strong> with full broker details.
+          </div>
+          ${buildInlineReportForm(mc, f.legalName||'')}
+        </div>
+      </div>
+    </div>`;
+
+  document.getElementById('profileView').style.display = '';
+  document.getElementById('defaultView').style.display = 'none';
+}
+
+function switchProfileTab(name, btn) {
+  ['reports','letters','file'].forEach(t => { const el=document.getElementById('ptab-'+t); if(el) el.style.display=t===name?'':'none'; });
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+
+// ── MOST REPORTED ─────────────────────────────────────────────────────────────
+async function loadMostReported() {
+  try {
+    const r = await fetch('/api/broker411/most-reported');
+    const d = await r.json();
+    const el = document.getElementById('mostReportedList');
+    if (!d.brokers?.length) { el.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);font-size:12px;">No reports yet. Be the first to file.</div>'; return; }
+    el.innerHTML = d.brokers.slice(0,15).map((b,i)=>`
+      <div class="broker-row" onclick="quickSearch('${b.mc}','mc')">
+        <div class="broker-rank">${i+1}</div>
+        <div style="flex:1;min-width:0;"><div class="broker-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(b.name||'MC-'+b.mc)}</div><div style="font-size:10px;color:var(--muted);">MC-${b.mc}${b.owed?` · $${(b.owed/1000).toFixed(0)}k owed`:''}</div></div>
+        <div class="broker-count">${b.reports}</div>
+      </div>`).join('');
+  } catch {}
+}
+
+// ── RECENT FEED ───────────────────────────────────────────────────────────────
+async function loadRecentFeed() {
+  try {
+    const r = await fetch('/api/carrier-hub/reports?limit=15');
+    const d = await r.json();
+    const el = document.getElementById('recentFeed');
+    if (!d.reports?.length) { el.innerHTML='<div class="placeholder"><div class="icon">📋</div><p>No reports yet. Be the first carrier to file.</p></div>'; return; }
+    el.innerHTML = d.reports.map(r => {
+      const sevCol = SEVCOL[r.severity||'medium']||'#f0a830';
+      const cats   = (r.categories||[]).slice(0,3).map(c=>`<span class="cat-pill ${c==='trigger_happy'?'trigger':c==='nonpayment'?'nonpay':c==='fraud'?'fraud':'other'}" style="font-size:10px;">${CATMAP[c]||c}</span>`).join(' ');
+      return `<div class="report-item" style="cursor:pointer;" onclick="quickSearch('${r.brokerMC}','mc')">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px;">
+          <div style="font-size:14px;font-weight:800;color:#fff;">${esc(r.brokerName||'MC-'+r.brokerMC)}</div>
+          <div style="font-size:11px;color:${sevCol};font-weight:700;text-transform:uppercase;">${r.severity||'medium'}</div>
+        </div>
+        <div style="margin-bottom:6px;">${cats}</div>
+        <div style="font-size:12px;color:#aab8cc;line-height:1.6;">${esc(r.description).substring(0,180)}${r.description.length>180?'…':''}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:6px;">${timeAgo(r.createdAt)}${r.amountOwed?` · <span style="color:#f07060;font-weight:700;">$${Number(r.amountOwed).toLocaleString()} owed</span>`:''}</div>
+      </div>`;
+    }).join('');
+  } catch(e) { document.getElementById('recentFeed').innerHTML='<div style="padding:20px;color:#f07060;">'+e.message+'</div>'; }
+}
+
+// ── GLOBAL STATS ──────────────────────────────────────────────────────────────
+async function loadGlobalStats() {
+  try {
+    const [rr, lr] = await Promise.all([fetch('/api/carrier-hub/reports?limit=1000'), fetch('/api/letters-history',{headers:{}})]);
+    const rd = await rr.json(); const ld = lr.ok ? await lr.json() : { letters:[] };
+    const reports = rd.reports||[]; const letters = ld.letters||[];
+    const brokers = new Set(reports.map(r=>r.brokerMC)).size;
+    const owed    = reports.reduce((s,r)=>s+(Number(r.amountOwed)||0),0);
+    document.getElementById('gs_reports').textContent  = reports.length;
+    document.getElementById('gs_brokers').textContent  = brokers;
+    document.getElementById('gs_owed').textContent     = '$'+(owed/1000).toFixed(0)+'k';
+    document.getElementById('gs_letters').textContent  = letters.length;
+  } catch {}
+}
+
+// ── REPORT FORM (standalone) ──────────────────────────────────────────────────
+function buildReportForm() {
+  document.getElementById('reportFormContainer').innerHTML = buildInlineReportForm('','');
+}
+
+function buildInlineReportForm(preFillMC, preFillName) {
+  const catHtml = Object.entries(CATMAP).map(([id,label])=>`
+    <div class="cat-opt" id="rfo_${id}" onclick="toggleRCat('${id}')">
+      <div class="cat-opt-icon">${label.split(' ')[0]}</div>
+      <div><div class="cat-opt-label">${label.substring(2)}</div><div class="cat-opt-desc">${CATDESC[id]||''}</div></div>
+    </div>`).join('');
+  return `
+    <div class="field-row">
+      <div class="field"><label>Broker MC # *</label><input id="rf_mc" value="${preFillMC}" placeholder="654321" oninput="rfFmcsaLookup(this.value)"/><div id="rf_mc_status" style="font-size:11px;margin-top:3px;color:#7ab3ff;min-height:14px;"></div></div>
+      <div class="field"><label>Broker DOT #</label><input id="rf_dot" placeholder="1234567"/></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Broker Company Name *</label><input id="rf_name" value="${preFillName}" placeholder="Apex Freight Solutions"/></div>
+      <div class="field"><label>Broker Contact Name</label><input id="rf_contact" placeholder="John Smith (dispatcher)"/></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Broker Address</label><input id="rf_address" placeholder="456 Commerce Ave, Chicago, IL"/></div>
+      <div class="field"><label>Broker Phone</label><input id="rf_phone" placeholder="(555) 000-0000"/></div>
+    </div>
+    <div class="field"><label>Broker Email</label><input id="rf_email" type="email" placeholder="ap@brokercompany.com"/></div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:8px;">Categories * <span style="font-size:10px;color:var(--muted);font-weight:400;">(select all that apply)</span></label>
+      <div class="cat-select-grid">${catHtml}</div>
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:6px;">Severity</label>
+      <div class="sev-bar">
+        <button class="sev-opt s-low"     onclick="setRSev('low',this)">🟢 Low</button>
+        <button class="sev-opt s-medium active" onclick="setRSev('medium',this)">🟡 Medium</button>
+        <button class="sev-opt s-high"    onclick="setRSev('high',this)">🟠 High</button>
+        <button class="sev-opt s-critical" onclick="setRSev('critical',this)">🔴 Critical</button>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Incident Date</label><input id="rf_date" type="date"/></div>
+      <div class="field"><label>Load / Reference #</label><input id="rf_load" placeholder="LOAD-88421"/></div>
+    </div>
+    <div class="field"><label>Amount Owed (if any)</label><input id="rf_amount" type="number" min="0" placeholder="4500"/></div>
+    <div class="field"><label>Full Description * <span style="font-size:10px;color:var(--muted);font-weight:400;">(be specific — dates, amounts, what happened)</span></label><textarea id="rf_desc" rows="6" placeholder="Describe exactly what this broker did. Include dates, load numbers, amounts, any communications. The more detail, the more effective the alert sent to watching carriers..."></textarea></div>
+    <hr style="border-color:rgba(255,255,255,0.06);margin:16px 0;">
+    <div style="font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Your Information <span style="font-weight:400;">(optional — reports can be anonymous)</span></div>
+    <div class="field-row">
+      <div class="field"><label>Your Company</label><input id="rf_rcomp" placeholder="Your Trucking LLC"/></div>
+      <div class="field"><label>Your MC #</label><input id="rf_rmc" placeholder="1234567"/></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Your Name</label><input id="rf_rname" placeholder="John Smith"/></div>
+      <div class="field"><label>Your Phone</label><input id="rf_rphone" placeholder="(555) 000-0000"/></div>
+    </div>
+    <div class="field"><label>Your Email <span style="font-weight:400;">(for confirmation + watchlist alerts)</span></label><input id="rf_remail" type="email" placeholder="owner@yourcompany.com"/></div>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+      <input type="checkbox" id="rf_also_letter" style="width:16px;height:16px;accent-color:#c0392b;" checked/>
+      <label for="rf_also_letter" style="font-size:13px;color:#d0dbe8;cursor:pointer;">Also generate a <strong style="color:#f0a830;">demand letter</strong> ($299) — legal action + community report simultaneously</label>
+    </div>
+    <button class="btn btn-red" id="rf_submit_btn" onclick="submitFullReport()" style="width:100%;justify-content:center;padding:14px;font-size:15px;">🚨 Submit Report — Alert All Subscribers</button>
+    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">Every registered carrier watching this broker receives an instant email with full broker details.</p>`;
+}
+
+// ── REPORT LOGIC ──────────────────────────────────────────────────────────────
+let _rfSev = 'medium'; let _rfCats = new Set();
+
+function toggleRCat(id) { const el=document.getElementById('rfo_'+id); if(_rfCats.has(id)){_rfCats.delete(id);el?.classList.remove('sel');}else{_rfCats.add(id);el?.classList.add('sel');} }
+function setRSev(s, btn) { _rfSev=s; document.querySelectorAll('.sev-opt').forEach(b=>{b.classList.remove('active');}); btn.classList.add('active'); }
+
+let _rfFmcsaTimer = null;
+function rfFmcsaLookup(val) {
+  clearTimeout(_rfFmcsaTimer);
+  if (val.replace(/\D/g,'').length < 5) return;
+  _rfFmcsaTimer = setTimeout(async () => {
+    const el = document.getElementById('rf_mc_status'); if(!el) return;
+    el.textContent='🔍 Looking up...';
+    try {
+      const r = await fetch('/api/fmcsa-lookup?mc='+val.replace(/\D/g,''));
+      const d = await r.json();
+      if (d.legalName) {
+        const nf=document.getElementById('rf_name'); if(nf&&!nf.value) nf.value=d.legalName;
+        const af=document.getElementById('rf_address'); if(af&&!af.value&&d.address) af.value=d.address;
+        const pf=document.getElementById('rf_phone'); if(pf&&!pf.value&&d.phone) pf.value=d.phone;
+        const dotf=document.getElementById('rf_dot'); if(dotf&&!dotf.value&&d.dotNumber) dotf.value=d.dotNumber;
+        el.textContent='✓ '+d.legalName+' — '+(d.status||''); el.style.color='#40c070';
+      } else { el.textContent='Not found — enter manually'; el.style.color='#f0a830'; }
+    } catch { el.textContent=''; }
+  }, 700);
+}
+
+async function submitFullReport() {
+  const mc   = (document.getElementById('rf_mc')?.value||'').trim();
+  const desc = (document.getElementById('rf_desc')?.value||'').trim();
+  const cats = Array.from(_rfCats);
+  if (!mc)          { showPAlert('Broker MC number is required.','error'); return; }
+  if (!cats.length) { showPAlert('Select at least one category.','error'); return; }
+  if (desc.length < 30) { showPAlert('Please provide a detailed description (at least 30 characters).','error'); return; }
+
+  const btn = document.getElementById('rf_submit_btn');
+  btn.disabled=true; btn.textContent='Submitting report & alerting carriers...';
+
+  try {
+    const payload = {
+      brokerMC:mc, brokerName:document.getElementById('rf_name')?.value||'', brokerAddress:document.getElementById('rf_address')?.value||'',
+      brokerPhone:document.getElementById('rf_phone')?.value||'', brokerEmail:document.getElementById('rf_email')?.value||'',
+      brokerDOT:document.getElementById('rf_dot')?.value||'', contactName:document.getElementById('rf_contact')?.value||'',
+      incidentDate:document.getElementById('rf_date')?.value||'', categories:cats, description:desc,
+      amountOwed:document.getElementById('rf_amount')?.value||0, loadNumber:document.getElementById('rf_load')?.value||'',
+      severity:_rfSev,
+      reporterName:document.getElementById('rf_rname')?.value||'Anonymous Carrier',
+      reporterEmail:document.getElementById('rf_remail')?.value||'',
+      reporterMC:document.getElementById('rf_rmc')?.value||'', reporterPhone:document.getElementById('rf_rphone')?.value||'',
+      reporterCompany:document.getElementById('rf_rcomp')?.value||'',
+    };
+    const r = await fetch('/api/broker411/report', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    showPAlert(`✅ ${d.message}`, 'success');
+    // If demand letter also selected, redirect
+    if (document.getElementById('rf_also_letter')?.checked) {
+      setTimeout(()=>{ window.location.href='/?broker='+mc+'&prefill=1'; }, 2000);
+    } else {
+      setTimeout(()=>loadBrokerProfile(mc), 2000);
+    }
+  } catch(e) { showPAlert('❌ ' + e.message, 'error'); }
+  finally { btn.disabled=false; btn.textContent='🚨 Submit Report — Alert All Subscribers'; }
+}
+
+function showPAlert(msg, type) {
+  const ids = ['ptab_alert','formAlert'];
+  for (const id of ids) { const el=document.getElementById(id); if(el){el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;setTimeout(()=>{el.innerHTML=''},10000);return;} }
+}
+
+// ── MISC ──────────────────────────────────────────────────────────────────────
+async function upvote(id, btn) {
+  try { const r=await fetch('/api/carrier-hub/report/'+id+'/upvote',{method:'POST'}); const d=await r.json(); btn.textContent='👍 '+d.upvotes; btn.style.color='#f0a830'; } catch {}
+}
+
+async function watchBroker(mc, name, btn) {
+  try { await fetch('/api/watchlist/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({brokerMC:mc,brokerName:name,carrierEmail:'',subscribedAlerts:true})}); btn.textContent='✅ Watching'; btn.disabled=true; } catch {}
+}
+
+function showReportTab() {
+  document.getElementById('defaultView').style.display='';
+  document.getElementById('profileView').style.display='none';
+  switchMainTab('report-form', document.querySelectorAll('.tab-btn')[1]);
+}
+
+function switchMainTab(name, btn) {
+  document.getElementById('main-recent').style.display       = name==='recent'?'':'none';
+  document.getElementById('main-report-form').style.display  = name==='report-form'?'':'none';
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+}
+
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function timeAgo(ts){const diff=Date.now()-new Date(ts).getTime(),m=Math.floor(diff/60000),h=Math.floor(m/60),d=Math.floor(h/24);return d>0?d+'d ago':h>0?h+'h ago':m>0?m+'m ago':'just now';}
+document.addEventListener('click', e=>{ if(!e.target.closest('.search-box')) hideSuggestions(); });
+</script>
+</body>
+</html>

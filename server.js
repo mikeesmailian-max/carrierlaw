@@ -3022,6 +3022,208 @@ app.post('/api/admin/send-bulletin', requireAdmin, async (req, res) => {
   res.json({ ok: true, message: 'Weekly bulletin sending in background' });
 });
 
+// ════════════════════════════════════════════════════════════════════════════
+// BROKER411 — PUBLIC BROKER BLACKLIST & REPORTING PLATFORM
+// ════════════════════════════════════════════════════════════════════════════
+
+// Full broker profile — FMCSA data + all community reports + demand letters
+app.get('/api/broker411/profile/:mc', async (req, res) => {
+  const mc = req.params.mc.replace(/\D/g,'');
+  if (!mc || mc.length < 5) return res.status(400).json({ error: 'Invalid MC' });
+
+  // Pull FMCSA data
+  let fmcsa = { legalName:'', dbaName:'', dotNumber:'', mcNumber:mc, address:'', phone:'', status:'', entityType:'' };
+  try {
+    const url = `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${mc}`;
+    const r   = await fetch(url, { headers:{'User-Agent':'Mozilla/5.0'}, signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
+    const html = await r.text();
+    function ex(label) {
+      const re = new RegExp(label + '[^<]*<\/[Aa]>[^<]*<\/[Tt][Hh]>\\s*<[Tt][Dd][^>]*class=["\'"]queryfield["\'"][^>]*>([\\s\\S]*?)<\/[Tt][Dd]>', 'i');
+      const m = html.match(re); if (!m) return '';
+      return m[1].replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+    }
+    function exAddr() {
+      const m = html.match(/id=["']physicaladdressvalue["'][^>]*>([\s\S]*?)<\/[Tt][Dd]>/i);
+      if (!m) return '';
+      return m[1].replace(/<br\s*\/?>/gi,' ').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').replace(/\s+/g,' ').trim();
+    }
+    function exStatus() {
+      const m = html.match(/USDOT Status:<\/A>[\s\S]*?<TD[^>]*class=["']queryfield["'][^>]*>([\s\S]*?)<\/TD>/i);
+      if (!m) return ''; return m[1].replace(/<!--[\s\S]*?-->/g,'').replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ').trim();
+    }
+    fmcsa = { legalName: ex('Legal Name') || ex('Entity\/DBA Name'), dbaName: ex('DBA Name'), dotNumber: ex('USDOT Number'), mcNumber: mc, address: exAddr() || ex('Physical Address'), phone: ex('Phone'), status: exStatus(), entityType: ex('Entity Type') };
+  } catch(e) { console.warn('FMCSA fetch failed:', e.message); }
+
+  // Community reports
+  const allReports = loadCarrierReports().filter(r => r.brokerMC === mc);
+  // Demand letters
+  const allLetters = await loadLetters();
+  const demands    = allLetters.filter(l => String(l.brokerMC||'').replace(/\D/g,'') === mc);
+  // Risk calc
+  const catCounts = {};
+  for (const r of allReports) for (const c of (r.categories||[])) catCounts[c] = (catCounts[c]||0)+1;
+  const totalOwed  = allReports.reduce((s,r)=>s+(Number(r.amountOwed)||0),0);
+  const totalDemands = demands.reduce((s,l)=>s+(Number(l.totalDamages)||0),0);
+  let riskScore = 0;
+  if (allReports.length>=1) riskScore+=15; if (allReports.length>=3) riskScore+=15; if (allReports.length>=5) riskScore+=15;
+  if (catCounts['trigger_happy']>=1) riskScore+=15; if (catCounts['nonpayment']>=1) riskScore+=10;
+  if (catCounts['fraud']>=1) riskScore+=25; if (demands.length>=1) riskScore+=10;
+  riskScore = Math.min(100,riskScore);
+
+  // Subscribers who watch this broker (for notification count)
+  const wl = loadWatchlist();
+  const watcherCount = (wl[mc]?.subscribers||[]).length + loadCarrierRegs().filter(r=>r.watchlist?.includes(mc)).length;
+
+  res.json({
+    mc, fmcsa,
+    stats: { totalReports: allReports.length, totalDemandLetters: demands.length, totalOwed, totalDamagesClaimed: totalDemands, riskScore, watcherCount },
+    categories: catCounts,
+    reports: allReports.slice(0,20).map(r=>({ ...r, reporterEmail: undefined })), // hide email
+    demandLetters: demands.slice(0,10).map(l=>({ caseRef:l.caseRef, carrierName:l.carrierName, totalDamages:l.totalDamages, ts:l.ts, status:l.status })),
+  });
+});
+
+// DOT lookup redirect
+app.get('/api/broker411/by-dot/:dot', async (req, res) => {
+  const dot = req.params.dot.replace(/\D/g,'');
+  try {
+    const url = `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=USDOT&query_string=${dot}`;
+    const r   = await fetch(url, { headers:{'User-Agent':'Mozilla/5.0'}, signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined });
+    const html = await r.text();
+    const mm   = html.match(/Docket Number[^<]*<\/[Aa]>[^<]*<\/[Tt][Hh]>[\s\S]*?<[Tt][Dd][^>]*class=["']queryfield["'][^>]*>([\s\S]*?)<\/[Tt][Dd]>/i);
+    const mc   = mm ? mm[1].replace(/<[^>]+>/g,'').replace(/[^\d]/g,'').trim() : '';
+    if (mc) return res.json({ mc, found: true });
+    res.json({ mc: '', found: false, dot });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// File broker report WITH full notification (enhanced version)
+app.post('/api/broker411/report', rateLimit(60000, 5), async (req, res) => {
+  const {
+    brokerMC, brokerName, brokerAddress, brokerPhone, brokerEmail: brokerEmailAddr, brokerDOT,
+    contactName, incidentDate, categories, description, amountOwed, loadNumber, severity,
+    reporterName, reporterEmail, reporterMC, reporterPhone, reporterCompany,
+    generateLetter, carrierNarrative,
+  } = req.body;
+
+  if (!brokerMC || !categories?.length || !description || description.length < 30)
+    return res.status(400).json({ error: 'Broker MC, at least one category, and detailed description required' });
+
+  const id = 'B411-' + Date.now().toString().slice(-8);
+  const report = {
+    id, brokerMC: brokerMC.replace(/\D/g,''), brokerName: brokerName||'', brokerAddress: brokerAddress||'',
+    brokerPhone: brokerPhone||'', brokerEmail: brokerEmailAddr||'', brokerDOT: brokerDOT||'',
+    contactName: contactName||'',
+    reporterMC: reporterMC||'', reporterName: reporterName||'Anonymous Carrier',
+    reporterEmail: reporterEmail||'', reporterPhone: reporterPhone||'', reporterCompany: reporterCompany||'',
+    incidentDate: incidentDate||new Date().toISOString().split('T')[0],
+    categories, description, amountOwed: Number(amountOwed)||0,
+    loadNumber: loadNumber||'', severity: severity||'medium',
+    verified: false, upvotes: 0, createdAt: new Date().toISOString(),
+  };
+
+  const allReports = loadCarrierReports();
+  allReports.push(report); saveCarrierReports(allReports);
+  if (pgPool) await pgPool.query('INSERT INTO carrier_broker_reports(id,broker_mc,broker_name,broker_address,reporter_mc,reporter_name,reporter_email,incident_date,categories,description,amount_owed,load_number,severity) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)',
+    [id,report.brokerMC,brokerName||'',brokerAddress||'',reporterMC||'',reporterName||'Anonymous Carrier',reporterEmail||'',incidentDate||null,categories,description,Number(amountOwed)||0,loadNumber||'',severity||'medium']).catch(()=>{});
+  await logAudit(id,'broker411_report',reporterEmail||'anonymous',`${categories.join(',')} against ${brokerName||'MC-'+brokerMC}`);
+
+  // Build category labels
+  const CATMAP = {trigger_happy:'🚨 Trigger-Happy Reporter',nonpayment:'💸 Non-Payment',unauthorized_rebroke:'🔄 Unauthorized Re-Brokering',no_authority:'⛔ No Authority',no_bond:'🔓 No Bond',alias:'🎭 Alias',fraud:'🚫 Fraud',unethical:'⚠️ Unethical',rate_reduction:'📉 Rate Reduction',detention:'⏱ Detention Refusal',tracking_deductions:'📍 Tracking Deductions',unauth_deductions:'✂️ Unauthorized Deductions'};
+  const catLabels = categories.map(c=>CATMAP[c]||c).join(' · ');
+  const sevColor  = {critical:'#e74c3c',high:'#f07060',medium:'#f0a830',low:'#40c070'}[severity||'medium']||'#f0a830';
+
+  // Full alert email to ALL subscribers and registered carriers watching this broker
+  const alertHtml = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f5f5f5;margin:0;padding:0;">
+<div style="max-width:640px;margin:0 auto;">
+  <div style="background:#1a0505;padding:20px 28px;border-bottom:3px solid #c0392b;">
+    <h1 style="color:#fff;font-size:18px;margin:0;">🚨 FreightGuard Defense — Broker Report Alert</h1>
+    <p style="color:#f07060;font-size:12px;margin:4px 0 0;">A carrier just reported a broker in your watchlist</p>
+  </div>
+  <div style="background:#fff;padding:24px 28px;">
+    <div style="background:#fff3f3;border:1px solid #fcc;border-radius:8px;padding:16px 18px;margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:900;color:#c0392b;">${brokerName||'Unknown Broker'}</div>
+      <div style="font-size:13px;color:#888;margin-top:2px;">MC-${brokerMC}${brokerDOT ? ' · DOT-'+brokerDOT : ''}${brokerPhone ? ' · '+brokerPhone : ''}</div>
+      ${brokerAddress ? `<div style="font-size:12px;color:#888;margin-top:2px;">📍 ${brokerAddress}</div>` : ''}
+      ${brokerEmailAddr ? `<div style="font-size:12px;color:#888;margin-top:2px;">✉️ ${brokerEmailAddr}</div>` : ''}
+      ${contactName ? `<div style="font-size:12px;color:#888;margin-top:2px;">👤 Contact: ${contactName}</div>` : ''}
+    </div>
+    <table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:16px;">
+      <tr style="background:#f9f9f9;"><td style="padding:8px 12px;color:#888;width:35%;">Categories:</td><td style="padding:8px 12px;font-weight:700;color:#c0392b;">${catLabels}</td></tr>
+      <tr><td style="padding:8px 12px;color:#888;">Severity:</td><td style="padding:8px 12px;font-weight:700;color:${sevColor};text-transform:capitalize;">${severity||'medium'}</td></tr>
+      <tr style="background:#f9f9f9;"><td style="padding:8px 12px;color:#888;">Incident Date:</td><td style="padding:8px 12px;">${incidentDate||'Recent'}</td></tr>
+      ${amountOwed ? `<tr><td style="padding:8px 12px;color:#888;">Amount Owed:</td><td style="padding:8px 12px;font-weight:700;color:#c0392b;">$${Number(amountOwed).toLocaleString()}</td></tr>` : ''}
+      ${loadNumber ? `<tr style="background:#f9f9f9;"><td style="padding:8px 12px;color:#888;">Load #:</td><td style="padding:8px 12px;">${loadNumber}</td></tr>` : ''}
+      <tr><td style="padding:8px 12px;color:#888;">Reported By:</td><td style="padding:8px 12px;">${reporterCompany||reporterName||'Anonymous Carrier'}${reporterMC?' (MC-'+reporterMC+')':''}</td></tr>
+    </table>
+    <div style="background:#f5f5f5;border-left:3px solid #c0392b;padding:12px 16px;margin-bottom:20px;font-size:13px;color:#333;line-height:1.7;">${description.substring(0,500)}${description.length>500?'...':''}</div>
+    <div style="text-align:center;margin-top:16px;">
+      <a href="${process.env.SITE_URL||'https://freightguarddefense.com'}/broker411.html?mc=${brokerMC}" style="background:#c0392b;color:#fff;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:700;margin-right:8px;">View Full Profile</a>
+      <a href="${process.env.SITE_URL||'https://freightguarddefense.com'}?broker=${brokerMC}" style="background:#1a2f4a;color:#7ab3ff;padding:11px 24px;border-radius:6px;text-decoration:none;font-weight:700;border:1px solid #2a5a8a;">⚖️ Get Demand Letter</a>
+    </div>
+  </div>
+  <div style="background:#f5f5f5;padding:12px 28px;text-align:center;font-size:11px;color:#999;">FreightGuard Defense · ${process.env.SITE_URL||'https://freightguarddefense.com'}</div>
+</div></body></html>`;
+
+  const alertText = `🚨 BROKER ALERT — FreightGuard Defense\n\nBroker: ${brokerName||'MC-'+brokerMC}\nMC: ${brokerMC}${brokerDOT?' · DOT-'+brokerDOT:''}\nPhone: ${brokerPhone||'N/A'}\nAddress: ${brokerAddress||'N/A'}\nContact: ${contactName||'N/A'}\nBroker Email: ${brokerEmailAddr||'N/A'}\n\nCategories: ${catLabels}\nSeverity: ${severity||'medium'}\nAmount Owed: $${Number(amountOwed||0).toLocaleString()}\nLoad #: ${loadNumber||'N/A'}\n\nDescription:\n${description}\n\nFiled by: ${reporterCompany||reporterName||'Anonymous'} (MC-${reporterMC||'?'})\n\nView: ${process.env.SITE_URL||'https://freightguarddefense.com'}/broker411.html?mc=${brokerMC}`;
+
+  // Collect all recipients — watchlist + registered carrier subscribers
+  const wl       = loadWatchlist();
+  const mc_clean  = report.brokerMC;
+  const wlSubs    = (wl[mc_clean]?.subscribers||[]).map(s=>s.email);
+  const regSubs   = loadCarrierRegs().filter(r=>r.subscribedAlerts!==false && r.watchlist?.includes(mc_clean) && r.email!==reporterEmail).map(r=>r.email);
+  const allEmails = [...new Set([...wlSubs,...regSubs])].filter(e=>e&&e!==reporterEmail);
+
+  let alertsSent = 0;
+  for (const email of allEmails) {
+    try {
+      await dispatchEmail({ to:email, subject:`⚠️ BROKER ALERT: ${brokerName||'MC-'+brokerMC} — ${catLabels.substring(0,50)} — FreightGuard Defense`, text:alertText, html:alertHtml });
+      alertsSent++;
+      await new Promise(r=>setTimeout(r,100));
+    } catch(e) { console.warn('Alert email failed:', e.message); }
+  }
+
+  // Confirmation to reporter if email provided
+  if (reporterEmail) {
+    try {
+      await dispatchEmail({ to:reporterEmail, subject:`✅ Your Report Was Filed — ${brokerName||'MC-'+brokerMC} (${id})`, text:`Your report against ${brokerName||'MC-'+brokerMC} has been filed.\n\nReport ID: ${id}\n${alertsSent} carriers have been notified.\n\nView the broker's profile: ${process.env.SITE_URL||'https://freightguarddefense.com'}/broker411.html?mc=${brokerMC}`, html:`<p>Your report against <strong>${brokerName||'MC-'+brokerMC}</strong> has been filed (ID: ${id}).</p><p>${alertsSent} carriers watching this broker have been notified with full broker details.</p><p><a href="${process.env.SITE_URL||'https://freightguarddefense.com'}/broker411.html?mc=${brokerMC}">View Broker Profile</a></p>` });
+    } catch {}
+  }
+
+  res.json({ ok:true, reportId:id, alertsSent, message:`Report filed. ${alertsSent} carriers notified with full broker info.` });
+});
+
+// Search brokers by name
+app.get('/api/broker411/search', async (req, res) => {
+  const { q } = req.query;
+  if (!q || q.length < 2) return res.json({ results:[] });
+  const allReports = loadCarrierReports();
+  const seen = new Set(); const results = [];
+  for (const r of allReports) {
+    const key = r.brokerMC;
+    if (seen.has(key)) continue; seen.add(key);
+    if ((r.brokerName||'').toLowerCase().includes(q.toLowerCase()) || r.brokerMC.includes(q.replace(/\D/g,''))) {
+      const count = allReports.filter(x=>x.brokerMC===r.brokerMC).length;
+      results.push({ mc:r.brokerMC, name:r.brokerName, address:r.brokerAddress, reports:count });
+    }
+  }
+  res.json({ results: results.slice(0,10) });
+});
+
+// Most reported brokers
+app.get('/api/broker411/most-reported', async (req, res) => {
+  const all = loadCarrierReports();
+  const counts = {};
+  all.forEach(r=>{
+    if (!counts[r.brokerMC]) counts[r.brokerMC]={mc:r.brokerMC,name:r.brokerName,reports:0,owed:0,cats:new Set()};
+    counts[r.brokerMC].reports++;
+    counts[r.brokerMC].owed+=Number(r.amountOwed)||0;
+    (r.categories||[]).forEach(c=>counts[r.brokerMC].cats.add(c));
+  });
+  const top = Object.values(counts).map(b=>({...b,cats:[...b.cats]})).sort((a,b)=>b.reports-a.reports).slice(0,20);
+  res.json({ brokers:top });
+});
+
 // ── ATTORNEY RECRUITMENT & INVITES ───────────────────────────────────────────
 const SITE_URL = process.env.SITE_URL || 'https://freightguarddefense.com';
 
