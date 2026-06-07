@@ -303,7 +303,7 @@ tr:hover td{background:rgba(0,0,0,0.015);}
   </div>
   <div class="hero-cta-row">
     <button onclick="showTab('report');scrollToTop()" class="btn btn-red hero-cta-btn">🚨 Report a Broker</button>
-    <button onclick="toggleAuthPanel()" id="heroRegBtn" class="btn hero-cta-btn hero-cta-secondary">📋 Register Free</button>
+    <button onclick="toggleAuthPanel('register')" id="heroRegBtn" class="btn hero-cta-btn hero-cta-secondary">📋 Register Free</button>
   </div>
 </div>
 
@@ -323,6 +323,7 @@ tr:hover td{background:rgba(0,0,0,0.015);}
           <div class="field"><label>Email</label><input id="loginEmail" type="email" placeholder="carrier@company.com"/></div>
           <div class="field"><label>Password</label><input id="loginPass" type="password" placeholder="••••••••"/></div>
           <button class="btn btn-red" onclick="doLogin()" style="width:100%;justify-content:center;padding:12px;">Sign In to Carrier Hub</button>
+          <p style="text-align:center;margin-top:12px;font-size:13px;color:#4a6580;">New here? <a href="#" onclick="switchAuth('register');return false;" style="color:#7ab3ff;font-weight:700;">Create your free account →</a></p>
         </div>
         <div style="padding:20px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(26,41,66,0.05);">
           <h4 style="color:#fff;margin-bottom:12px;">Why register?</h4>
@@ -704,10 +705,11 @@ function setSeverity(level, btn) {
 }
 
 // ── AUTH ──────────────────────────────────────────────────────────────────────
-function toggleAuthPanel() {
+function toggleAuthPanel(defaultTab) {
   const p = document.getElementById('authPanel');
   const isHidden = p.style.display === 'none' || p.style.display === '';
   p.style.display = isHidden ? 'flex' : 'none';
+  if (isHidden && defaultTab) switchAuth(defaultTab);
 }
 
 function switchAuth(tab) {
@@ -731,7 +733,12 @@ async function doLogin() {
     document.getElementById('authPanel').style.display = 'none';
     updateAuthUI();
     loadWatchlist();
-  } catch(e) { showAuthAlert('loginAlert','error','❌ ' + e.message); }
+  } catch(e) {
+    const msg = e.message === 'Invalid email or password'
+      ? '❌ No account found with those credentials. <a href="#" onclick="switchAuth('register');return false;" style="color:#7ab3ff;font-weight:700;">Create a free account →</a>'
+      : '❌ ' + e.message;
+    showAuthAlert('loginAlert','error', msg);
+  }
 }
 
 async function doRegister() {
