@@ -307,9 +307,10 @@ tr:hover td{background:rgba(0,0,0,0.015);}
   </div>
 </div>
 
-<!-- Auth Panel -->
-<div id="authPanel" style="display:none;background:#0a0f1e;border-bottom:1px solid #d8e4ee;padding:32px 24px;">
-  <div style="max-width:800px;margin:0 auto;">
+<!-- Auth Panel (fixed modal overlay) -->
+<div id="authPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);z-index:1000;align-items:flex-start;justify-content:center;padding-top:80px;overflow-y:auto;" onclick="if(event.target===this)toggleAuthPanel()">
+  <div style="max-width:800px;width:100%;margin:0 auto;background:#0a0f1e;border-radius:18px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 24px 80px rgba(0,0,0,0.6);padding:32px 24px;position:relative;">
+  <button onclick="toggleAuthPanel()" style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,0.08);border:none;color:rgba(255,255,255,0.6);font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;">×</button>
     <div class="tab-nav" style="margin-bottom:20px;">
       <button onclick="switchAuth('login')" id="authTabLogin" class="active">Sign In</button>
       <button onclick="switchAuth('register')" id="authTabReg">Create Account</button>
@@ -705,7 +706,8 @@ function setSeverity(level, btn) {
 // ── AUTH ──────────────────────────────────────────────────────────────────────
 function toggleAuthPanel() {
   const p = document.getElementById('authPanel');
-  p.style.display = p.style.display === 'none' ? '' : 'none';
+  const isHidden = p.style.display === 'none' || p.style.display === '';
+  p.style.display = isHidden ? 'flex' : 'none';
 }
 
 function switchAuth(tab) {
