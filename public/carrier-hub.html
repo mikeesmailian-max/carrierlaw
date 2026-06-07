@@ -143,6 +143,19 @@ tr:hover td{background:rgba(0,0,0,0.015);}
 .report-field .value{font-size:16px;color:#1d1d1f;font-weight:500;line-height:1.6;}
 .report-field .value.danger{color:#c0392b;font-weight:700;}
 
+/* CATEGORY GRID */
+.category-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px;}
+.cat-card{background:#fff;border:2px solid rgba(0,0,0,0.07);border-radius:14px;padding:14px 16px;cursor:pointer;transition:all 0.18s;user-select:none;display:flex;flex-direction:column;gap:4px;position:relative;}
+.cat-card:hover{border-color:#c0392b;box-shadow:0 4px 16px rgba(192,57,43,0.10);transform:translateY(-1px);}
+.cat-card.selected{background:#c0392b;border-color:#c0392b;color:#fff;}
+.cat-card.selected .cat-desc-text{color:rgba(255,255,255,0.75);}
+.cat-emoji{font-size:22px;line-height:1;margin-bottom:2px;}
+.cat-title{font-size:13px;font-weight:700;color:#1d1d1f;letter-spacing:-0.1px;line-height:1.3;}
+.cat-card.selected .cat-title{color:#fff;}
+.cat-desc-text{font-size:11px;color:#6e6e73;line-height:1.4;}
+.cat-check{position:absolute;top:10px;right:12px;width:18px;height:18px;border-radius:50%;border:2px solid rgba(0,0,0,0.15);background:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;transition:all 0.15s;}
+.cat-card.selected .cat-check{background:rgba(255,255,255,0.3);border-color:rgba(255,255,255,0.5);color:#fff;}
+@media(max-width:768px){.category-grid{grid-template-columns:repeat(2,1fr);}}
 /* TABS */
 .tab-bar{display:flex;gap:4px;border-bottom:1.5px solid rgba(0,0,0,0.08);margin-bottom:24px;}
 .tab{padding:12px 20px;font-size:15px;font-weight:600;color:#6e6e73;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1.5px;transition:all 0.2s;border-radius:8px 8px 0 0;}
@@ -517,20 +530,18 @@ let _allReports = [];
 let _feedOffset = 0;
 
 const CATEGORIES = [
-  {id:'trigger_happy',label:'🚨 Trigger-Happy Reporter',desc:'Files false reports against carriers without cause'},
-  {id:'nonpayment',label:'💸 Non-Payment / Late Payment',desc:'Refuses to pay or delays payment past agreed terms'},
-  {id:'unauthorized_rebroke',label:'🔄 Unauthorized Re-Brokering',desc:'Re-brokers shipments without carrier consent'},
-  {id:'no_authority',label:'⛔ No Broker / FF Authority',desc:'Operating without proper FMCSA authority'},
-  {id:'no_bond',label:'🔓 No Bond or Trust Fund',desc:'Operating without required $75,000 surety bond'},
-  {id:'alias',label:'🎭 Operates Under Alias',desc:'Uses multiple names to evade enforcement'},
-  {id:'fraud',label:'🚫 Fraudulent Activity',desc:'Fake loads, bait-and-switch rates, identity fraud'},
-  {id:'unethical',label:'⚠️ Unethical / Deceptive',desc:'Bully tactics, threats, misrepresentation'},
-  {id:'rate_reduction',label:'📉 Forced Rate Reduction',desc:'Demands rate cuts after load acceptance'},
-  {id:'detention',label:'⏱ Detention/Layover Refusal',desc:'Refuses legitimate detention or layover charges'},
-  {id:'tracking_deductions',label:'📍 Unlawful Tracking Deductions',desc:'Deducts pay for not using their tracking app — illegal under FMCSA independent contractor rules'},
-  {id:'unauth_deductions',label:'✂️ Unauthorized Deductions',desc:'Fuel surcharges, cargo claims, fees, or chargebacks not in the rate confirmation'},
-  {id:'tracking_deductions',label:'📍 Unlawful Tracking Deductions',desc:'Deducts pay for not using their tracking app or refuses payment without mandatory tracking compliance'},
-  {id:'unauthorized_deductions',label:'✂️ Unauthorized Deductions',desc:'Makes unauthorized deductions from agreed rate — fuel surcharges, claims, fees, or chargebacks never agreed to in the rate confirmation'},
+  {id:'nonpayment',       emoji:'💸', label:'Non-Payment / Late Pay',   desc:'Refuses to pay or delays past agreed terms'},
+  {id:'rate_reduction',   emoji:'📉', label:'Forced Rate Reduction',     desc:'Demands rate cuts after load acceptance'},
+  {id:'unauth_deductions',emoji:'✂️', label:'Unauthorized Deductions',   desc:'Fuel surcharges, claims, or fees not in the rate con'},
+  {id:'detention',        emoji:'⏱', label:'Detention Refusal',          desc:'Refuses legitimate detention or layover charges'},
+  {id:'unauthorized_rebroke',emoji:'🔄',label:'Unauthorized Re-Brokering',desc:'Re-brokers shipments without carrier consent'},
+  {id:'no_authority',     emoji:'⛔', label:'No Broker Authority',        desc:'Operating without proper FMCSA authority'},
+  {id:'no_bond',          emoji:'🔓', label:'No Bond / Trust Fund',       desc:'Operating without required $75,000 surety bond'},
+  {id:'tracking_deductions',emoji:'📍',label:'Unlawful Tracking Deductions',desc:'Deducts pay for not using their tracking app — illegal under FMCSA rules'},
+  {id:'fraud',            emoji:'🚫', label:'Fraudulent Activity',        desc:'Fake loads, bait-and-switch rates, identity fraud'},
+  {id:'alias',            emoji:'🎭', label:'Operates Under Alias',       desc:'Uses multiple names to evade enforcement'},
+  {id:'unethical',        emoji:'⚠️', label:'Unethical / Deceptive',      desc:'Bully tactics, threats, misrepresentation'},
+  {id:'trigger_happy',    emoji:'🚨', label:'False FreightGuard Report',  desc:'Files false reports against carriers without cause'},
 ];
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
@@ -565,21 +576,22 @@ document.addEventListener('click', e => {
 function buildCategoryGrid() {
   const grid = document.getElementById('categoryGrid');
   grid.innerHTML = CATEGORIES.map(c => `
-    <div class="cat-option" id="catopt_${c.id}" onclick="toggleCategory('${c.id}')">
-      <input type="checkbox" id="cat_${c.id}"/>
-      <div>
-        <div class="cat-label">${c.label}</div>
-        <div class="cat-desc">${c.desc}</div>
-      </div>
+    <div class="cat-card" id="catopt_${c.id}" onclick="toggleCategory('${c.id}')">
+      <div class="cat-check" id="catcheck_${c.id}">✓</div>
+      <div class="cat-emoji">${c.emoji}</div>
+      <div class="cat-title">${c.label}</div>
+      <div class="cat-desc-text">${c.desc}</div>
     </div>`).join('');
 }
 
 function toggleCategory(id) {
   const el = document.getElementById('catopt_' + id);
   if (_selectedCategories.has(id)) {
-    _selectedCategories.delete(id); el.classList.remove('selected');
+    _selectedCategories.delete(id);
+    el.classList.remove('selected');
   } else {
-    _selectedCategories.add(id); el.classList.add('selected');
+    _selectedCategories.add(id);
+    el.classList.add('selected');
   }
 }
 
@@ -820,7 +832,7 @@ async function submitReport() {
     showAlert('reportAlert','success', `✅ Report submitted (ID: ${d.reportId}). ${d.alertsSent} carriers watching this broker have been notified.`);
     // Reset form
     _selectedCategories.clear();
-    document.querySelectorAll('.cat-option').forEach(el => el.classList.remove('selected'));
+    document.querySelectorAll('.cat-card').forEach(el => el.classList.remove('selected'));
     ['rpt_brokerMC','rpt_brokerName','rpt_brokerAddress','rpt_loadNum','rpt_amount','rpt_description'].forEach(id => document.getElementById(id).value='');
     document.getElementById('rpt_date').valueAsDate = new Date();
     loadFeed(); loadFeedStats();
