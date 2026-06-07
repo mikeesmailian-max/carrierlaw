@@ -2,275 +2,370 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Broker411 — Carrier Protection Network | FreightGuard Defense</title>
-<meta name="description" content="Look up any freight broker by MC or DOT number. See carrier reports, violations, non-payment history, and demand letters filed. The carrier-side answer to Carrier411.">
+<title>Broker411 — Know Who You're Hauling For | FreightGuard Defense</title>
+<meta name="description" content="Look up any freight broker by MC or DOT number. See carrier reports, violations, non-payment history, and demand letters filed.">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --red:#c0392b; --red-dark:#96281b; --navy:#f5f5f7; --card:#ffffff;
-  --border:rgba(0,0,0,0.08); --border-strong:rgba(0,0,0,0.14);
+  --red:#c0392b; --red-dk:#96281b;
+  --bg:#f5f5f7; --card:#fff;
+  --border:rgba(0,0,0,0.08); --border-md:rgba(0,0,0,0.13);
   --text:#1d1d1f; --muted:#6e6e73; --text2:#3d3d3f;
   --gold:#9a6e00; --green:#1a7a3c;
-  --shadow-sm:0 2px 8px rgba(0,0,0,0.04),0 8px 24px rgba(0,0,0,0.06);
-  --shadow:0 4px 16px rgba(0,0,0,0.06),0 16px 48px rgba(0,0,0,0.10);
-  --radius:18px; --radius-sm:12px;
+  --sh-sm:0 2px 8px rgba(0,0,0,0.04),0 8px 24px rgba(0,0,0,0.06);
+  --sh:0 4px 20px rgba(0,0,0,0.07),0 16px 48px rgba(0,0,0,0.09);
+  --r:18px; --r-sm:12px;
 }
-body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;background:var(--navy);color:var(--text);min-height:100vh;font-size:17px;-webkit-font-smoothing:antialiased;}
+body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Display','Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;}
 
-/* TOPBAR */
-.topbar{background:rgba(29,29,31,0.96);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.08);padding:0 40px;height:68px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
-.brand{display:flex;align-items:center;gap:12px;text-decoration:none;}
-.brand-icon{width:36px;height:36px;background:var(--red);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:17px;}
-.brand h1{font-size:17px;font-weight:700;color:#fff;letter-spacing:-0.3px;}
-.brand p{font-size:10px;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1px;}
-.topbar-links{display:flex;gap:4px;}
-.topbar-links a{padding:8px 14px;border-radius:8px;color:rgba(255,255,255,0.65);font-size:14px;text-decoration:none;font-weight:500;transition:all 0.2s;}
-.topbar-links a:hover,.topbar-links a.active{background:rgba(255,255,255,0.10);color:#fff;}
+/* ─── TOPBAR ─────────────────────────────────────────────── */
+.topbar{background:rgba(22,22,24,0.97);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(255,255,255,0.07);padding:0 40px;height:64px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.brand-icon{width:34px;height:34px;background:var(--red);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;}
+.brand-text h1{font-size:16px;font-weight:700;color:#fff;letter-spacing:-.3px;line-height:1.1;}
+.brand-text p{font-size:9px;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:1.2px;}
+.top-links{display:flex;gap:2px;}
+.top-links a{padding:7px 13px;border-radius:8px;color:rgba(255,255,255,0.6);font-size:14px;text-decoration:none;font-weight:500;transition:all .18s;}
+.top-links a:hover,.top-links a.active{background:rgba(255,255,255,0.09);color:#fff;}
+.top-actions{display:flex;gap:8px;align-items:center;}
+.btn-ghost{padding:7px 14px;border-radius:100px;font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);background:transparent;border:1px solid rgba(255,255,255,0.15);text-decoration:none;transition:all .18s;}
+.btn-ghost:hover{background:rgba(255,255,255,0.1);color:#fff;}
+.btn-cta{padding:7px 16px;border-radius:100px;font-size:13px;font-weight:700;color:#fff;background:var(--red);border:none;text-decoration:none;transition:all .18s;box-shadow:0 2px 10px rgba(192,57,43,0.35);}
+.btn-cta:hover{background:var(--red-dk);}
 
-/* HERO SEARCH */
-.hero-search{background:linear-gradient(175deg,#1d1d1f 0%,#2d2d2f 60%,#1a1a1c 100%);padding:64px 48px 48px;text-align:center;position:relative;overflow:hidden;}
-.hero-search::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 50% at 50% -5%,rgba(192,57,43,0.15) 0%,transparent 70%);}
-.hero-search h1{font-size:48px;font-weight:800;color:#fff;margin-bottom:12px;letter-spacing:-1.5px;position:relative;}
-.hero-search p{font-size:18px;color:rgba(255,255,255,0.55);margin-bottom:32px;position:relative;}
-.search-box{max-width:680px;margin:0 auto;display:flex;gap:12px;position:relative;}
-.search-box input{flex:1;background:#fff;border:none;border-radius:14px;padding:18px 24px;font-size:17px;color:var(--text);outline:none;font-family:inherit;box-shadow:var(--shadow);}
-.search-box input::placeholder{color:#6e6e73;}
-.search-box button{background:var(--red);color:#fff;border:none;border-radius:14px;padding:18px 32px;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.2s;font-family:inherit;white-space:nowrap;box-shadow:0 4px 16px rgba(192,57,43,0.4);}
-.search-box button:hover{background:var(--red-dark);transform:translateY(-1px);}
-.search-hint{font-size:13px;color:rgba(255,255,255,0.4);margin-top:14px;position:relative;}
+/* ─── HERO ───────────────────────────────────────────────── */
+.hero{background:linear-gradient(170deg,#1d1d1f 0%,#2a2a2c 55%,#1a1a1c 100%);padding:56px 48px 44px;text-align:center;position:relative;overflow:hidden;}
+.hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 65% 60% at 50% -10%,rgba(192,57,43,0.14) 0%,transparent 70%);}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:rgba(255,255,255,0.45);text-transform:uppercase;letter-spacing:1.2px;margin-bottom:16px;position:relative;}
+.hero h1{font-size:46px;font-weight:800;color:#fff;letter-spacing:-1.5px;line-height:1.08;margin-bottom:12px;position:relative;}
+.hero h1 em{font-style:normal;color:#f0a830;}
+.hero-sub{font-size:17px;color:rgba(255,255,255,0.5);margin-bottom:36px;position:relative;max-width:540px;margin-left:auto;margin-right:auto;line-height:1.55;}
 
-/* MAIN LAYOUT */
-.main{max-width:1100px;margin:0 auto;padding:36px 32px;}
+/* Search box */
+.search-wrap{max-width:660px;margin:0 auto;position:relative;}
+.search-row{display:flex;background:#fff;border-radius:16px;overflow:hidden;box-shadow:var(--sh);position:relative;}
+.search-type{border:none;outline:none;background:transparent;border-right:1.5px solid rgba(0,0,0,0.1);padding:0 16px;font-size:14px;font-weight:600;color:var(--text);cursor:pointer;appearance:none;-webkit-appearance:none;font-family:inherit;flex-shrink:0;}
+.search-input{flex:1;border:none;outline:none;padding:17px 18px;font-size:17px;color:var(--text);font-family:inherit;background:transparent;}
+.search-input::placeholder{color:#aaa;}
+.search-btn{background:var(--red);color:#fff;border:none;padding:0 28px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .18s;flex-shrink:0;white-space:nowrap;}
+.search-btn:hover{background:var(--red-dk);}
+#searchSuggestions{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--border-md);border-top:none;border-radius:0 0 14px 14px;z-index:100;display:none;overflow:hidden;box-shadow:0 12px 32px rgba(0,0,0,0.15);}
+.sugg-item{padding:11px 18px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);font-size:15px;transition:background .12s;}
+.sugg-item:last-child{border-bottom:none;}
+.sugg-item:hover{background:#f5f5f7;}
+.search-examples{margin-top:14px;font-size:13px;color:rgba(255,255,255,0.35);position:relative;}
+.search-examples span{color:rgba(255,255,255,0.6);cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.2);margin:0 6px;transition:color .15s;}
+.search-examples span:hover{color:#fff;}
 
-/* TRUST BAR */
-.trust-bar{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px 32px;margin-bottom:28px;display:flex;justify-content:center;gap:48px;box-shadow:var(--shadow-sm);}
-.trust-item{text-align:center;}
-.trust-num{font-size:26px;font-weight:900;color:var(--text);letter-spacing:-0.8px;}
-.trust-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:0.8px;font-weight:600;margin-top:2px;}
+/* ─── STATS BAR ──────────────────────────────────────────── */
+.stats-bar{display:grid;grid-template-columns:repeat(4,1fr);background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin:28px 40px 0;box-shadow:var(--sh-sm);}
+.stat-cell{padding:20px 24px;text-align:center;border-right:1px solid var(--border);}
+.stat-cell:last-child{border-right:none;}
+.stat-num{font-size:28px;font-weight:900;color:var(--text);letter-spacing:-1px;line-height:1;}
+.stat-num.danger{color:var(--red);}
+.stat-lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-top:4px;}
 
-/* TABS */
-.tab-nav{display:flex;gap:4px;margin-bottom:24px;border-bottom:1.5px solid var(--border);}
-.tab-btn{padding:12px 22px;font-size:15px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1.5px;transition:all 0.2s;border-radius:8px 8px 0 0;font-family:inherit;}
-.tab-btn:hover{color:var(--text);background:rgba(0,0,0,0.02);}
-.tab-btn.active{color:var(--text);border-bottom-color:var(--text);font-weight:700;}
-.tab-content{display:none;}
-.tab-content.active{display:block;}
+/* ─── MAIN LAYOUT ────────────────────────────────────────── */
+.main{max-width:1180px;margin:0 auto;padding:32px 40px;}
+.layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start;}
 
-/* CARDS */
-.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:20px;box-shadow:var(--shadow-sm);}
-.card-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:#fafafa;border-radius:var(--radius) var(--radius) 0 0;}
-.card-header h3{font-size:14px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:0.8px;}
-.card-body{padding:24px;}
+/* ─── SIDEBAR ────────────────────────────────────────────── */
+.sidebar-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);margin-bottom:16px;box-shadow:var(--sh-sm);overflow:hidden;}
+.scard-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.scard-head h3{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;color:var(--text);}
+.scard-body{padding:16px 18px;}
 
-/* BROKER RESULT CARD */
-.broker-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;margin-bottom:16px;box-shadow:var(--shadow-sm);cursor:pointer;transition:all 0.2s;}
-.broker-card:hover{box-shadow:var(--shadow);transform:translateY(-2px);}
-.broker-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px;}
-.broker-name{font-size:22px;font-weight:800;color:var(--text);margin-bottom:4px;letter-spacing:-0.5px;}
-.broker-mc{font-size:14px;color:var(--muted);font-weight:500;}
-.risk-badge{padding:8px 18px;border-radius:100px;font-size:13px;font-weight:800;text-align:center;}
-.risk-high{background:rgba(192,57,43,0.10);color:#c0392b;}
-.risk-medium{background:rgba(154,110,0,0.10);color:#9a6e00;}
-.risk-low{background:rgba(26,122,60,0.10);color:#1a7a3c;}
-.broker-stats{display:flex;gap:24px;flex-wrap:wrap;}
-.bstat{font-size:14px;color:var(--muted);}
-.bstat strong{color:var(--text);font-weight:700;}
+/* Broker rank list */
+.broker-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background .12s;border-radius:8px;margin:0 -8px;padding:9px 8px;}
+.broker-row:last-child{border-bottom:none;}
+.broker-row:hover{background:rgba(0,0,0,0.03);}
+.broker-rank{width:22px;height:22px;border-radius:6px;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--muted);flex-shrink:0;}
+.broker-row:nth-child(1) .broker-rank{background:rgba(255,68,68,0.1);color:#c0392b;}
+.broker-row:nth-child(2) .broker-rank{background:rgba(240,168,48,0.12);color:#9a6e00;}
+.broker-row:nth-child(3) .broker-rank{background:rgba(240,168,48,0.08);color:#b07a00;}
+.broker-nm{font-size:14px;font-weight:700;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.broker-mc-sm{font-size:10px;color:var(--muted);}
+.broker-count{font-size:12px;font-weight:800;color:var(--red);background:rgba(192,57,43,0.08);padding:3px 8px;border-radius:100px;flex-shrink:0;}
+.broker-name{font-size:14px;font-weight:700;color:var(--text);}
 
-/* DETAIL VIEW */
-.detail-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
-.detail-header{background:#1d1d1f;padding:24px 28px;display:flex;justify-content:space-between;align-items:center;}
-.detail-header h2{font-size:22px;font-weight:800;color:#fff;letter-spacing:-0.5px;}
-.detail-body{padding:28px;}
-.detail-row{display:flex;gap:24px;margin-bottom:24px;}
-.detail-col{flex:1;}
-.detail-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:6px;}
-.detail-value{font-size:17px;font-weight:600;color:var(--text);}
-.detail-value.danger{color:var(--red);font-weight:700;}
-
-/* REPORT TABLE */
-.reports-table{width:100%;border-collapse:collapse;}
-.reports-table th{text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);padding:12px 16px;border-bottom:1.5px solid var(--border-strong);background:#fafafa;}
-.reports-table td{padding:14px 16px;border-bottom:1px solid var(--border);font-size:14px;color:var(--text);vertical-align:middle;}
-.reports-table tr:last-child td{border-bottom:none;}
-.reports-table tr:hover td{background:rgba(0,0,0,0.015);}
-
-/* BADGES */
-.badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:4px 12px;border-radius:100px;}
-.badge-red{background:rgba(192,57,43,0.10);color:#c0392b;}
-.badge-green{background:rgba(26,122,60,0.10);color:#1a7a3c;}
-.badge-gold{background:rgba(154,110,0,0.10);color:#9a6e00;}
-.badge-gray{background:rgba(0,0,0,0.06);color:#6e6e73;}
-
-/* FORM ELEMENTS */
-.field{margin-bottom:16px;}
-.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:var(--muted);margin-bottom:8px;}
-.field input,.field select,.field textarea{width:100%;background:#f5f5f7;border:1.5px solid var(--border);border-radius:var(--radius-sm);padding:13px 16px;color:var(--text);font-size:15px;outline:none;font-family:inherit;transition:all 0.2s;}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:#1d1d1f;background:#fff;box-shadow:0 0 0 4px rgba(29,29,31,0.06);}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
-
-/* BUTTONS */
-.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 24px;border-radius:100px;font-size:15px;font-weight:700;cursor:pointer;border:none;transition:all 0.2s;font-family:inherit;letter-spacing:-0.1px;}
+/* CTAs */
+.cta-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:16px;box-shadow:var(--sh-sm);}
+.cta-card h3{font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px;}
+.cta-card p{font-size:14px;color:var(--muted);line-height:1.55;margin-bottom:14px;}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:12px 20px;border-radius:100px;font-size:14px;font-weight:700;cursor:pointer;border:none;transition:all .18s;font-family:inherit;text-decoration:none;width:100%;}
 .btn-red{background:var(--red);color:#fff;box-shadow:0 2px 12px rgba(192,57,43,0.3);}
-.btn-red:hover{background:var(--red-dark);transform:translateY(-1px);}
+.btn-red:hover{background:var(--red-dk);transform:translateY(-1px);}
 .btn-dark{background:#1d1d1f;color:#fff;}
-.btn-dark:hover{background:#3d3d3f;transform:translateY(-1px);}
-.btn-gold{background:var(--gold);color:#fff;}
-.btn-outline{background:transparent;border:1.5px solid var(--border-strong);color:var(--text);}
+.btn-dark:hover{background:#333;transform:translateY(-1px);}
+.btn-outline{background:transparent;border:1.5px solid var(--border-md);color:var(--text);}
+.btn-outline:hover{background:rgba(0,0,0,0.04);}
 .btn-sm{padding:9px 18px;font-size:13px;}
-.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;}
-.btn:disabled{opacity:0.4;cursor:not-allowed;transform:none !important;}
+.btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important;}
 
-/* ALERTS */
-.alert{padding:14px 18px;border-radius:var(--radius-sm);font-size:15px;margin-bottom:16px;font-weight:500;}
-.alert-red{background:#fff2f1;border:1px solid rgba(192,57,43,0.18);color:#8b1c14;}
-.alert-green{background:#f0faf4;border:1px solid rgba(26,122,60,0.18);color:#0e5c30;}
-.alert-gold{background:#faf6ed;border:1px solid rgba(154,110,0,0.18);color:#6b4a00;}
+/* ─── CONTENT AREA ───────────────────────────────────────── */
+.content-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--sh-sm);overflow:hidden;}
 
-/* SPINNER */
-.spinner{width:18px;height:18px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;}
+/* Tab bar */
+.tab-bar{display:flex;border-bottom:1.5px solid var(--border);padding:0 4px;}
+.tab-btn{padding:13px 18px;font-size:14px;font-weight:600;color:var(--muted);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-1.5px;transition:all .18s;font-family:inherit;white-space:nowrap;}
+.tab-btn:hover{color:var(--text);}
+.tab-btn.active{color:var(--text);border-bottom-color:var(--text);font-weight:700;}
+
+/* Report cards in feed/profile */
+.report-item{padding:20px 24px;border-bottom:1px solid var(--border);}
+.report-item:last-child{border-bottom:none;}
+.ri-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.ri-broker{font-size:16px;font-weight:800;color:var(--text);}
+.ri-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+.ri-body{font-size:14px;color:#4a4a4e;line-height:1.65;margin:8px 0;}
+.ri-footer{font-size:11px;color:var(--muted);}
+.sev-badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:100px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;}
+.sev-critical{background:#fff2f1;color:#c0392b;border:1px solid rgba(192,57,43,0.2);}
+.sev-high{background:#fff5f0;color:#d35400;border:1px solid rgba(211,84,0,0.2);}
+.sev-medium{background:#fffbf0;color:#9a6e00;border:1px solid rgba(154,110,0,0.2);}
+.sev-low{background:#f0faf4;color:#1a7a3c;border:1px solid rgba(26,122,60,0.2);}
+.upvote-btn{background:rgba(0,0,0,0.04);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:inherit;transition:all .15s;flex-shrink:0;}
+.upvote-btn:hover{background:rgba(240,168,48,0.1);color:#9a6e00;border-color:rgba(240,168,48,0.3);}
+
+/* Category pills */
+.cat-pill{display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;margin:2px 3px 2px 0;}
+.cat-pill.nonpay{background:rgba(192,57,43,0.1);color:#c0392b;}
+.cat-pill.trigger{background:rgba(240,168,48,0.12);color:#9a6e00;}
+.cat-pill.fraud{background:rgba(128,0,0,0.1);color:#7b0000;}
+.cat-pill.other{background:rgba(0,0,0,0.06);color:#4a4a4e;}
+
+/* ─── PROFILE VIEW ────────────────────────────────────────── */
+.profile-header{background:#1d1d1f;padding:28px;color:#fff;}
+.profile-name{font-size:26px;font-weight:800;letter-spacing:-.6px;margin-bottom:4px;}
+.profile-mc{font-size:13px;color:rgba(255,255,255,0.45);font-weight:500;margin-bottom:12px;}
+.profile-info{display:flex;gap:20px;flex-wrap:wrap;}
+.pinfo-item{font-size:13px;color:rgba(255,255,255,0.6);}
+.pinfo-item strong{color:#fff;}
+.risk-pill{display:inline-flex;align-items:center;gap:6px;padding:6px 16px;border-radius:100px;font-size:13px;font-weight:800;}
+.risk-high{background:rgba(192,57,43,0.2);color:#ff6b6b;border:1px solid rgba(192,57,43,0.3);}
+.risk-medium{background:rgba(240,168,48,0.2);color:#f0c848;border:1px solid rgba(240,168,48,0.3);}
+.risk-low{background:rgba(26,122,60,0.2);color:#4cd9a0;border:1px solid rgba(26,122,60,0.3);}
+
+.profile-stats{display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);}
+.pstat{padding:16px 20px;text-align:center;border-right:1px solid var(--border);}
+.pstat:last-child{border-right:none;}
+.pstat-num{font-size:22px;font-weight:900;color:var(--text);letter-spacing:-.5px;}
+.pstat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-top:3px;}
+
+/* Profile action bar */
+.profile-actions{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap;}
+.pbtn{padding:8px 18px;border-radius:100px;font-size:13px;font-weight:700;cursor:pointer;border:none;font-family:inherit;transition:all .18s;text-decoration:none;display:inline-flex;align-items:center;gap:5px;}
+.pbtn-outline{background:transparent;border:1.5px solid rgba(255,255,255,0.2);color:rgba(255,255,255,0.8);}
+.pbtn-outline:hover{background:rgba(255,255,255,0.08);color:#fff;}
+.pbtn-red{background:var(--red);color:#fff;box-shadow:0 2px 10px rgba(192,57,43,0.4);}
+.pbtn-red:hover{background:var(--red-dk);}
+
+/* ─── RISK RING ──────────────────────────────────────────── */
+.risk-ring-wrap{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:16px;}
+.risk-ring{position:relative;width:80px;height:80px;flex-shrink:0;}
+.risk-ring svg{transform:rotate(-90deg);}
+.risk-ring-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.risk-score-num{font-size:20px;font-weight:900;color:#fff;line-height:1;}
+.risk-score-lbl{font-size:8px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:rgba(255,255,255,0.5);margin-top:1px;}
+
+/* ─── FORM STYLES ────────────────────────────────────────── */
+.form-wrap{padding:24px;}
+.field{margin-bottom:14px;}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:6px;}
+.field input,.field select,.field textarea{width:100%;background:#f5f5f7;border:1.5px solid var(--border);border-radius:10px;padding:11px 14px;color:var(--text);font-size:15px;outline:none;font-family:inherit;transition:all .18s;}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#1d1d1f;background:#fff;box-shadow:0 0 0 3px rgba(29,29,31,0.07);}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.cat-opt{display:flex;align-items:flex-start;gap:10px;background:#f5f5f7;border:1.5px solid var(--border);border-radius:10px;padding:10px 12px;cursor:pointer;transition:all .18s;}
+.cat-opt:hover{background:#eee;}
+.cat-opt.sel{background:rgba(192,57,43,0.06);border-color:rgba(192,57,43,0.35);}
+.cat-opt-icon{font-size:18px;line-height:1;margin-top:1px;flex-shrink:0;}
+.cat-opt-label{font-size:12px;font-weight:700;color:var(--text);line-height:1.2;}
+.cat-opt-desc{font-size:10px;color:var(--muted);margin-top:2px;line-height:1.3;}
+.sev-bar{display:flex;gap:6px;margin-bottom:14px;}
+.sev-opt{flex:1;padding:10px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--border);background:#f5f5f7;font-family:inherit;transition:all .18s;text-align:center;}
+.sev-opt.active{border-color:#1d1d1f;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.1);}
+
+/* ─── ALERTS ─────────────────────────────────────────────── */
+.alert{padding:13px 16px;border-radius:10px;font-size:14px;margin-bottom:14px;font-weight:500;}
+.alert-success{background:#f0faf4;border:1px solid rgba(26,122,60,0.18);color:#0e5c30;}
+.alert-error{background:#fff2f1;border:1px solid rgba(192,57,43,0.18);color:#8b1c14;}
+.alert-warn{background:#fffbf0;border:1px solid rgba(154,110,0,0.18);color:#6b4a00;}
+.alert-info{background:#f0f5ff;border:1px solid rgba(58,130,246,0.18);color:#1e3a8a;}
+
+/* ─── EMPTY STATE ────────────────────────────────────────── */
+.empty{text-align:center;padding:52px 24px;color:var(--muted);}
+.empty .e-icon{font-size:44px;margin-bottom:14px;}
+.empty h3{font-size:20px;font-weight:700;color:var(--text);margin-bottom:6px;}
+.empty p{font-size:15px;line-height:1.5;}
+
+/* ─── SPINNER / LOADING ──────────────────────────────────── */
+.loading-bar{text-align:center;padding:52px;color:var(--muted);font-size:15px;}
+.spinner-inline{width:16px;height:16px;border:2px solid rgba(0,0,0,0.1);border-top-color:var(--text);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:6px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 
-/* EMPTY STATE */
-.empty-state{text-align:center;padding:64px;color:var(--muted);}
-.empty-state .icon{font-size:48px;margin-bottom:16px;}
-.empty-state h3{font-size:22px;font-weight:700;color:var(--text);margin-bottom:8px;}
-
-/* MODAL */
-.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);backdrop-filter:blur(8px);z-index:500;align-items:center;justify-content:center;}
-.modal-overlay.open{display:flex;}
-.modal{background:#fff;border-radius:24px;padding:40px;width:520px;max-width:95vw;box-shadow:0 24px 80px rgba(0,0,0,0.2);}
-.modal h3{font-size:24px;font-weight:800;margin-bottom:8px;color:var(--text);letter-spacing:-0.5px;}
-.modal p{font-size:16px;color:var(--muted);margin-bottom:24px;}
-
-@media(max-width:768px){
-  .main{padding:20px;}
-  .hero-search{padding:40px 24px 32px;}
-  .hero-search h1{font-size:34px;}
-  .search-box{flex-direction:column;}
-  .trust-bar{flex-wrap:wrap;gap:24px;padding:16px 20px;}
-  .detail-row{flex-direction:column;gap:16px;}
-  .topbar{padding:0 20px;}
+/* ─── RESPONSIVE ─────────────────────────────────────────── */
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr;}
+  .hero{padding:36px 24px 32px;}
+  .hero h1{font-size:34px;}
+  .search-row{flex-direction:column;border-radius:14px;}
+  .search-type{border-right:none;border-bottom:1.5px solid rgba(0,0,0,0.08);padding:12px 16px;}
+  .search-btn{padding:14px;border-radius:0 0 14px 14px;}
+  .stats-bar{margin:20px 16px 0;grid-template-columns:repeat(2,1fr);}
+  .stat-cell:nth-child(2){border-right:none;}
+  .stat-cell:nth-child(3){border-top:1px solid var(--border);}
+  .stat-cell:nth-child(4){border-top:1px solid var(--border);border-right:none;}
+  .main{padding:20px 16px;}
+  .topbar{padding:0 16px;}
+  .top-links{display:none;}
   .field-row{grid-template-columns:1fr;}
+  .profile-stats{grid-template-columns:repeat(2,1fr);}
+  .pstat:nth-child(2){border-right:none;}
+  .pstat:nth-child(3){border-top:1px solid var(--border);}
+  .pstat:nth-child(4){border-top:1px solid var(--border);border-right:none;}
+  .cat-grid{grid-template-columns:1fr;}
 }
-
 </style>
 </head>
 <body>
 
-<div class="topbar">
-  <a href="/" class="brand"><span class="brand-icon">⚖️</span><div><h1>FreightGuard Defense</h1><p>Carrier Protection Network</p></div></a>
-  <div class="topbar-links">
+<!-- ═══ TOPBAR ══════════════════════════════════════════════════ -->
+<nav class="topbar">
+  <a href="/" class="brand">
+    <div class="brand-icon">⚖️</div>
+    <div class="brand-text"><h1>FreightGuard Defense</h1><p>Carrier Protection Network</p></div>
+  </a>
+  <div class="top-links">
     <a href="/">🏠 Home</a>
     <a href="/carrier-hub.html">🚛 Carrier Hub</a>
     <a href="/attorney-portal.html">⚖️ Attorneys</a>
     <a href="/broker411.html" class="active">📋 Broker411</a>
   </div>
-  <div style="display:flex;gap:8px;">
-    <a href="/carrier-hub.html" class="btn btn-navy" style="font-size:15px;padding:7px 14px;text-decoration:none;">Sign In / Register</a>
-    <a href="/" class="btn btn-red" style="font-size:15px;padding:7px 14px;text-decoration:none;">⚖️ Get Demand Letter</a>
+  <div class="top-actions">
+    <a href="/carrier-hub.html" class="btn-ghost">Sign In / Register</a>
+    <a href="/" class="btn-cta">⚖️ Get Demand Letter</a>
   </div>
-</div>
+</nav>
 
-<!-- HERO -->
+<!-- ═══ HERO ═════════════════════════════════════════════════════ -->
 <div class="hero">
-  <div class="hero-badge">🛡️ The Carrier-Side Answer to Carrier411</div>
-  <h2>Know Who You're<br>Hauling For. <span>Before</span> You Load.</h2>
-  <p>Search any freight broker by MC# or DOT#. See real carrier reports, payment violations, false reporting history, demand letters filed, and live FMCSA data.</p>
-  <div class="search-box">
-    <div class="search-inner">
+  <div class="hero-eyebrow">🛡️ The Carrier-Side Answer to Carrier411</div>
+  <h1>Know Who You're Hauling For.<br><em>Before</em> You Load.</h1>
+  <p class="hero-sub">Search any broker by MC# or DOT#. See real carrier reports, non-payment history, demand letters filed, and live FMCSA data.</p>
+
+  <div class="search-wrap">
+    <div class="search-row">
       <select class="search-type" id="searchType" onchange="updatePlaceholder()">
         <option value="mc">MC #</option>
         <option value="dot">DOT #</option>
         <option value="name">Name</option>
       </select>
-      <input class="search-input" id="searchInput" placeholder="Enter broker MC number..." oninput="handleSearchInput(this.value)" onkeydown="if(event.key==='Enter')doSearch()"/>
-      <button class="search-btn" onclick="doSearch()">🔍 Search Broker</button>
+      <input class="search-input" id="searchInput" placeholder="Enter broker MC number…"
+             oninput="handleSearchInput(this.value)"
+             onkeydown="if(event.key==='Enter')doSearch()"/>
+      <button class="search-btn" onclick="doSearch()">🔍 Search</button>
     </div>
-    <div id="searchSuggestions" style="position:absolute;width:100%;background:#ffffff;border:1px solid var(--border);border-radius:0 0 10px 10px;z-index:100;display:none;"></div>
-    <div class="search-examples">Try: <span onclick="quickSearch('654321','mc')">MC-654321</span> <span onclick="quickSearch('1166119','dot')">DOT-1166119</span> <span onclick="quickSearch('Landstar','name')">Landstar</span></div>
+    <div id="searchSuggestions"></div>
+    <div class="search-examples">
+      Try: <span onclick="quickSearch('654321','mc')">MC-654321</span>
+      <span onclick="quickSearch('1166119','dot')">DOT-1166119</span>
+      <span onclick="quickSearch('Landstar','name')">Landstar</span>
+    </div>
   </div>
 </div>
 
-<!-- STATS BAR -->
+<!-- ═══ STATS BAR ════════════════════════════════════════════════ -->
 <div class="stats-bar">
-  <div class="stat-item"><div class="val" id="gs_reports">—</div><div class="lbl">Total Reports</div></div>
-  <div class="stat-item"><div class="val" id="gs_brokers">—</div><div class="lbl">Brokers Flagged</div></div>
-  <div class="stat-item"><div class="val" id="gs_owed" style="color:#e74c3c;">—</div><div class="lbl">Total Owed</div></div>
-  <div class="stat-item"><div class="val" id="gs_letters">—</div><div class="lbl">Demand Letters Filed</div></div>
+  <div class="stat-cell"><div class="stat-num" id="gs_reports">—</div><div class="stat-lbl">Total Reports</div></div>
+  <div class="stat-cell"><div class="stat-num" id="gs_brokers">—</div><div class="stat-lbl">Brokers Flagged</div></div>
+  <div class="stat-cell"><div class="stat-num danger" id="gs_owed">—</div><div class="stat-lbl">Total Owed</div></div>
+  <div class="stat-cell"><div class="stat-num" id="gs_letters">—</div><div class="stat-lbl">Demand Letters Filed</div></div>
 </div>
 
+<!-- ═══ MAIN CONTENT ═════════════════════════════════════════════ -->
 <div class="main">
-  <div class="grid-3">
+  <div class="layout">
 
-    <!-- LEFT: MOST REPORTED SIDEBAR -->
-    <div>
-      <div class="card">
-        <div class="card-title">🚨 Most Reported Brokers</div>
-        <div id="mostReportedList"><div style="padding:20px;text-align:center;color:var(--muted);font-size:15px;">Loading...</div></div>
-      </div>
-      <div class="card">
-        <div class="card-title">📢 File a Report</div>
-        <div class="card-body">
-          <p style="font-size:15px;color:var(--muted);margin-bottom:14px;">Report a broker for non-payment, false reporting, fraud, or other violations. All subscribers get instant email alerts.</p>
-          <button onclick="showReportTab()" class="btn btn-red" style="width:100%;justify-content:center;">🚨 Report a Broker</button>
+    <!-- SIDEBAR -->
+    <aside>
+      <!-- Most Reported -->
+      <div class="sidebar-card">
+        <div class="scard-head">
+          <span>🚨</span>
+          <h3>Most Reported Brokers</h3>
+        </div>
+        <div style="padding:8px 10px 10px;" id="mostReportedList">
+          <div class="loading-bar" style="padding:20px;font-size:13px;"><span class="spinner-inline"></span>Loading…</div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-title">📧 Get Alerts</div>
-        <div class="card-body">
-          <p style="font-size:15px;color:var(--muted);margin-bottom:14px;">Register free to get instant email alerts when a broker you're watching gets reported.</p>
-          <a href="/carrier-hub.html" class="btn btn-navy" style="width:100%;justify-content:center;text-decoration:none;">👁 Register Free</a>
-        </div>
-      </div>
-    </div>
 
-    <!-- RIGHT: RESULTS AREA -->
+      <!-- File a Report -->
+      <div class="cta-card">
+        <h3>📢 File a Report</h3>
+        <p>Report a broker for non-payment, fraud, or violations. Every registered carrier watching them gets an instant alert.</p>
+        <button onclick="showReportTab()" class="btn btn-red">🚨 Report a Broker</button>
+      </div>
+
+      <!-- Get Alerts -->
+      <div class="cta-card">
+        <h3>📧 Get Instant Alerts</h3>
+        <p>Register free — get emailed the moment a broker you watch gets reported.</p>
+        <a href="/carrier-hub.html" class="btn btn-dark" style="text-decoration:none;">👁 Register Free</a>
+      </div>
+
+      <!-- Demand Letter -->
+      <div class="cta-card" style="background:linear-gradient(135deg,#1d1d1f,#2d2030);border-color:rgba(192,57,43,0.25);">
+        <h3 style="color:#fff;">⚖️ Get a Demand Letter</h3>
+        <p style="color:rgba(255,255,255,0.55);">Legally compliant federal demand — $299. Sent same day. Puts brokers on notice.</p>
+        <a href="/" class="btn btn-red" style="text-decoration:none;">Generate Now — $299</a>
+      </div>
+    </aside>
+
+    <!-- MAIN PANEL -->
     <div>
-      <!-- Default placeholder -->
+      <!-- Default view -->
       <div id="defaultView">
-        <div class="card">
+        <div class="content-card">
           <div class="tab-bar">
             <button class="tab-btn active" onclick="switchMainTab('recent',this)">📋 Recent Reports</button>
             <button class="tab-btn" onclick="switchMainTab('report-form',this)">🚨 File a Report</button>
           </div>
           <div id="main-recent">
-            <div id="recentFeed"><div style="padding:24px;text-align:center;color:var(--muted);">Loading recent reports...</div></div>
+            <div id="recentFeed"><div class="loading-bar"><span class="spinner-inline"></span>Loading reports…</div></div>
           </div>
           <div id="main-report-form" style="display:none;">
-            <div class="card-body" id="reportFormContainer"></div>
+            <div class="form-wrap" id="reportFormContainer"></div>
           </div>
         </div>
       </div>
 
-      <!-- Broker Profile (shown after search) -->
+      <!-- Profile view (shown after search) -->
       <div id="profileView" style="display:none;">
         <div id="profileContainer"></div>
       </div>
     </div>
 
-  </div>
-</div>
+  </div><!-- .layout -->
+</div><!-- .main -->
 
 <script>
 const CATMAP = {trigger_happy:'🚨 Trigger-Happy Reporter',nonpayment:'💸 Non-Payment',unauthorized_rebroke:'🔄 Unauthorized Re-Brokering',no_authority:'⛔ No Authority',no_bond:'🔓 No Bond',alias:'🎭 Alias',fraud:'🚫 Fraud',unethical:'⚠️ Unethical',rate_reduction:'📉 Rate Reduction',detention:'⏱ Detention Refusal',tracking_deductions:'📍 Tracking Deductions',unauth_deductions:'✂️ Unauthorized Deductions'};
 const CATDESC = {trigger_happy:'Files false FreightGuard/DAT reports without cause',nonpayment:'Refuses to pay or delays beyond agreed terms',unauthorized_rebroke:'Re-brokers shipments without carrier knowledge',no_authority:'Operating without FMCSA broker authority',no_bond:'No required $75k surety bond',alias:'Uses multiple names to evade enforcement',fraud:'Fake loads, bait-and-switch, identity fraud',unethical:'Bully tactics, threats, misrepresentation',rate_reduction:'Demands rate cuts after load acceptance',detention:'Refuses detention or layover charges',tracking_deductions:'Deducts pay for not using tracking app',unauth_deductions:'Unauthorized chargebacks or deductions'};
-const SEVCOL = {critical:'#ff4444',high:'#f07060',medium:'#f0a830',low:'#40c070'};
+const SEVCOL = {critical:'#c0392b',high:'#d35400',medium:'#9a6e00',low:'#1a7a3c'};
 let _selCats = new Set(); let _selSev = 'medium'; let _searchTimer = null;
 
-// ── INIT ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   loadGlobalStats(); loadMostReported(); loadRecentFeed();
   buildReportForm();
-  // Check URL params
   const p = new URLSearchParams(window.location.search);
   if (p.get('mc')) { document.getElementById('searchInput').value = p.get('mc'); doSearch(); }
   if (p.get('report')) showReportTab();
 });
 
-// ── SEARCH ────────────────────────────────────────────────────────────────────
 function updatePlaceholder() {
   const t = document.getElementById('searchType').value;
-  document.getElementById('searchInput').placeholder = t==='mc' ? 'Enter broker MC number...' : t==='dot' ? 'Enter DOT number...' : 'Enter broker company name...';
+  document.getElementById('searchInput').placeholder = t==='mc' ? 'Enter broker MC number…' : t==='dot' ? 'Enter DOT number…' : 'Enter broker company name…';
 }
 
 function handleSearchInput(val) {
@@ -287,12 +382,12 @@ async function showSuggestions(q) {
     const d = await r.json();
     const el = document.getElementById('searchSuggestions');
     if (!d.results?.length) { el.style.display='none'; return; }
-    el.innerHTML = d.results.map(b => `<div onclick="quickSearch('${b.mc}','mc')" style="padding:10px 16px;cursor:pointer;border-bottom:1px solid var(--border);font-size:15px;display:flex;justify-content:space-between;" onmouseover="this.style.background='rgba(255,255,255,0.04)'" onmouseout="this.style.background=''"><div><strong>${esc(b.name||'MC-'+b.mc)}</strong><div style="font-size:11px;color:var(--muted);">MC-${b.mc} ${b.address?'· '+b.address.substring(0,40):''}</div></div><div style="font-size:11px;color:#f07060;font-weight:700;">${b.reports} report${b.reports!==1?'s':''}</div></div>`).join('');
+    el.innerHTML = d.results.map(b => `<div class="sugg-item" onclick="quickSearch('${b.mc}','mc')"><div><strong>${esc(b.name||'MC-'+b.mc)}</strong><div style="font-size:11px;color:#6e6e73;margin-top:2px;">MC-${b.mc}${b.address?' · '+b.address.substring(0,40):''}</div></div><div style="font-size:11px;color:#c0392b;font-weight:700;">${b.reports} report${b.reports!==1?'s':''}</div></div>`).join('');
     el.style.display = '';
   } catch { hideSuggestions(); }
 }
 
-function hideSuggestions() { document.getElementById('searchSuggestions').style.display='none'; }
+function hideSuggestions() { const el=document.getElementById('searchSuggestions'); if(el) el.style.display='none'; }
 
 function quickSearch(val, type) {
   document.getElementById('searchType').value = type;
@@ -306,7 +401,6 @@ async function doSearch() {
   if (!val) return;
   hideSuggestions();
   showProfileLoading();
-
   let mc = val.replace(/\D/g,'');
   if (type === 'dot' && mc) {
     const r = await fetch('/api/broker411/by-dot/' + mc);
@@ -319,22 +413,20 @@ async function doSearch() {
     if (d.results?.length) mc = d.results[0].mc;
     else { showProfileError(`No broker found matching "${val}". Try the MC number directly.`); return; }
   }
-
   if (!mc || mc.length < 5) { showProfileError('Enter a valid MC or DOT number (at least 5 digits).'); return; }
   loadBrokerProfile(mc);
 }
 
-// ── BROKER PROFILE ────────────────────────────────────────────────────────────
 function showProfileLoading() {
   document.getElementById('defaultView').style.display = 'none';
   document.getElementById('profileView').style.display = '';
-  document.getElementById('profileContainer').innerHTML = '<div style="text-align:center;padding:60px;color:#7ab3ff;font-size:15px;">🔍 Loading broker profile...</div>';
+  document.getElementById('profileContainer').innerHTML = '<div class="loading-bar" style="padding:60px;"><span class="spinner-inline"></span>Looking up broker…</div>';
 }
 
 function showProfileError(msg) {
   document.getElementById('defaultView').style.display = 'none';
   document.getElementById('profileView').style.display = '';
-  document.getElementById('profileContainer').innerHTML = `<div class="card"><div class="card-body"><div class="alert alert-warn">⚠️ ${esc(msg)}</div></div></div>`;
+  document.getElementById('profileContainer').innerHTML = `<div class="content-card"><div style="padding:24px;"><div class="alert alert-warn">⚠️ ${esc(msg)}</div><button onclick="document.getElementById('defaultView').style.display='';document.getElementById('profileView').style.display='none';" class="btn btn-outline btn-sm" style="width:auto;margin-top:8px;">← Back</button></div></div>`;
 }
 
 async function loadBrokerProfile(mc) {
@@ -348,116 +440,101 @@ async function loadBrokerProfile(mc) {
 }
 
 function renderProfile(mc, d) {
-  const f        = d.fmcsa || {};
-  const stats    = d.stats || {};
+  const f = d.fmcsa || {};
+  const stats = d.stats || {};
   const riskScore = stats.riskScore || 0;
-  const riskColor = riskScore >= 60 ? '#e74c3c' : riskScore >= 30 ? '#f0a830' : '#27ae60';
+  const riskColor = riskScore >= 60 ? '#ff6b6b' : riskScore >= 30 ? '#f0c848' : '#4cd9a0';
   const riskLabel = riskScore >= 60 ? 'HIGH RISK' : riskScore >= 30 ? 'USE CAUTION' : 'LOW RISK';
-  const circle   = 2 * Math.PI * 36;
-  const dashOff  = circle * (1 - riskScore/100);
+  const riskClass = riskScore >= 60 ? 'risk-high' : riskScore >= 30 ? 'risk-medium' : 'risk-low';
+  const circ = 2 * Math.PI * 32;
+  const dashOff = circ * (1 - riskScore / 100);
 
-  // Category pills from reports
   const cats = d.categories || {};
   const catPills = Object.entries(cats).sort((a,b)=>b[1]-a[1]).map(([id,cnt]) => {
     const cls = id==='trigger_happy'?'trigger':id==='nonpayment'?'nonpay':id==='fraud'?'fraud':'other';
-    return `<span class="cat-pill ${cls}">${CATMAP[id]||id} (${cnt})</span>`;
+    return `<span class="cat-pill ${cls}">${CATMAP[id]||id} ×${cnt}</span>`;
   }).join('');
 
-  const container = document.getElementById('profileContainer');
-  container.innerHTML = `
-    <!-- PROFILE HEADER -->
-    <div class="card" style="margin-bottom:20px;">
-      <div class="profile-banner">
+  document.getElementById('profileContainer').innerHTML = `
+    <div class="content-card" style="margin-bottom:16px;">
+      <div class="profile-header">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;">
           <div style="flex:1;">
-            <div class="profile-name">${esc(f.legalName || 'MC-'+mc)}</div>
-            ${f.dbaName ? `<div style="font-size:15px;color:var(--muted);margin-bottom:4px;">DBA: ${esc(f.dbaName)}</div>` : ''}
-            <div class="profile-mc">MC-${mc}${f.dotNumber ? ' · DOT-'+f.dotNumber : ''} · ${esc(f.entityType||'Broker')}</div>
-            <div class="profile-detail">
-              ${f.address ? `📍 ${esc(f.address)}<br>` : ''}
-              ${f.phone   ? `📞 ${esc(f.phone)}<br>` : ''}
-              <span style="color:${f.status?.toLowerCase().includes('active')?'#27ae60':'#e74c3c'};font-weight:700;">● FMCSA: ${esc(f.status||'Unknown')}</span>
+            <div class="profile-name">${esc(f.legalName||'MC-'+mc)}</div>
+            ${f.dbaName?`<div style="font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:6px;">DBA: ${esc(f.dbaName)}</div>`:''}
+            <div class="profile-mc">MC-${mc}${f.dotNumber?' · DOT-'+f.dotNumber:''} · ${esc(f.entityType||'Broker')}</div>
+            <div class="profile-info">
+              ${f.address?`<div class="pinfo-item">📍 ${esc(f.address)}</div>`:''}
+              ${f.phone?`<div class="pinfo-item">📞 ${esc(f.phone)}</div>`:''}
+              <div class="pinfo-item">Status: <strong style="color:${(f.status||'').toLowerCase().includes('active')?'#4cd9a0':'#ff6b6b'};">● ${esc(f.status||'Unknown')}</strong></div>
+            </div>
+            <div class="profile-actions">
+              <button onclick="watchBroker('${mc}','${esc(f.legalName||'')}',this)" class="pbtn pbtn-outline">👁 Watch Broker</button>
+              <a href="/?broker=${mc}" class="pbtn pbtn-red">⚖️ File Demand Letter</a>
             </div>
           </div>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
-            <div class="risk-ring">
-              <svg width="90" height="90" viewBox="0 0 90 90">
-                <circle cx="45" cy="45" r="36" fill="none" stroke="rgba(26,41,66,0.05)" stroke-width="8"/>
-                <circle cx="45" cy="45" r="36" fill="none" stroke="${riskColor}" stroke-width="8" stroke-dasharray="${circle}" stroke-dashoffset="${dashOff}" stroke-linecap="round"/>
+          <div style="text-align:center;">
+            <div class="risk-ring" style="margin:0 auto 8px;">
+              <svg width="80" height="80" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7"/>
+                <circle cx="40" cy="40" r="32" fill="none" stroke="${riskColor}" stroke-width="7" stroke-dasharray="${circ}" stroke-dashoffset="${dashOff}" stroke-linecap="round"/>
               </svg>
-              <div class="val" style="color:${riskColor};">${riskScore}<div class="lbl-s">${riskLabel}</div></div>
+              <div class="risk-ring-inner"><div class="risk-score-num" style="color:${riskColor};">${riskScore}</div><div class="risk-score-lbl">Risk</div></div>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">
-              <button onclick="watchBroker('${mc}','${esc(f.legalName||'')}',this)" class="btn btn-navy" style="font-size:11px;padding:6px 12px;">👁 Watch</button>
-              <a href="/?broker=${mc}" class="btn btn-red" style="font-size:11px;padding:6px 12px;text-decoration:none;">⚖️ Letter</a>
-            </div>
+            <div class="risk-pill ${riskClass}">${riskLabel}</div>
           </div>
         </div>
-        ${catPills ? `<div class="cat-grid" style="margin-top:16px;">${catPills}</div>` : ''}
+        ${catPills?`<div style="margin-top:14px;">${catPills}</div>`:''}
       </div>
-
-      <!-- STATS ROW -->
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);border-top:1px solid var(--border);">
+      <div class="profile-stats">
         ${[['🚨',stats.totalReports||0,'Carrier Reports'],['⚖️',stats.totalDemandLetters||0,'Demand Letters'],['💸','$'+((stats.totalOwed||0)/1000).toFixed(0)+'k','Reported Owed'],['👁',stats.watcherCount||0,'Watching']].map(([icon,val,lbl])=>`
-          <div style="padding:16px;text-align:center;border-right:1px solid var(--border);">
-            <div style="font-size:18px;margin-bottom:4px;">${icon}</div>
-            <div style="font-size:20px;font-weight:900;color:#1a2942;">${val}</div>
-            <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;">${lbl}</div>
-          </div>`).join('')}
+          <div class="pstat"><div style="font-size:20px;margin-bottom:4px;">${icon}</div><div class="pstat-num">${val}</div><div class="pstat-lbl">${lbl}</div></div>`).join('')}
       </div>
     </div>
 
-    <!-- TABS: Reports / Demand Letters / File Report -->
-    <div class="card">
+    <div class="content-card">
       <div class="tab-bar">
         <button class="tab-btn active" onclick="switchProfileTab('reports',this)">📋 Reports (${(d.reports||[]).length})</button>
-        <button class="tab-btn" onclick="switchProfileTab('letters',this)">⚖️ Demand Letters (${(d.demandLetters||[]).length})</button>
-        <button class="tab-btn" onclick="switchProfileTab('file',this)">🚨 File a Report</button>
+        <button class="tab-btn" onclick="switchProfileTab('letters',this)">⚖️ Letters (${(d.demandLetters||[]).length})</button>
+        <button class="tab-btn" onclick="switchProfileTab('file',this)">🚨 File Report</button>
+        <button class="tab-btn" onclick="document.getElementById('defaultView').style.display='';document.getElementById('profileView').style.display='none';" style="margin-left:auto;color:#6e6e73;font-weight:500;">← Back</button>
       </div>
 
-      <!-- REPORTS TAB -->
       <div id="ptab-reports">
-        ${(d.reports||[]).length === 0
-          ? '<div class="placeholder"><div class="icon">📋</div><p>No carrier reports yet for this broker.</p></div>'
-          : (d.reports||[]).map(r => {
-              const sevCol = SEVCOL[r.severity||'medium']||'#f0a830';
-              const cats   = (r.categories||[]).map(c=>`<span class="cat-pill ${c==='trigger_happy'?'trigger':c==='nonpayment'?'nonpay':c==='fraud'?'fraud':'other'}">${CATMAP[c]||c}</span>`).join('');
+        ${(d.reports||[]).length===0
+          ? `<div class="empty"><div class="e-icon">📋</div><h3>No Reports Yet</h3><p>Be the first carrier to file a report on this broker.</p><button onclick="switchProfileTab('file',document.querySelectorAll('.tab-btn')[2])" class="btn btn-red" style="width:auto;margin-top:16px;padding:10px 24px;">🚨 File First Report</button></div>`
+          : (d.reports||[]).map(r=>{
+              const sc=SEVCOL[r.severity||'medium'];
+              const sevCls=`sev-${r.severity||'medium'}`;
+              const cats=(r.categories||[]).map(c=>`<span class="cat-pill ${c==='trigger_happy'?'trigger':c==='nonpayment'?'nonpay':c==='fraud'?'fraud':'other'}">${CATMAP[c]||c}</span>`).join('');
               return `<div class="report-item">
-                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
-                  <div style="display:flex;gap:8px;align-items:flex-start;">
-                    <div class="sev-dot" style="background:${sevCol};margin-top:5px;"></div>
-                    <div>
-                      <div style="font-size:11px;color:${sevCol};font-weight:700;text-transform:uppercase;">${r.severity||'medium'} SEVERITY${r.amountOwed ? ' · <span style=color:#f07060>$'+Number(r.amountOwed).toLocaleString()+' owed</span>' : ''}</div>
-                      <div style="font-size:11px;color:var(--muted);margin-top:1px;">${timeAgo(r.createdAt)}${r.loadNumber?' · Load #'+esc(r.loadNumber):''}</div>
-                    </div>
+                <div class="ri-top">
+                  <div>
+                    <span class="sev-badge ${sevCls}">${r.severity||'medium'}</span>
+                    ${r.amountOwed?`<span style="font-size:13px;font-weight:800;color:#c0392b;margin-left:8px;">$${Number(r.amountOwed).toLocaleString()} owed</span>`:''}
+                    <div class="ri-meta">${timeAgo(r.createdAt)}${r.loadNumber?' · Load #'+esc(r.loadNumber):''}</div>
                   </div>
-                  <button onclick="upvote('${r.id}',this)" style="background:rgba(255,255,255,0.04);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;">👍 ${r.upvotes||0}</button>
+                  <button class="upvote-btn" onclick="upvote('${r.id}',this)">👍 ${r.upvotes||0}</button>
                 </div>
                 <div style="margin-bottom:8px;">${cats}</div>
-                <div style="font-size:15px;color:#c0cfe0;line-height:1.65;">${esc(r.description).substring(0,400)}${r.description.length>400?'…':''}</div>
-                <div style="margin-top:8px;font-size:11px;color:var(--muted);">Filed by ${esc(r.reporterName||'Anonymous Carrier')}${r.reporterMC?' (MC-'+r.reporterMC+')':''}${r.incidentDate?' · Incident: '+r.incidentDate:''}</div>
+                <div class="ri-body">${esc(r.description).substring(0,400)}${r.description.length>400?'…':''}</div>
+                <div class="ri-footer">Filed by ${esc(r.reporterName||'Anonymous Carrier')}${r.reporterMC?' (MC-'+r.reporterMC+')':''}${r.incidentDate?' · '+r.incidentDate:''}</div>
               </div>`;
             }).join('')
         }
-        ${(d.reports||[]).length > 0 ? `<div style="padding:14px 20px;"><button onclick="document.querySelector('#ptab-file .tab-btn') || switchProfileTab('file',null)" class="btn btn-red" style="width:100%;justify-content:center;" onclick="switchProfileTab('file',document.querySelectorAll('.tab-btn')[2])">🚨 Add Your Report</button></div>` : ''}
       </div>
 
-      <!-- LETTERS TAB -->
       <div id="ptab-letters" style="display:none;">
-        ${(d.demandLetters||[]).length === 0
-          ? `<div class="placeholder"><div class="icon">⚖️</div><p>No demand letters on record yet.</p><a href="/" class="btn btn-red" style="text-decoration:none;margin-top:16px;">Generate a Demand Letter — $299</a></div>`
-          : (d.demandLetters||[]).map(l=>`<div class="report-item" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><div><div style="font-size:15px;font-weight:700;color:#1a2942;">${esc(l.carrierName||'Carrier')} <span style="color:#7ab3ff;font-size:11px;">Case ${esc(l.caseRef)}</span></div><div style="font-size:11px;color:var(--muted);margin-top:2px;">${timeAgo(l.ts)}</div></div><div style="font-size:15px;font-weight:800;color:#e74c3c;">$${Number(l.totalDamages||0).toLocaleString()}</div></div>`).join('')
+        ${(d.demandLetters||[]).length===0
+          ? `<div class="empty"><div class="e-icon">⚖️</div><h3>No Demand Letters Yet</h3><p>No carriers have filed a federal demand letter against this broker.</p><a href="/" class="btn btn-red" style="width:auto;margin-top:16px;padding:10px 24px;text-decoration:none;">Generate a Demand Letter — $299</a></div>`
+          : (d.demandLetters||[]).map(l=>`<div class="report-item" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;"><div><div style="font-size:15px;font-weight:700;color:var(--text);">${esc(l.carrierName||'Carrier')} <span style="color:#6e6e73;font-size:12px;">Case ${esc(l.caseRef)}</span></div><div class="ri-meta">${timeAgo(l.ts)}</div></div><div style="font-size:18px;font-weight:900;color:#c0392b;">$${Number(l.totalDamages||0).toLocaleString()}</div></div>`).join('')
         }
-        ${(d.demandLetters||[]).length > 0 ? `<div style="padding:14px 20px;"><a href="/" class="btn btn-red" style="text-decoration:none;width:100%;justify-content:center;">⚖️ Add Your Demand Letter — $299</a></div>` : ''}
       </div>
 
-      <!-- FILE REPORT TAB -->
       <div id="ptab-file" style="display:none;">
-        <div class="card-body">
+        <div class="form-wrap">
           <div id="ptab_alert"></div>
-          <div style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.15);border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:15px;color:#4a6580;">
-            Filing a report against <strong style="color:#fff;">${esc(f.legalName||'MC-'+mc)}</strong> (MC-${mc}). All FreightGuard Defense subscribers watching this broker will be <strong style="color:#f0a830;">instantly notified</strong> with full broker details.
-          </div>
+          <div class="alert alert-info" style="margin-bottom:18px;">Filing a report against <strong>${esc(f.legalName||'MC-'+mc)}</strong> (MC-${mc}). All watching carriers will be <strong>instantly notified</strong>.</div>
           ${buildInlineReportForm(mc, f.legalName||'')}
         </div>
       </div>
@@ -468,69 +545,68 @@ function renderProfile(mc, d) {
 }
 
 function switchProfileTab(name, btn) {
-  ['reports','letters','file'].forEach(t => { const el=document.getElementById('ptab-'+t); if(el) el.style.display=t===name?'':'none'; });
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  ['reports','letters','file'].forEach(t=>{const el=document.getElementById('ptab-'+t);if(el)el.style.display=t===name?'':'none';});
+  document.querySelectorAll('#profileContainer .tab-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
 }
 
-// ── MOST REPORTED ─────────────────────────────────────────────────────────────
 async function loadMostReported() {
   try {
     const r = await fetch('/api/broker411/most-reported');
     const d = await r.json();
     const el = document.getElementById('mostReportedList');
-    if (!d.brokers?.length) { el.innerHTML='<div style="padding:16px;text-align:center;color:var(--muted);font-size:15px;">No reports yet. Be the first to file.</div>'; return; }
-    el.innerHTML = d.brokers.slice(0,15).map((b,i)=>`
+    if (!d.brokers?.length) { el.innerHTML='<div style="padding:16px 10px;text-align:center;color:#6e6e73;font-size:13px;">No reports yet. Be the first to file.</div>'; return; }
+    el.innerHTML = d.brokers.slice(0,12).map((b,i)=>`
       <div class="broker-row" onclick="quickSearch('${b.mc}','mc')">
         <div class="broker-rank">${i+1}</div>
-        <div style="flex:1;min-width:0;"><div class="broker-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(b.name||'MC-'+b.mc)}</div><div style="font-size:10px;color:var(--muted);">MC-${b.mc}${b.owed?` · $${(b.owed/1000).toFixed(0)}k owed`:''}</div></div>
+        <div style="flex:1;min-width:0;">
+          <div class="broker-nm">${esc(b.name||'MC-'+b.mc)}</div>
+          <div class="broker-mc-sm">MC-${b.mc}${b.owed?` · $${(b.owed/1000).toFixed(0)}k owed`:''}</div>
+        </div>
         <div class="broker-count">${b.reports}</div>
       </div>`).join('');
   } catch {}
 }
 
-// ── RECENT FEED ───────────────────────────────────────────────────────────────
 async function loadRecentFeed() {
   try {
-    const r = await fetch('/api/carrier-hub/reports?limit=15');
+    const r = await fetch('/api/carrier-hub/reports?limit=20');
     const d = await r.json();
     const el = document.getElementById('recentFeed');
-    if (!d.reports?.length) { el.innerHTML='<div class="placeholder"><div class="icon">📋</div><p>No reports yet. Be the first carrier to file.</p></div>'; return; }
-    el.innerHTML = d.reports.map(r => {
-      const sevCol = SEVCOL[r.severity||'medium']||'#f0a830';
-      const cats   = (r.categories||[]).slice(0,3).map(c=>`<span class="cat-pill ${c==='trigger_happy'?'trigger':c==='nonpayment'?'nonpay':c==='fraud'?'fraud':'other'}" style="font-size:10px;">${CATMAP[c]||c}</span>`).join(' ');
+    if (!d.reports?.length) { el.innerHTML='<div class="empty"><div class="e-icon">📋</div><h3>No Reports Yet</h3><p>Be the first carrier to file a report.</p></div>'; return; }
+    el.innerHTML = d.reports.map(r=>{
+      const sevCls=`sev-${r.severity||'medium'}`;
+      const cats=(r.categories||[]).slice(0,3).map(c=>`<span class="cat-pill ${c==='trigger_happy'?'trigger':c==='nonpayment'?'nonpay':c==='fraud'?'fraud':'other'}">${CATMAP[c]||c}</span>`).join('');
       return `<div class="report-item" style="cursor:pointer;" onclick="quickSearch('${r.brokerMC}','mc')">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;flex-wrap:wrap;gap:4px;">
-          <div style="font-size:15px;font-weight:800;color:#1a2942;">${esc(r.brokerName||'MC-'+r.brokerMC)}</div>
-          <div style="font-size:11px;color:${sevCol};font-weight:700;text-transform:uppercase;">${r.severity||'medium'}</div>
+        <div class="ri-top">
+          <div>
+            <div class="ri-broker">${esc(r.brokerName||'MC-'+r.brokerMC)}</div>
+            <div class="ri-meta">MC-${r.brokerMC} · ${timeAgo(r.createdAt)}${r.amountOwed?` · <span style="color:#c0392b;font-weight:700;">$${Number(r.amountOwed).toLocaleString()} owed</span>`:''}</div>
+          </div>
+          <span class="sev-badge ${sevCls}">${r.severity||'medium'}</span>
         </div>
-        <div style="margin-bottom:6px;">${cats}</div>
-        <div style="font-size:15px;color:#4a6580;line-height:1.6;">${esc(r.description).substring(0,180)}${r.description.length>180?'…':''}</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:6px;">${timeAgo(r.createdAt)}${r.amountOwed?` · <span style="color:#f07060;font-weight:700;">$${Number(r.amountOwed).toLocaleString()} owed</span>`:''}</div>
+        <div style="margin-bottom:7px;">${cats}</div>
+        <div class="ri-body">${esc(r.description).substring(0,180)}${r.description.length>180?'…':''}</div>
       </div>`;
     }).join('');
-  } catch(e) { document.getElementById('recentFeed').innerHTML='<div style="padding:20px;color:#f07060;">'+e.message+'</div>'; }
+  } catch(e) { document.getElementById('recentFeed').innerHTML=`<div class="empty"><p>${e.message}</p></div>`; }
 }
 
-// ── GLOBAL STATS ──────────────────────────────────────────────────────────────
 async function loadGlobalStats() {
   try {
-    const [rr, lr] = await Promise.all([fetch('/api/carrier-hub/reports?limit=1000'), fetch('/api/letters-history',{headers:{}})]);
-    const rd = await rr.json(); const ld = lr.ok ? await lr.json() : { letters:[] };
+    const [rr, lr] = await Promise.all([fetch('/api/carrier-hub/reports?limit=1000'), fetch('/api/letters-history')]);
+    const rd = await rr.json(); const ld = lr.ok ? await lr.json() : {letters:[]};
     const reports = rd.reports||[]; const letters = ld.letters||[];
     const brokers = new Set(reports.map(r=>r.brokerMC)).size;
-    const owed    = reports.reduce((s,r)=>s+(Number(r.amountOwed)||0),0);
-    document.getElementById('gs_reports').textContent  = reports.length;
-    document.getElementById('gs_brokers').textContent  = brokers;
+    const owed = reports.reduce((s,r)=>s+(Number(r.amountOwed)||0),0);
+    document.getElementById('gs_reports').textContent  = reports.length.toLocaleString();
+    document.getElementById('gs_brokers').textContent  = brokers.toLocaleString();
     document.getElementById('gs_owed').textContent     = '$'+(owed/1000).toFixed(0)+'k';
-    document.getElementById('gs_letters').textContent  = letters.length;
+    document.getElementById('gs_letters').textContent  = letters.length.toLocaleString();
   } catch {}
 }
 
-// ── REPORT FORM (standalone) ──────────────────────────────────────────────────
-function buildReportForm() {
-  document.getElementById('reportFormContainer').innerHTML = buildInlineReportForm('','');
-}
+function buildReportForm() { document.getElementById('reportFormContainer').innerHTML = buildInlineReportForm('',''); }
 
 function buildInlineReportForm(preFillMC, preFillName) {
   const catHtml = Object.entries(CATMAP).map(([id,label])=>`
@@ -540,59 +616,59 @@ function buildInlineReportForm(preFillMC, preFillName) {
     </div>`).join('');
   return `
     <div class="field-row">
-      <div class="field"><label>Broker MC # *</label><input id="rf_mc" value="${preFillMC}" placeholder="654321" oninput="rfFmcsaLookup(this.value)"/><div id="rf_mc_status" style="font-size:11px;margin-top:3px;color:#7ab3ff;min-height:14px;"></div></div>
+      <div class="field"><label>Broker MC # *</label><input id="rf_mc" value="${preFillMC}" placeholder="654321" oninput="rfFmcsaLookup(this.value)"/><div id="rf_mc_status" style="font-size:11px;margin-top:3px;color:#1a7a3c;min-height:14px;"></div></div>
       <div class="field"><label>Broker DOT #</label><input id="rf_dot" placeholder="1234567"/></div>
     </div>
     <div class="field-row">
-      <div class="field"><label>Broker Company Name *</label><input id="rf_name" value="${preFillName}" placeholder="Apex Freight Solutions"/></div>
-      <div class="field"><label>Broker Contact Name</label><input id="rf_contact" placeholder="John Smith (dispatcher)"/></div>
+      <div class="field"><label>Broker Name *</label><input id="rf_name" value="${preFillName}" placeholder="Apex Freight Solutions"/></div>
+      <div class="field"><label>Broker Contact</label><input id="rf_contact" placeholder="John Smith (dispatcher)"/></div>
     </div>
     <div class="field-row">
       <div class="field"><label>Broker Address</label><input id="rf_address" placeholder="456 Commerce Ave, Chicago, IL"/></div>
       <div class="field"><label>Broker Phone</label><input id="rf_phone" placeholder="(555) 000-0000"/></div>
     </div>
     <div class="field"><label>Broker Email</label><input id="rf_email" type="email" placeholder="ap@brokercompany.com"/></div>
-    <div style="margin-bottom:14px;">
-      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:8px;">Categories * <span style="font-size:10px;color:var(--muted);font-weight:400;">(select all that apply)</span></label>
-      <div class="cat-select-grid">${catHtml}</div>
+    <div class="field">
+      <label>Categories * <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:#6e6e73;">(select all that apply)</span></label>
+      <div class="cat-grid">${catHtml}</div>
     </div>
-    <div style="margin-bottom:14px;">
-      <label style="display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#7ab3ff;margin-bottom:6px;">Severity</label>
+    <div class="field">
+      <label>Severity</label>
       <div class="sev-bar">
-        <button class="sev-opt s-low"     onclick="setRSev('low',this)">🟢 Low</button>
-        <button class="sev-opt s-medium active" onclick="setRSev('medium',this)">🟡 Medium</button>
-        <button class="sev-opt s-high"    onclick="setRSev('high',this)">🟠 High</button>
-        <button class="sev-opt s-critical" onclick="setRSev('critical',this)">🔴 Critical</button>
+        <button class="sev-opt" onclick="setRSev('low',this)">🟢 Low</button>
+        <button class="sev-opt active" onclick="setRSev('medium',this)">🟡 Medium</button>
+        <button class="sev-opt" onclick="setRSev('high',this)">🟠 High</button>
+        <button class="sev-opt" onclick="setRSev('critical',this)">🔴 Critical</button>
       </div>
     </div>
     <div class="field-row">
       <div class="field"><label>Incident Date</label><input id="rf_date" type="date"/></div>
       <div class="field"><label>Load / Reference #</label><input id="rf_load" placeholder="LOAD-88421"/></div>
     </div>
-    <div class="field"><label>Amount Owed (if any)</label><input id="rf_amount" type="number" min="0" placeholder="4500"/></div>
-    <div class="field"><label>Full Description * <span style="font-size:10px;color:var(--muted);font-weight:400;">(be specific — dates, amounts, what happened)</span></label><textarea id="rf_desc" rows="6" placeholder="Describe exactly what this broker did. Include dates, load numbers, amounts, any communications. The more detail, the more effective the alert sent to watching carriers..."></textarea></div>
-    <hr style="border-color:rgba(26,41,66,0.05);margin:16px 0;">
-    <div style="font-size:15px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;">Your Information <span style="font-weight:400;">(optional — reports can be anonymous)</span></div>
+    <div class="field"><label>Amount Owed ($)</label><input id="rf_amount" type="number" min="0" placeholder="4500"/></div>
+    <div class="field">
+      <label>Full Description * <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:#6e6e73;">(dates, amounts, exactly what happened)</span></label>
+      <textarea id="rf_desc" rows="6" placeholder="Describe exactly what this broker did. Include dates, load numbers, amounts, communications…"></textarea>
+    </div>
+    <div style="height:1px;background:var(--border);margin:18px 0;"></div>
     <div class="field-row">
       <div class="field"><label>Your Company</label><input id="rf_rcomp" placeholder="Your Trucking LLC"/></div>
       <div class="field"><label>Your MC #</label><input id="rf_rmc" placeholder="1234567"/></div>
     </div>
     <div class="field-row">
       <div class="field"><label>Your Name</label><input id="rf_rname" placeholder="John Smith"/></div>
-      <div class="field"><label>Your Phone</label><input id="rf_rphone" placeholder="(555) 000-0000"/></div>
+      <div class="field"><label>Your Email (for alerts)</label><input id="rf_remail" type="email" placeholder="owner@yourcompany.com"/></div>
     </div>
-    <div class="field"><label>Your Email <span style="font-weight:400;">(for confirmation + watchlist alerts)</span></label><input id="rf_remail" type="email" placeholder="owner@yourcompany.com"/></div>
-    <div style="display:flex;gap:10px;align-items:center;margin-bottom:16px;">
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:18px;padding:12px 14px;background:#fff9f0;border:1px solid rgba(154,110,0,0.18);border-radius:10px;">
       <input type="checkbox" id="rf_also_letter" style="width:16px;height:16px;accent-color:#c0392b;" checked/>
-      <label for="rf_also_letter" style="font-size:15px;color:#1a2942;cursor:pointer;">Also generate a <strong style="color:#f0a830;">demand letter</strong> ($299) — legal action + community report simultaneously</label>
+      <label for="rf_also_letter" style="font-size:14px;color:var(--text);cursor:pointer;">Also generate a <strong style="color:#c0392b;">demand letter</strong> ($299) — legal action + community report simultaneously</label>
     </div>
-    <button class="btn btn-red" id="rf_submit_btn" onclick="submitFullReport()" style="width:100%;justify-content:center;padding:14px;font-size:15px;">🚨 Submit Report — Alert All Subscribers</button>
-    <p style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;">Every registered carrier watching this broker receives an instant email with full broker details.</p>`;
+    <div id="formAlert"></div>
+    <button class="btn btn-red" id="rf_submit_btn" onclick="submitFullReport()" style="font-size:15px;padding:14px 24px;">🚨 Submit Report — Alert All Subscribers</button>
+    <p style="font-size:11px;color:#6e6e73;text-align:center;margin-top:10px;">Every registered carrier watching this broker gets an instant email notification.</p>`;
 }
 
-// ── REPORT LOGIC ──────────────────────────────────────────────────────────────
 let _rfSev = 'medium'; let _rfCats = new Set();
-
 function toggleRCat(id) { const el=document.getElementById('rfo_'+id); if(_rfCats.has(id)){_rfCats.delete(id);el?.classList.remove('sel');}else{_rfCats.add(id);el?.classList.add('sel');} }
 function setRSev(s, btn) { _rfSev=s; document.querySelectorAll('.sev-opt').forEach(b=>{b.classList.remove('active');}); btn.classList.add('active'); }
 
@@ -602,7 +678,7 @@ function rfFmcsaLookup(val) {
   if (val.replace(/\D/g,'').length < 5) return;
   _rfFmcsaTimer = setTimeout(async () => {
     const el = document.getElementById('rf_mc_status'); if(!el) return;
-    el.textContent='🔍 Looking up...';
+    el.textContent='🔍 Looking up…';
     try {
       const r = await fetch('/api/fmcsa-lookup?mc='+val.replace(/\D/g,''));
       const d = await r.json();
@@ -611,8 +687,8 @@ function rfFmcsaLookup(val) {
         const af=document.getElementById('rf_address'); if(af&&!af.value&&d.address) af.value=d.address;
         const pf=document.getElementById('rf_phone'); if(pf&&!pf.value&&d.phone) pf.value=d.phone;
         const dotf=document.getElementById('rf_dot'); if(dotf&&!dotf.value&&d.dotNumber) dotf.value=d.dotNumber;
-        el.textContent='✓ '+d.legalName+' — '+(d.status||''); el.style.color='#40c070';
-      } else { el.textContent='Not found — enter manually'; el.style.color='#f0a830'; }
+        el.textContent='✓ '+d.legalName+' — '+(d.status||''); el.style.color='#1a7a3c';
+      } else { el.textContent='Not found — enter manually'; el.style.color='#9a6e00'; }
     } catch { el.textContent=''; }
   }, 700);
 }
@@ -624,10 +700,8 @@ async function submitFullReport() {
   if (!mc)          { showPAlert('Broker MC number is required.','error'); return; }
   if (!cats.length) { showPAlert('Select at least one category.','error'); return; }
   if (desc.length < 30) { showPAlert('Please provide a detailed description (at least 30 characters).','error'); return; }
-
   const btn = document.getElementById('rf_submit_btn');
-  btn.disabled=true; btn.textContent='Submitting report & alerting carriers...';
-
+  btn.disabled=true; btn.textContent='Submitting & alerting carriers…';
   try {
     const payload = {
       brokerMC:mc, brokerName:document.getElementById('rf_name')?.value||'', brokerAddress:document.getElementById('rf_address')?.value||'',
@@ -638,14 +712,13 @@ async function submitFullReport() {
       severity:_rfSev,
       reporterName:document.getElementById('rf_rname')?.value||'Anonymous Carrier',
       reporterEmail:document.getElementById('rf_remail')?.value||'',
-      reporterMC:document.getElementById('rf_rmc')?.value||'', reporterPhone:document.getElementById('rf_rphone')?.value||'',
+      reporterMC:document.getElementById('rf_rmc')?.value||'',
       reporterCompany:document.getElementById('rf_rcomp')?.value||'',
     };
     const r = await fetch('/api/broker411/report', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
     const d = await r.json();
     if (!r.ok) throw new Error(d.error);
-    showPAlert(`✅ ${d.message}`, 'success');
-    // If demand letter also selected, redirect
+    showPAlert('✅ ' + d.message, 'success');
     if (document.getElementById('rf_also_letter')?.checked) {
       setTimeout(()=>{ window.location.href='/?broker='+mc+'&prefill=1'; }, 2000);
     } else {
@@ -660,9 +733,8 @@ function showPAlert(msg, type) {
   for (const id of ids) { const el=document.getElementById(id); if(el){el.innerHTML=`<div class="alert alert-${type}">${msg}</div>`;setTimeout(()=>{el.innerHTML=''},10000);return;} }
 }
 
-// ── MISC ──────────────────────────────────────────────────────────────────────
 async function upvote(id, btn) {
-  try { const r=await fetch('/api/carrier-hub/report/'+id+'/upvote',{method:'POST'}); const d=await r.json(); btn.textContent='👍 '+d.upvotes; btn.style.color='#f0a830'; } catch {}
+  try { const r=await fetch('/api/carrier-hub/report/'+id+'/upvote',{method:'POST'}); const d=await r.json(); btn.textContent='👍 '+d.upvotes; btn.style.color='#9a6e00'; } catch {}
 }
 
 async function watchBroker(mc, name, btn) {
@@ -678,13 +750,13 @@ function showReportTab() {
 function switchMainTab(name, btn) {
   document.getElementById('main-recent').style.display       = name==='recent'?'':'none';
   document.getElementById('main-report-form').style.display  = name==='report-form'?'':'none';
-  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#defaultView .tab-btn').forEach(b=>b.classList.remove('active'));
   if(btn) btn.classList.add('active');
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 function timeAgo(ts){const diff=Date.now()-new Date(ts).getTime(),m=Math.floor(diff/60000),h=Math.floor(m/60),d=Math.floor(h/24);return d>0?d+'d ago':h>0?h+'h ago':m>0?m+'m ago':'just now';}
-document.addEventListener('click', e=>{ if(!e.target.closest('.search-box')) hideSuggestions(); });
+document.addEventListener('click', e=>{ if(!e.target.closest('.search-wrap')) hideSuggestions(); });
 </script>
 </body>
 </html>

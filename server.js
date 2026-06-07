@@ -163,9 +163,7 @@ app.get('/health', (req, res) => {
 });
 
 // ── DATA FILES (JSON fallback) ────────────────────────────────
-const DATA_DIR = process.env.NODE_ENV === 'production'
-  ? '/tmp/freightguard-data'
-  : path.join(__dirname, 'data');
+const DATA_DIR = path.join(__dirname, 'data');
 
 const ATTORNEYS_FILE    = path.join(DATA_DIR, 'attorneys.json');
 const UPLOADS_DIR       = path.join(DATA_DIR, 'uploads');

@@ -860,9 +860,9 @@ function renderFeed(reports) {
             <span style="background:${severityColor}22;border:1px solid ${severityColor}44;color:${severityColor};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;">${r.severity||'medium'}</span>
             <button onclick="upvoteReport('${r.id}',this)" style="background:rgba(255,255,255,0.04);border:1px solid #c8d8e8;color:#4a6580;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">👍 ${r.upvotes||0}</button>
             ${_carrier ? `<button onclick="watchFromFeed('${r.brokerMC}','${esc(r.brokerName||'')}',this)" style="background:#0a1a3a;border:1px solid #1a3a6a;color:#7ab3ff;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">👁 Watch</button>` : ''}
-            \${_carrier && _carrier.email && r.reporterEmail === _carrier.email ? `
-              <button onclick="editMyReport('\${r.id}')" style="background:rgba(26,41,66,0.06);border:1px solid #c8d8e8;color:#1a2942;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">✏️ Edit</button>
-              <button onclick="deleteMyReport('\${r.id}',this)" style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.25);color:#c0392b;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">🗑 Delete</button>
+            ${_carrier && _carrier.email && r.reporterEmail === _carrier.email ? `
+              <button onclick="editMyReport('${r.id}')" style="background:rgba(26,41,66,0.06);border:1px solid #c8d8e8;color:#1a2942;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">✏️ Edit</button>
+              <button onclick="deleteMyReport('${r.id}',this)" style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.25);color:#c0392b;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">🗑 Delete</button>
             ` : ''}
           </div>
         </div>
