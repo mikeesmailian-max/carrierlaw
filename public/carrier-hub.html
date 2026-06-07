@@ -1140,76 +1140,129 @@ async function brokerSafeCheck(mc) {
   } catch(e) { el.innerHTML = '<div style="padding:16px;color:#f07060;">Error: ' + e.message + '</div>'; }
 }
 
-// ── RATE CON FILE UPLOAD / DRAG & DROP ───────────────────────────────────────
-function rcDragOver(e) { e.preventDefault(); document.getElementById('rcDropZone').classList.add('dragover'); }
-function rcDragLeave(e) { document.getElementById('rcDropZone').classList.remove('dragover'); }
-function rcDrop(e) {
+// ── RATE CON FILE UPLOAD / DRAG & DROP (fully client-side) ──────────────────
+let _pdfJsLoaded = false;
+function ensurePdfJs() {
+  return new Promise((resolve, reject) => {
+    if (window.pdfjsLib) { resolve(); return; }
+    if (_pdfJsLoaded) { const t = setInterval(()=>{ if(window.pdfjsLib){clearInterval(t);resolve();} },50); return; }
+    _pdfJsLoaded = true;
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+    s.onload = () => {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      resolve();
+    };
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+function rcSetZoneState(icon, title, sub) {
+  const z = document.getElementById('rcDropZone');
+  if (!z) return;
+  z.querySelector('.rc-drop-icon').textContent = icon;
+  z.querySelector('.rc-drop-title').textContent = title;
+  z.querySelector('.rc-drop-sub').textContent = sub;
+}
+
+function rcDragOver(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('rcDropZone').classList.add('dragover');
+}
+function rcDragLeave(e) {
   e.preventDefault();
   document.getElementById('rcDropZone').classList.remove('dragover');
-  const file = e.dataTransfer?.files?.[0];
+}
+function rcDrop(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  document.getElementById('rcDropZone').classList.remove('dragover');
+  const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (file) processRcFile(file);
 }
 function rcFileSelected(input) {
-  const file = input.files?.[0];
+  const file = input.files && input.files[0];
   if (file) processRcFile(file);
+  input.value = '';
 }
+
 async function processRcFile(file) {
   const zone = document.getElementById('rcDropZone');
   const nameEl = document.getElementById('rcFileName');
   zone.classList.remove('has-file');
   nameEl.style.display = 'none';
 
-  const ext = file.name.split('.').pop().toLowerCase();
-  const allowedExts = ['pdf','txt','doc','docx','png','jpg','jpeg'];
-  if (!allowedExts.includes(ext)) { showToast('⚠️ Unsupported file type. Use PDF, TXT, Word, or image.', 'warn'); return; }
+  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const allowed = ['pdf','txt','doc','docx','png','jpg','jpeg'];
+  if (!allowed.includes(ext)) {
+    showToast('⚠️ Use PDF, TXT, Word doc, or image file.', 'warn');
+    return;
+  }
 
-  zone.querySelector('.rc-drop-icon').textContent = '⏳';
-  zone.querySelector('.rc-drop-title').textContent = 'Reading file…';
+  rcSetZoneState('⏳', 'Reading file…', file.name);
 
   try {
     let text = '';
+
     if (ext === 'txt') {
       text = await file.text();
+
+    } else if (ext === 'pdf') {
+      await ensurePdfJs();
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const parts = [];
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        parts.push(content.items.map(item => item.str).join(' '));
+      }
+      text = parts.join('
+
+').trim();
+
+    } else if (['doc','docx'].includes(ext)) {
+      // Try server extraction; fall back gracefully
+      try {
+        const fd = new FormData(); fd.append('file', file);
+        const r = await fetch('/api/carrier-hub/extract-text', { method:'POST', body: fd });
+        if (r.ok) { const d = await r.json(); text = d.text || ''; }
+      } catch(err) { /* server unavailable */ }
+      if (!text) {
+        rcSetZoneState('📄', 'Drop your rate con here', 'PDF, TXT, or image · or click to browse');
+        showToast('⚠️ Word docs need conversion — paste the text, or save as PDF and re-upload.', 'warn');
+        return;
+      }
+
     } else if (['png','jpg','jpeg'].includes(ext)) {
-      // For images, notify user we'll use the text area
-      text = await extractTextFromImage(file);
-    } else {
-      // PDF/DOC — send to server for extraction
-      const fd = new FormData(); fd.append('file', file);
-      const r = await fetch('/api/carrier-hub/extract-text', { method:'POST', body: fd });
-      if (r.ok) { const d = await r.json(); text = d.text || ''; }
-      else { showToast('⚠️ Could not extract text. Please paste text manually.', 'warn'); }
+      rcSetZoneState('📄', 'Drop your rate con here', 'PDF, TXT, or image · or click to browse');
+      showToast('📷 Images can't be read automatically. Copy the text from your rate con and paste it below.', 'warn');
+      return;
     }
-    if (text && text.length > 20) {
+
+    text = text.trim();
+    if (text.length > 20) {
       document.getElementById('rc_text').value = text;
       zone.classList.add('has-file');
-      nameEl.innerHTML = '✅ ' + esc(file.name) + ' — text extracted, ready to analyze';
+      rcSetZoneState('✅', 'File loaded!', file.name);
+      nameEl.innerHTML = '✅ ' + esc(file.name) + ' · ' + pdf_pages_info(text) + ' — ready to analyze';
       nameEl.style.display = 'flex';
-      zone.querySelector('.rc-drop-icon').textContent = '✅';
-      zone.querySelector('.rc-drop-title').textContent = 'File loaded!';
-      zone.querySelector('.rc-drop-sub').textContent = file.name;
+      showToast('✅ Text extracted from ' + file.name, 'success');
     } else {
-      zone.querySelector('.rc-drop-icon').textContent = '📄';
-      zone.querySelector('.rc-drop-title').textContent = 'Drop your rate con here';
-      zone.querySelector('.rc-drop-sub').textContent = 'PDF, Word, TXT, or image · or click to browse';
-      if (!text) showToast('⚠️ Could not extract text automatically. Paste text below.', 'warn');
+      rcSetZoneState('📄', 'Drop your rate con here', 'PDF, TXT, or image · or click to browse');
+      showToast('⚠️ No text found in file. Paste the rate con text manually below.', 'warn');
     }
-  } catch(e) {
-    zone.querySelector('.rc-drop-icon').textContent = '📄';
-    zone.querySelector('.rc-drop-title').textContent = 'Drop your rate con here';
-    zone.querySelector('.rc-drop-sub').textContent = 'PDF, Word, TXT, or image · or click to browse';
-    showToast('❌ File read error: ' + e.message, 'error');
+  } catch(err) {
+    rcSetZoneState('📄', 'Drop your rate con here', 'PDF, TXT, or image · or click to browse');
+    showToast('❌ Could not read file: ' + err.message, 'error');
   }
 }
-async function extractTextFromImage(file) {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      showToast('📷 Image uploaded. For best results, paste the text from your rate con.', 'warn');
-      resolve('');
-    };
-    reader.readAsDataURL(file);
-  });
+
+function pdf_pages_info(text) {
+  const words = text.split(/\s+/).length;
+  return words + ' words';
 }
 
 // ── FEATURE 2: RATE CON ANALYZER ─────────────────────────────────────────────
