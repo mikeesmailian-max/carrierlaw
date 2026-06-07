@@ -1093,10 +1093,29 @@ function tipFmcsaLookup(val) {
 async function submitTip() {
   const mc   = document.getElementById('tip_mc').value.trim();
   const desc = document.getElementById('tip_desc').value.trim();
-  if (!mc)              { showAlert('tip_alert','error','Broker MC is required.'); return; }
-  if (desc.length < 50) { showAlert('tip_alert','error','Please provide more detail (at least 50 characters).'); return; }
+
+  // Clear any previous field highlights
+  ['tip_mc','tip_desc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.borderColor = '';
+  });
+
+  if (!mc) {
+    document.getElementById('tip_mc').style.borderColor = '#c0392b';
+    showToast('⚠️ Broker MC number is required.', 'error');
+    document.getElementById('tip_mc').focus();
+    return;
+  }
+  if (desc.length < 50) {
+    document.getElementById('tip_desc').style.borderColor = '#c0392b';
+    showToast('⚠️ Please describe the violation in more detail (at least 50 characters).', 'warn');
+    document.getElementById('tip_desc').focus();
+    return;
+  }
+
   const btn = document.getElementById('tip_btn');
-  btn.disabled = true; btn.textContent = 'Submitting...';
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Submitting...';
   try {
     const r = await fetch('/api/tip/submit', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({
       brokerMC:mc, brokerName:document.getElementById('tip_name').value.trim(),
@@ -1111,11 +1130,17 @@ async function submitTip() {
       const sd = await sr.json();
       if (sd.url) { window.location.href = sd.url; return; }
     }
+    showToast('✅ Tip submitted anonymously. Our team reviews within 48 hours.', 'success');
     showAlert('tip_alert','success', `✅ Tip submitted (${d.tipId}). ${d.message}`);
+    document.getElementById('tip_alert').scrollIntoView({behavior:'smooth', block:'center'});
     ['tip_mc','tip_name','tip_desc','tip_evidence','tip_email'].forEach(id=>document.getElementById(id).value='');
     document.getElementById('tip_filing').checked = false;
-  } catch(e) { showAlert('tip_alert','error','❌ ' + e.message); }
-  finally { btn.disabled=false; btn.textContent='📢 Submit Anonymous Tip'; }
+    document.getElementById('tip_mc_status').textContent = '';
+  } catch(e) {
+    showToast('❌ ' + e.message, 'error');
+    showAlert('tip_alert','error','❌ ' + e.message);
+  }
+  finally { btn.disabled=false; btn.innerHTML='📢 Submit Anonymous Tip'; }
 }
 
 function showToast(msg, type) {
