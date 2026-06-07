@@ -581,6 +581,47 @@ tr:hover td{background:rgba(0,0,0,0.015);}
   </div>
 </div>
 
+<!-- Edit Report Modal -->
+<div id="editReportModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px);z-index:600;align-items:center;justify-content:center;padding:16px;" onclick="if(event.target===this)closeEditModal()">
+  <div style="background:#fff;border-radius:18px;width:100%;max-width:640px;max-height:90vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,0.2);">
+    <div style="padding:24px 28px 0;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:18px;font-weight:800;color:#1a2942;">✏️ Edit Your Report</div>
+      <button onclick="closeEditModal()" style="background:none;border:none;font-size:22px;color:#8e8e93;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div style="padding:20px 28px 28px;">
+      <input type="hidden" id="editReportId"/>
+      <div class="field" style="margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:700;letter-spacing:.5px;color:#8e8e93;text-transform:uppercase;display:block;margin-bottom:6px;">Description *</label>
+        <textarea id="editDesc" rows="6" style="width:100%;padding:12px 14px;border:1.5px solid #dde8f2;border-radius:10px;font-size:15px;color:#1a2942;resize:vertical;outline:none;font-family:inherit;" onfocus="this.style.borderColor='#c0392b'" onblur="this.style.borderColor='#dde8f2'"></textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+        <div class="field">
+          <label style="font-size:12px;font-weight:700;letter-spacing:.5px;color:#8e8e93;text-transform:uppercase;display:block;margin-bottom:6px;">Amount Owed ($)</label>
+          <input id="editAmount" type="number" min="0" placeholder="0" style="width:100%;padding:11px 14px;border:1.5px solid #dde8f2;border-radius:10px;font-size:15px;color:#1a2942;outline:none;" onfocus="this.style.borderColor='#c0392b'" onblur="this.style.borderColor='#dde8f2'"/>
+        </div>
+        <div class="field">
+          <label style="font-size:12px;font-weight:700;letter-spacing:.5px;color:#8e8e93;text-transform:uppercase;display:block;margin-bottom:6px;">Severity</label>
+          <select id="editSeverity" style="width:100%;padding:11px 14px;border:1.5px solid #dde8f2;border-radius:10px;font-size:15px;color:#1a2942;outline:none;background:#fff;">
+            <option value="low">🟢 Low</option>
+            <option value="medium">🟡 Medium</option>
+            <option value="high">🟠 High</option>
+            <option value="critical">🔴 Critical</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:16px;">
+        <label style="font-size:12px;font-weight:700;letter-spacing:.5px;color:#8e8e93;text-transform:uppercase;display:block;margin-bottom:6px;">Load Number</label>
+        <input id="editLoadNum" placeholder="Optional" style="width:100%;padding:11px 14px;border:1.5px solid #dde8f2;border-radius:10px;font-size:15px;color:#1a2942;outline:none;" onfocus="this.style.borderColor='#c0392b'" onblur="this.style.borderColor='#dde8f2'"/>
+      </div>
+      <div id="editAlert" style="margin-bottom:12px;"></div>
+      <div style="display:flex;gap:10px;">
+        <button id="editSaveBtn" onclick="saveEditedReport()" style="flex:1;background:#1a2942;color:#fff;border:none;border-radius:10px;padding:13px;font-size:15px;font-weight:700;cursor:pointer;">Save Changes</button>
+        <button onclick="closeEditModal()" style="background:#f2f2f7;border:none;border-radius:10px;padding:13px 20px;font-size:15px;color:#1a2942;cursor:pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 let _token = localStorage.getItem('carrier_hub_token') || '';
 let _carrier = JSON.parse(localStorage.getItem('carrier_hub_user') || 'null');
@@ -819,7 +860,10 @@ function renderFeed(reports) {
             <span style="background:${severityColor}22;border:1px solid ${severityColor}44;color:${severityColor};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;text-transform:uppercase;">${r.severity||'medium'}</span>
             <button onclick="upvoteReport('${r.id}',this)" style="background:rgba(255,255,255,0.04);border:1px solid #c8d8e8;color:#4a6580;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">👍 ${r.upvotes||0}</button>
             ${_carrier ? `<button onclick="watchFromFeed('${r.brokerMC}','${esc(r.brokerName||'')}',this)" style="background:#0a1a3a;border:1px solid #1a3a6a;color:#7ab3ff;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">👁 Watch</button>` : ''}
-            ${_carrier && _carrier.email && r.reporterEmail === _carrier.email ? `<button onclick="deleteMyReport('${r.id}',this)" style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.25);color:#c0392b;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">🗑 Delete</button>` : ''}
+            \${_carrier && _carrier.email && r.reporterEmail === _carrier.email ? `
+              <button onclick="editMyReport('\${r.id}')" style="background:rgba(26,41,66,0.06);border:1px solid #c8d8e8;color:#1a2942;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">✏️ Edit</button>
+              <button onclick="deleteMyReport('\${r.id}',this)" style="background:rgba(192,57,43,0.08);border:1px solid rgba(192,57,43,0.25);color:#c0392b;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;">🗑 Delete</button>
+            ` : ''}
           </div>
         </div>
         <div style="margin-bottom:10px;">${catBadges}</div>
@@ -832,6 +876,56 @@ function renderFeed(reports) {
 function expandReport(link, full) {
   const p = link.closest('.report-card').querySelector('div[style*="font-size:13px"]');
   p.textContent = full;
+}
+
+function editMyReport(id) {
+  const report = _allReports.find(r => r.id === id);
+  if (!report) { showToast('Report not found.', 'error'); return; }
+  document.getElementById('editReportId').value = id;
+  document.getElementById('editDesc').value = report.description || '';
+  document.getElementById('editAmount').value = report.amountOwed || '';
+  document.getElementById('editSeverity').value = report.severity || 'medium';
+  document.getElementById('editLoadNum').value = report.loadNumber || '';
+  document.getElementById('editAlert').innerHTML = '';
+  const modal = document.getElementById('editReportModal');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('editDesc').focus(), 100);
+}
+
+function closeEditModal() {
+  document.getElementById('editReportModal').style.display = 'none';
+}
+
+async function saveEditedReport() {
+  const id = document.getElementById('editReportId').value;
+  const description = document.getElementById('editDesc').value.trim();
+  const amountOwed = document.getElementById('editAmount').value;
+  const severity = document.getElementById('editSeverity').value;
+  const loadNumber = document.getElementById('editLoadNum').value.trim();
+  if (description.length < 20) {
+    document.getElementById('editAlert').innerHTML = '<div style="background:#fff0f0;border:1px solid #f7b0a0;border-radius:8px;padding:10px 14px;color:#c0392b;font-size:14px;margin-bottom:4px;">Description must be at least 20 characters.</div>';
+    return;
+  }
+  const btn = document.getElementById('editSaveBtn');
+  btn.disabled = true; btn.textContent = '⏳ Saving…';
+  try {
+    const r = await fetch('/api/carrier-hub/report/' + id, {
+      method: 'PUT',
+      headers: { 'Authorization': 'Bearer ' + _token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, amountOwed: Number(amountOwed)||0, severity, loadNumber })
+    });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Save failed');
+    // Update local cache
+    const cached = _allReports.find(x => x.id === id);
+    if (cached) { cached.description = description; cached.amountOwed = Number(amountOwed)||0; cached.severity = severity; cached.loadNumber = loadNumber; }
+    closeEditModal();
+    loadFeed();
+    showToast('✅ Report updated.', 'success');
+  } catch(e) {
+    document.getElementById('editAlert').innerHTML = `<div style="background:#fff0f0;border:1px solid #f7b0a0;border-radius:8px;padding:10px 14px;color:#c0392b;font-size:14px;">❌ \${e.message}</div>`;
+    btn.disabled = false; btn.textContent = 'Save Changes';
+  }
 }
 
 async function deleteMyReport(id, btn) {

@@ -2840,6 +2840,28 @@ app.post('/api/carrier-hub/report/:id/upvote', (req, res) => {
   res.json({ ok: true, upvotes: r.upvotes });
 });
 
+// Edit own report
+app.put('/api/carrier-hub/report/:id', requireCarrierHub, (req, res) => {
+  const reports = loadCarrierReports();
+  const report = reports.find(r => r.id === req.params.id);
+  if (!report) return res.status(404).json({ error: 'Report not found' });
+  if (report.reporterEmail !== req.carrier.email && report.reporterMC !== req.carrier.mcNumber) {
+    return res.status(403).json({ error: 'You can only edit your own reports' });
+  }
+  const { description, amountOwed, severity, loadNumber } = req.body;
+  if (description) report.description = description.substring(0, 5000);
+  if (amountOwed !== undefined) report.amountOwed = Number(amountOwed) || 0;
+  if (severity && ['low','medium','high','critical'].includes(severity)) report.severity = severity;
+  if (loadNumber !== undefined) report.loadNumber = loadNumber;
+  report.updatedAt = new Date().toISOString();
+  saveCarrierReports(reports);
+  if (pgPool) pgPool.query(
+    'UPDATE carrier_broker_reports SET description=$1,amount_owed=$2,severity=$3,load_number=$4 WHERE id=$5',
+    [report.description, report.amountOwed, report.severity, report.loadNumber, req.params.id]
+  ).catch(()=>{});
+  res.json({ ok: true, report });
+});
+
 // Delete own report
 app.delete('/api/carrier-hub/report/:id', requireCarrierHub, (req, res) => {
   const reports = loadCarrierReports();
