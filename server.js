@@ -2955,6 +2955,21 @@ app.get('/api/carrier-hub/me', requireCarrierHub, (req, res) => {
   res.json({ carrier: { ...carr, passwordHash: undefined } });
 });
 
+// ── DELETE account ───────────────────────────────────────────────────────────
+app.delete('/api/carrier-hub/account', requireCarrierHub, (req, res) => {
+  try {
+    let regs = loadCarrierRegs();
+    const idx = regs.findIndex(r => r.id === req.carrier.id);
+    if (idx === -1) return res.status(404).json({ error: 'Account not found' });
+    regs.splice(idx, 1);
+    saveJSON(CARRIER_REG_FILE, regs);
+    res.json({ success: true, message: 'Account deleted' });
+  } catch(e) {
+    console.error('Delete account error:', e);
+    res.status(500).json({ error: 'Failed to delete account' });
+  }
+});
+
 // ════════════════════════════════════════════════════════════════════════════
 // FEATURE 1 — "IS THIS BROKER SAFE?" PUBLIC WIDGET
 // ════════════════════════════════════════════════════════════════════════════
