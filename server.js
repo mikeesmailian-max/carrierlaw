@@ -2512,6 +2512,86 @@ function saveCarrierReports(d){ saveJSON(CARRIER_REPORTS_FILE, d); }
 function loadCarrierRegs()    { return loadJSON(CARRIER_REG_FILE); }
 function saveCarrierRegs(d)   { saveJSON(CARRIER_REG_FILE, d); }
 
+// ── Unsubscribe token (HMAC of email) ────────────────────────────────────
+function unsubToken(email) {
+  const crypto = require('crypto');
+  return crypto.createHmac('sha256', process.env.APP_SECRET || 'fgd-unsub-2024').update(email.toLowerCase()).digest('hex').slice(0,40);
+}
+
+// ── Beautiful new-report alert email ─────────────────────────────────────
+function buildNewReportEmail({ brokerName, brokerMC, categories, severity, description, amountOwed, toEmail }) {
+  const siteUrl = process.env.SITE_URL || 'https://freightguarddefense.com';
+  const unsub   = `${siteUrl}/api/carrier-hub/unsubscribe?email=${encodeURIComponent(toEmail)}&token=${unsubToken(toEmail)}`;
+  const sevColor = { critical:'#c0392b', high:'#e67e22', medium:'#f0a830', low:'#27ae60' };
+  const sc = sevColor[severity] || sevColor.medium;
+  const catStr = (categories||[]).map(c => c.replace(/_/g,' ').replace(/\b\w/g,ch=>ch.toUpperCase())).join(' · ');
+  const amt = amountOwed ? `$${Number(amountOwed).toLocaleString()}` : null;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New Broker Report — FreightGuard Defense</title></head>
+<body style="margin:0;padding:0;background:#f2f2f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f2f2f7;padding:32px 16px;">
+<tr><td align="center">
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:580px;">
+  <tr><td style="background:linear-gradient(135deg,#1a1a2e 0%,#16213e 60%,#0f3460 100%);border-radius:16px 16px 0 0;padding:32px 36px;text-align:center;">
+    <div style="font-size:11px;font-weight:700;letter-spacing:2px;color:rgba(255,255,255,0.45);text-transform:uppercase;margin-bottom:10px;">FreightGuard Defense</div>
+    <div style="font-size:24px;font-weight:700;color:#fff;margin-bottom:6px;">⚠️ New Broker Report Filed</div>
+    <div style="font-size:14px;color:rgba(255,255,255,0.6);">A carrier in your network reported a broker</div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:28px 36px 0;">
+    <div style="background:#f7f7f9;border-radius:12px;padding:18px 22px;border-left:4px solid ${sc};">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:#8e8e93;text-transform:uppercase;margin-bottom:4px;">Reported Broker</div>
+      <div style="font-size:20px;font-weight:700;color:#1d1d1f;">${brokerName || 'Unknown Broker'}</div>
+      <div style="font-size:14px;color:#6e6e73;margin-top:2px;">MC-${brokerMC}</div>
+    </div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:20px 36px 0;">
+    <table width="100%" cellpadding="0" cellspacing="6" border="0">
+      <tr>
+        <td width="48%" style="vertical-align:top;padding-right:6px;">
+          <div style="background:#fff5f5;border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#8e8e93;text-transform:uppercase;margin-bottom:6px;">Severity</div>
+            <span style="display:inline-block;background:${sc};color:#fff;font-size:12px;font-weight:700;padding:4px 12px;border-radius:100px;text-transform:capitalize;">${severity||'medium'}</span>
+          </div>
+        </td>
+        <td width="52%" style="vertical-align:top;padding-left:6px;">
+          <div style="background:#f7f7f9;border-radius:10px;padding:14px 16px;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#8e8e93;text-transform:uppercase;margin-bottom:6px;">Categories</div>
+            <div style="font-size:13px;font-weight:600;color:#1d1d1f;">${catStr||'General'}</div>
+          </div>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+  ${amt ? `<tr><td style="background:#fff;padding:12px 36px 0;">
+    <div style="background:#fff0f0;border-radius:10px;padding:14px 16px;border:1px solid rgba(192,57,43,0.15);">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#8e8e93;text-transform:uppercase;margin-bottom:4px;">Amount Owed</div>
+      <div style="font-size:22px;font-weight:800;color:#c0392b;">${amt}</div>
+    </div>
+  </td></tr>` : ''}
+  <tr><td style="background:#fff;padding:12px 36px 0;">
+    <div style="background:#f7f7f9;border-radius:10px;padding:14px 16px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:#8e8e93;text-transform:uppercase;margin-bottom:8px;">Description</div>
+      <div style="font-size:14px;color:#1d1d1f;line-height:1.65;">${(description||'').substring(0,400)}${(description||'').length>400?'…':''}</div>
+    </div>
+  </td></tr>
+  <tr><td style="background:#fff;padding:24px 36px 32px;text-align:center;">
+    <a href="${siteUrl}/carrier-hub.html" style="display:inline-block;background:#c0392b;color:#fff;font-size:15px;font-weight:700;padding:14px 36px;border-radius:12px;text-decoration:none;">View Full Report →</a>
+    <div style="margin-top:14px;font-size:13px;color:#8e8e93;">You're receiving this as a registered FreightGuard Defense carrier.</div>
+  </td></tr>
+  <tr><td style="background:#f2f2f7;border-radius:0 0 16px 16px;padding:18px 36px;text-align:center;border-top:1px solid #e5e5ea;">
+    <div style="font-size:12px;color:#8e8e93;line-height:1.9;">
+      <strong style="color:#3d3d3d;">FreightGuard Defense</strong> · Protecting Motor Carriers<br>
+      <a href="${unsub}" style="color:#8e8e93;">Unsubscribe from report alerts</a> &nbsp;·&nbsp;
+      <a href="${siteUrl}/carrier-hub.html" style="color:#8e8e93;">Manage preferences</a>
+    </div>
+  </td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>`;
+}
+
 // Add schema for new tables
 // (runs on next startup)
 if (pgPool) {
@@ -2696,7 +2776,32 @@ app.post('/api/carrier-hub/report', rateLimit(60000, 5), async (req, res) => {
     } catch {}
   }
 
-  res.json({ ok: true, reportId: id, alertsSent: watchers.length, message: `Report filed. ${watchers.length} carriers watching this broker have been notified.` });
+  // Broadcast to ALL subscribed registered carriers (not just watchlist)
+  const allRegs = loadCarrierRegs().filter(r => r.subscribedAlerts !== false && r.email && r.email !== reporterEmail);
+  let broadcastCount = 0;
+  for (const reg of allRegs) {
+    // Skip if already notified via watchlist above
+    if (watchers.some(w => w.email === reg.email)) continue;
+    try {
+      await dispatchEmail({
+        to: reg.email,
+        subject: `⚠️ New Broker Report: ${brokerName||'MC-'+mc} — ${catLabels.substring(0,50)}`,
+        text: `A carrier filed a report against ${brokerName||'MC-'+mc} (MC-${mc}).
+
+Categories: ${catLabels}
+Severity: ${severity||'Medium'}
+${amountOwed?`Amount Owed: $${Number(amountOwed).toLocaleString()}`:''}\n
+Description:
+${description.substring(0,400)}
+
+View: ${process.env.SITE_URL||'https://freightguarddefense.com'}/carrier-hub.html`,
+        html: buildNewReportEmail({ brokerName, brokerMC: mc, categories, severity, description, amountOwed, toEmail: reg.email }),
+      });
+      broadcastCount++;
+    } catch(e) { console.warn('Broadcast alert failed for', reg.email, e.message); }
+  }
+
+  res.json({ ok: true, reportId: id, alertsSent: watchers.length + broadcastCount, message: `Report filed. ${watchers.length + broadcastCount} carriers have been notified.` });
 });
 
 // Get broker reports (public feed)
@@ -2734,6 +2839,82 @@ app.post('/api/carrier-hub/report/:id/upvote', (req, res) => {
   saveCarrierReports(reports);
   res.json({ ok: true, upvotes: r.upvotes });
 });
+
+// Delete own report
+app.delete('/api/carrier-hub/report/:id', requireCarrierHub, (req, res) => {
+  const reports = loadCarrierReports();
+  const idx = reports.findIndex(r => r.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'Report not found' });
+  const report = reports[idx];
+  if (report.reporterEmail !== req.carrier.email && report.reporterMC !== req.carrier.mcNumber) {
+    return res.status(403).json({ error: 'You can only delete your own reports' });
+  }
+  reports.splice(idx, 1);
+  saveCarrierReports(reports);
+  if (pgPool) pgPool.query('DELETE FROM carrier_broker_reports WHERE id=$1', [req.params.id]).catch(()=>{});
+  res.json({ ok: true });
+});
+
+// Unsubscribe from report alerts (no auth needed — token in URL)
+app.get('/api/carrier-hub/unsubscribe', (req, res) => {
+  const { email, token } = req.query;
+  if (!email || !token || token !== unsubToken(email)) {
+    return res.status(400).send('<h2>Invalid unsubscribe link.</h2>');
+  }
+  const regs = loadCarrierRegs();
+  const carr = regs.find(r => r.email?.toLowerCase() === email.toLowerCase());
+  if (carr) { carr.subscribedAlerts = false; saveCarrierRegs(regs); }
+  res.send(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Unsubscribed</title>
+<style>body{font-family:-apple-system,sans-serif;background:#f2f2f7;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;}
+.box{background:#fff;border-radius:16px;padding:48px 40px;max-width:440px;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.08);}
+h1{color:#1d1d1f;font-size:24px;margin-bottom:8px;}p{color:#6e6e73;font-size:15px;line-height:1.6;}
+a{display:inline-block;margin-top:24px;background:#c0392b;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px;}</style></head>
+<body><div class="box"><div style="font-size:48px;margin-bottom:16px;">✅</div>
+<h1>You've been unsubscribed</h1>
+<p>You'll no longer receive new broker report alerts. You can re-enable alerts anytime from your dashboard.</p>
+<a href="https://freightguarddefense.com/carrier-hub.html">Back to Carrier Hub</a></div></body></html>`);
+});
+
+// Extract text from uploaded rate con file (PDF, TXT, DOCX)
+const multer = (() => { try { return require('multer'); } catch(e) { return null; } })();
+const pdfParse = (() => { try { return require('pdf-parse'); } catch(e) { return null; } })();
+const rcUpload = multer ? multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } }) : null;
+
+if (rcUpload) {
+  app.post('/api/carrier-hub/extract-text', rcUpload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+      const ext = (req.file.originalname || '').split('.').pop().toLowerCase();
+      let text = '';
+      if (ext === 'txt') {
+        text = req.file.buffer.toString('utf8');
+      } else if (ext === 'pdf' && pdfParse) {
+        const data = await pdfParse(req.file.buffer);
+        text = data.text || '';
+      } else if (['doc','docx'].includes(ext)) {
+        // Basic docx: extract raw text from XML
+        const JSZip = (() => { try { return require('jszip'); } catch(e) { return null; } })();
+        if (JSZip) {
+          const zip = await JSZip.loadAsync(req.file.buffer);
+          const wordDoc = zip.files['word/document.xml'];
+          if (wordDoc) {
+            const xml = await wordDoc.async('text');
+            text = xml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+          }
+        }
+      }
+      if (!text) return res.json({ text: '', warning: 'Could not extract text from this file type. Please paste text manually.' });
+      res.json({ text: text.substring(0, 50000) });
+    } catch(e) {
+      console.error('extract-text error:', e.message);
+      res.status(500).json({ error: 'Extraction failed: ' + e.message });
+    }
+  });
+} else {
+  app.post('/api/carrier-hub/extract-text', express.raw({ type: '*/*', limit: '20mb' }), async (req, res) => {
+    res.json({ text: '', warning: 'File extraction requires multer package. Please paste text manually.' });
+  });
+}
 
 // Carrier hub watchlist management
 app.post('/api/carrier-hub/watchlist/:mc', requireCarrierHub, (req, res) => {
