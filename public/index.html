@@ -33,15 +33,78 @@
   body { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
 
   /* ── TOPBAR ── */
-  .topbar { background: rgba(29,29,31,0.96); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.08); padding: 0 48px; display: flex; align-items: center; justify-content: space-between; height: 68px; position: sticky; top: 0; z-index: 200; }
-  .logo { display: flex; align-items: center; gap: 14px; }
-  .logo-icon { width: 38px; height: 38px; background: var(--red); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
-  .logo h1 { font-size: 18px; font-weight: 700; color: #fff; letter-spacing: -0.3px; }
-  .logo p { font-size: 11px; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1.2px; }
-  .nav-actions { display: flex; align-items: center; gap: 6px; }
-  .nav-link { font-size: 14px; font-weight: 500; color: rgba(255,255,255,0.8); cursor: pointer; padding: 8px 14px; border-radius: 8px; transition: all 0.2s; background: none; border: none; letter-spacing: -0.1px; }
-  .nav-link:hover { color: #fff; background: rgba(255,255,255,0.12); }
-  .nav-link.active { color: #fff; }
+  /* ── Apple-style topbar ─────────────────────────────────────────────────── */
+  .topbar {
+    background: rgba(22,22,24,0.92);
+    backdrop-filter: saturate(180%) blur(24px);
+    -webkit-backdrop-filter: saturate(180%) blur(24px);
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    padding: 0 32px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 200;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 12px;
+    text-decoration: none; cursor: pointer;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #c0392b, #e74c3c);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px;
+    box-shadow: 0 2px 8px rgba(192,57,43,0.4);
+    flex-shrink: 0;
+  }
+  .logo h1 { font-size: 15px; font-weight: 700; color: #fff; letter-spacing: -0.3px; line-height: 1.2; }
+  .logo p  { font-size: 10px; color: rgba(255,255,255,0.38); text-transform: uppercase; letter-spacing: 1px; margin-top: 1px; }
+  /* Center nav */
+  .nav-center {
+    display: flex; align-items: center; gap: 2px;
+    justify-content: center;
+  }
+  .nav-link {
+    font-size: 13.5px; font-weight: 500;
+    color: rgba(255,255,255,0.7);
+    cursor: pointer; padding: 7px 13px;
+    border-radius: 8px;
+    transition: all 0.15s;
+    background: none; border: none;
+    letter-spacing: -0.1px;
+    font-family: inherit;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    white-space: nowrap;
+  }
+  .nav-link:hover { color: #fff; background: rgba(255,255,255,0.1); }
+  .nav-link.active { color: #fff; font-weight: 600; }
+  /* Right actions */
+  .nav-right {
+    display: flex; align-items: center; gap: 10px;
+    justify-content: flex-end;
+  }
+  .nav-divider {
+    width: 1px; height: 20px;
+    background: rgba(255,255,255,0.1);
+    margin: 0 4px;
+  }
+  /* External portal links */
+  .nav-portal {
+    font-size: 12.5px; font-weight: 600;
+    padding: 5px 11px; border-radius: 7px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.09);
+    transition: all .15s;
+    text-decoration: none;
+    display: inline-flex; align-items: center; gap: 5px;
+    white-space: nowrap;
+  }
+  .nav-portal:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.16); }
 
   /* ── SCREENS ── */
   .screen { display: none; }
@@ -247,7 +310,11 @@
     .form-content { padding: 24px; }
     .form-header { padding: 20px 24px; }
     .letter-body { padding: 32px 24px; font-size: 13px; }
-    .topbar { padding: 0 24px; }
+    .topbar { padding: 0 16px; grid-template-columns: auto 1fr auto; gap: 8px; }
+    .nav-center { gap: 0; overflow-x: auto; }
+    .nav-link { padding: 6px 10px; font-size: 12.5px; }
+    .nav-portal { display: none; }
+    .nav-divider { display: none; }
     .atty-content { padding: 24px; }
     .section-title { font-size: 32px; }
   }
@@ -259,46 +326,72 @@
 
 <!-- TOP BAR -->
 <div class="topbar">
-  <div class="logo">
+
+  <!-- LEFT: Logo -->
+  <div class="logo" onclick="showScreen('landing')">
     <div class="logo-icon">⚖️</div>
     <div>
       <h1>FreightGuard Defense</h1>
       <p>Carrier Legal Protection Network</p>
     </div>
   </div>
-  <div class="nav-actions">
-    <button class="nav-link active" id="navHome" onclick="showScreen('landing')">Home</button>
-    <button class="nav-link" id="navAttorneys" onclick="showNavAttorneys()">Our Attorneys</button>
-    <button class="nav-link" id="navHistory" onclick="showNavHistory()" style="display:none;">📋 Past Letters</button>
-    <button class="nav-link" id="navAnalytics" onclick="showNavAnalytics()">📈 Analytics</button>
-    <!-- Logged-out -->
-    <button id="mainAuthBtn" onclick="toggleMainAuth()" style="background:#c0392b;color:#fff;border:none;border-radius:100px;padding:11px 24px;font-weight:800;font-size:15px;cursor:pointer;letter-spacing:-.2px;box-shadow:0 2px 16px rgba(192,57,43,0.45);transition:all .18s;font-family:inherit;" onmouseover="this.style.background='#a93226';this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 24px rgba(192,57,43,0.55)'" onmouseout="this.style.background='#c0392b';this.style.transform='';this.style.boxShadow='0 2px 16px rgba(192,57,43,0.45)'">🔐 Carrier Login</button>
-    <!-- Logged-in pill -->
+
+  <!-- CENTER: Primary nav -->
+  <nav class="nav-center">
+    <button class="nav-link active" id="navHome"      onclick="showScreen('landing')">Home</button>
+    <button class="nav-link"        id="navAttorneys" onclick="showNavAttorneys()">Our Attorneys</button>
+    <button class="nav-link"        id="navHistory"   onclick="showNavHistory()" style="display:none;">Past Letters</button>
+    <button class="nav-link"        id="navAnalytics" onclick="showNavAnalytics()">Analytics</button>
+  </nav>
+
+  <!-- RIGHT: Portals + Auth -->
+  <div class="nav-right">
+    <!-- Portal links -->
+    <a href="/attorney-portal.html" class="nav-portal" style="color:#f0a830;">⚖️ Attorneys</a>
+    <a href="/carrier-hub.html"     class="nav-portal" style="color:#40c070;">🚛 Carrier Hub</a>
+    <a href="/broker411.html"       class="nav-portal" style="color:#f07060;">📋 Broker411</a>
+
+    <div class="nav-divider"></div>
+
+    <!-- Logged-out: Login button -->
+    <button id="mainAuthBtn" onclick="toggleMainAuth()"
+      style="background:#c0392b;color:#fff;border:none;border-radius:100px;padding:8px 20px;font-weight:700;font-size:13.5px;cursor:pointer;letter-spacing:-.1px;box-shadow:0 1px 12px rgba(192,57,43,0.4);transition:all .18s;font-family:inherit;white-space:nowrap;"
+      onmouseover="this.style.background='#a93226';this.style.boxShadow='0 3px 18px rgba(192,57,43,0.55)';this.style.transform='translateY(-1px)'"
+      onmouseout="this.style.background='#c0392b';this.style.boxShadow='0 1px 12px rgba(192,57,43,0.4)';this.style.transform=''">
+      🔐 Sign In
+    </button>
+
+    <!-- Logged-in: Account pill -->
     <div id="mainAccountPill" style="display:none;position:relative;">
-      <button onclick="toggleMainAccountMenu()" style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.09);border:1px solid rgba(255,255,255,0.15);border-radius:100px;padding:6px 14px 6px 8px;cursor:pointer;transition:all .18s;color:#fff;" onmouseover="this.style.background='rgba(255,255,255,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.09)'">
+      <button onclick="toggleMainAccountMenu()"
+        style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.13);border-radius:100px;padding:5px 12px 5px 6px;cursor:pointer;transition:all .18s;color:#fff;"
+        onmouseover="this.style.background='rgba(255,255,255,0.14)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
         <div id="mainAccountAvatar" style="width:26px;height:26px;background:#c0392b;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;">?</div>
-        <span id="mainAccountName" style="font-size:13px;font-weight:600;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">—</span>
-        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" style="opacity:.5;"><path d="M1 1l4 4 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span id="mainAccountName" style="font-size:13px;font-weight:600;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff;">—</span>
+        <svg width="9" height="5" viewBox="0 0 10 6" fill="none" style="opacity:.45;flex-shrink:0;"><path d="M1 1l4 4 4-4" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
-      <div id="mainAccountMenu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:#1c1c1e;border:1px solid rgba(255,255,255,0.12);border-radius:14px;min-width:210px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.6);z-index:600;">
-        <div style="padding:13px 16px;border-bottom:1px solid rgba(255,255,255,0.08);">
-          <div id="mainMenuName" style="font-size:14px;font-weight:700;color:#fff;">—</div>
-          <div id="mainMenuEmail" style="font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px;">—</div>
+      <!-- Dropdown -->
+      <div id="mainAccountMenu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;background:#1c1c1e;border:1px solid rgba(255,255,255,0.11);border-radius:14px;min-width:210px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.6);z-index:600;">
+        <div style="padding:13px 16px;border-bottom:1px solid rgba(255,255,255,0.07);">
+          <div id="mainMenuName"  style="font-size:14px;font-weight:700;color:#fff;">—</div>
+          <div id="mainMenuEmail" style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:2px;">—</div>
         </div>
         <div style="padding:6px;">
-          <button onclick="showNavHistory();closeMainAccountMenu()" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:none;border:none;color:rgba(255,255,255,0.8);font-size:14px;font-weight:500;cursor:pointer;text-align:left;" onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='none'">
-            <span>📋</span> My Past Letters
+          <button onclick="showNavHistory();closeMainAccountMenu()"
+            style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:none;border:none;color:rgba(255,255,255,0.8);font-size:13.5px;font-weight:500;cursor:pointer;text-align:left;font-family:inherit;"
+            onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='none'">
+            <span style="font-size:15px;">📋</span> My Past Letters
           </button>
-          <div style="height:1px;background:rgba(255,255,255,0.08);margin:4px 0;"></div>
-          <button onclick="doMainLogout()" style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:none;border:none;color:#ff6b6b;font-size:14px;font-weight:600;cursor:pointer;text-align:left;" onmouseover="this.style.background='rgba(192,57,43,0.15)'" onmouseout="this.style.background='none'">
-            <span>🚪</span> Sign Out
+          <div style="height:1px;background:rgba(255,255,255,0.07);margin:4px 0;"></div>
+          <button onclick="doMainLogout()"
+            style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:none;border:none;color:#ff6b6b;font-size:13.5px;font-weight:600;cursor:pointer;text-align:left;font-family:inherit;"
+            onmouseover="this.style.background='rgba(192,57,43,0.14)'" onmouseout="this.style.background='none'">
+            <span style="font-size:15px;">🚪</span> Sign Out
           </button>
         </div>
       </div>
     </div>
-    <a href="/attorney-portal.html" class="nav-link" style="text-decoration:none;color:#f0a830;">⚖️ Attorneys</a>
-    <a href="/carrier-hub.html" class="nav-link" style="text-decoration:none;color:#40c070;">🚛 Carrier Hub</a>
-    <a href="/broker411.html" class="nav-link" style="text-decoration:none;color:#f07060;">📋 Broker411</a>
+
   </div>
 </div>
 
