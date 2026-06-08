@@ -2743,31 +2743,27 @@ function printHistoryLetter() {
     <style>body{font-family:'Courier New',monospace;font-size:11pt;line-height:1.8;color:#000;padding:48px;max-width:760px;margin:0 auto;}
     h2{font-family:serif;font-size:14pt;margin-bottom:4px;} p{color:#555;margin-bottom:24px;font-family:sans-serif;font-size:10pt;}
     pre{white-space:pre-wrap;word-break:break-word;}</style>
-    </head><body><h2>${title}</h2><p>${meta}</p><pre>${text.replace(/</g,'&lt;')}</pre>
+    </head><body><h2>${title}</h2><p>${meta}</p><pre>${text.replace(/</g,'&lt;')}}</pre></body></html>`);
+  win.document.close();
+}
+
+</script>
+
 <!-- ══ Main Site Login / Register Modal ══════════════════════════════════════ -->
 <div id="mainAuthPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:1200;align-items:flex-start;justify-content:center;padding:60px 16px 40px;overflow-y:auto;" onclick="if(event.target===this)toggleMainAuth()">
   <div style="max-width:420px;width:100%;background:#1c1c1e;border-radius:22px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 32px 80px rgba(0,0,0,0.7);overflow:hidden;position:relative;">
-
-    <!-- Close -->
     <button onclick="toggleMainAuth()" style="position:absolute;top:14px;right:16px;background:rgba(255,255,255,0.1);border:none;width:30px;height:30px;border-radius:50%;color:#fff;font-size:18px;cursor:pointer;line-height:30px;text-align:center;z-index:1;">×</button>
-
-    <!-- Logo / header -->
     <div style="padding:28px 28px 0;text-align:center;">
       <div style="font-size:28px;margin-bottom:8px;">⚖️</div>
       <div style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.4px;">FreightGuard Defense</div>
       <div style="font-size:13px;color:rgba(255,255,255,0.4);margin-top:4px;">Carrier Legal Protection Network</div>
     </div>
-
-    <!-- Tabs -->
     <div style="display:flex;margin:20px 24px 0;background:rgba(255,255,255,0.06);border-radius:10px;padding:3px;">
-      <button id="mainTabSignin" onclick="switchMainTab('signin')" style="flex:1;padding:9px;border-radius:8px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;background:#c0392b;color:#fff;">Sign In</button>
-      <button id="mainTabRegister" onclick="switchMainTab('register')" style="flex:1;padding:9px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;background:none;color:rgba(255,255,255,0.5);">Create Account</button>
+      <button id="mainTabSignin"   onclick="switchMainTab('signin')"   style="flex:1;padding:9px;border-radius:8px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s;background:#c0392b;color:#fff;font-family:inherit;">Sign In</button>
+      <button id="mainTabRegister" onclick="switchMainTab('register')" style="flex:1;padding:9px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s;background:none;color:rgba(255,255,255,0.5);font-family:inherit;">Create Account</button>
     </div>
-
-    <!-- Alert -->
     <div id="mainAuthAlert" style="display:none;margin:14px 24px 0;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;"></div>
-
-    <!-- Sign In form -->
+    <!-- Sign In -->
     <div id="mainSigninForm" style="padding:20px 24px 28px;">
       <div style="margin-bottom:14px;">
         <label style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Email</label>
@@ -2783,13 +2779,12 @@ function printHistoryLetter() {
           onfocus="this.style.borderColor='rgba(192,57,43,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'"
           onkeydown="if(event.key==='Enter')doMainLogin()"/>
       </div>
-      <button onclick="doMainLogin()" id="mainLoginBtn" style="width:100%;padding:14px;border-radius:12px;background:#c0392b;border:none;color:#fff;font-size:16px;font-weight:800;cursor:pointer;transition:all .15s;letter-spacing:-.2px;" onmouseover="this.style.background='#a93226'" onmouseout="this.style.background='#c0392b'">Sign In →</button>
+      <button onclick="doMainLogin()" id="mainLoginBtn" style="width:100%;padding:14px;border-radius:12px;background:#c0392b;border:none;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='#a93226'" onmouseout="this.style.background='#c0392b'">Sign In →</button>
       <div style="text-align:center;margin-top:14px;">
-        <a href="#" onclick="switchMainTab('register');return false;" style="font-size:13px;color:rgba(255,255,255,0.4);">No account? <span style="color:#ff8070;font-weight:700;">Create one free →</span></a>
+        <a href="#" onclick="switchMainTab('register');return false;" style="font-size:13px;color:rgba(255,255,255,0.4);">No account? <span style="color:#ff8070;font-weight:700;">Create one →</span></a>
       </div>
     </div>
-
-    <!-- Register form -->
+    <!-- Register -->
     <div id="mainRegisterForm" style="display:none;padding:20px 24px 28px;">
       <div style="margin-bottom:14px;">
         <label style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:6px;">Full Name</label>
@@ -2810,13 +2805,195 @@ function printHistoryLetter() {
           onfocus="this.style.borderColor='rgba(192,57,43,0.6)'" onblur="this.style.borderColor='rgba(255,255,255,0.12)'"
           onkeydown="if(event.key==='Enter')doMainRegister()"/>
       </div>
-      <button onclick="doMainRegister()" id="mainRegBtn" style="width:100%;padding:14px;border-radius:12px;background:#c0392b;border:none;color:#fff;font-size:16px;font-weight:800;cursor:pointer;transition:all .15s;" onmouseover="this.style.background='#a93226'" onmouseout="this.style.background='#c0392b'">Create Account →</button>
+      <button onclick="doMainRegister()" id="mainRegBtn" style="width:100%;padding:14px;border-radius:12px;background:#c0392b;border:none;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='#a93226'" onmouseout="this.style.background='#c0392b'">Create Account →</button>
       <div style="text-align:center;margin-top:14px;">
-        <a href="#" onclick="switchMainTab('signin');return false;" style="font-size:13px;color:rgba(255,255,255,0.4);">Already have an account? <span style="color:#ff8070;font-weight:700;">Sign in →</span></a>
+        <a href="#" onclick="switchMainTab('signin');return false;" style="font-size:13px;color:rgba(255,255,255,0.4);">Have an account? <span style="color:#ff8070;font-weight:700;">Sign in →</span></a>
       </div>
     </div>
-
   </div>
 </div>
+
+<script>
+// ══ Main site auth ════════════════════════════════════════════════════════════
+var _mainUser = null;
+
+(function initMainAuth() {
+  var token = localStorage.getItem('fgd_client_token');
+  var saved = localStorage.getItem('fgd_client_user');
+  if (token && saved) {
+    try { _mainUser = JSON.parse(saved); } catch(e) {}
+    updateMainAuthUI();
+    fetch('/api/auth/me', { headers: { 'Authorization': 'Bearer ' + token } })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (d && d.user) {
+          _mainUser = d.user;
+          localStorage.setItem('fgd_client_user', JSON.stringify(d.user));
+          updateMainAuthUI();
+        } else if (d === null) {
+          _mainUser = null;
+          localStorage.removeItem('fgd_client_token');
+          localStorage.removeItem('fgd_client_user');
+          updateMainAuthUI();
+        }
+      }).catch(function(){});
+  }
+})();
+
+function updateMainAuthUI() {
+  var loggedIn = !!_mainUser;
+  var authBtn  = document.getElementById('mainAuthBtn');
+  var pill     = document.getElementById('mainAccountPill');
+  if (authBtn) authBtn.style.display = loggedIn ? 'none' : '';
+  if (pill)    pill.style.display    = loggedIn ? '' : 'none';
+  if (loggedIn && _mainUser) {
+    var initials = (_mainUser.name || _mainUser.email || '?').substring(0,2).toUpperCase();
+    var disp     = _mainUser.name || _mainUser.email || '—';
+    var av = document.getElementById('mainAccountAvatar');
+    var nm = document.getElementById('mainAccountName');
+    var mn = document.getElementById('mainMenuName');
+    var me = document.getElementById('mainMenuEmail');
+    if (av) av.textContent = initials;
+    if (nm) nm.textContent = disp.split(' ')[0];
+    if (mn) mn.textContent = _mainUser.name || '—';
+    if (me) me.textContent = _mainUser.email || '—';
+  }
+  if (typeof refreshAdminUI === 'function') refreshAdminUI();
+}
+
+function toggleMainAuth(defaultTab) {
+  var panel = document.getElementById('mainAuthPanel');
+  if (!panel) return;
+  var hidden = panel.style.display === 'none' || panel.style.display === '';
+  panel.style.display = hidden ? 'flex' : 'none';
+  if (hidden) {
+    clearMainAuthAlert();
+    switchMainTab(defaultTab || 'signin');
+    setTimeout(function() {
+      var f = document.getElementById('mainLoginEmail');
+      if (f) f.focus();
+    }, 80);
+  }
+}
+
+function switchMainTab(tab) {
+  var signin   = document.getElementById('mainSigninForm');
+  var register = document.getElementById('mainRegisterForm');
+  var tSign    = document.getElementById('mainTabSignin');
+  var tReg     = document.getElementById('mainTabRegister');
+  if (!signin) return;
+  if (tab === 'signin') {
+    signin.style.display   = '';  register.style.display = 'none';
+    tSign.style.background = '#c0392b'; tSign.style.color = '#fff';
+    tReg.style.background  = 'none';   tReg.style.color = 'rgba(255,255,255,0.5)';
+    setTimeout(function(){ var f=document.getElementById('mainLoginEmail'); if(f)f.focus(); }, 80);
+  } else {
+    signin.style.display   = 'none'; register.style.display = '';
+    tSign.style.background = 'none'; tSign.style.color = 'rgba(255,255,255,0.5)';
+    tReg.style.background  = '#c0392b'; tReg.style.color = '#fff';
+    setTimeout(function(){ var f=document.getElementById('mainRegName'); if(f)f.focus(); }, 80);
+  }
+  clearMainAuthAlert();
+}
+
+function showMainAuthAlert(msg, type) {
+  var el = document.getElementById('mainAuthAlert');
+  if (!el) return;
+  el.style.display    = '';
+  el.style.background = type === 'error' ? 'rgba(192,57,43,0.2)' : 'rgba(40,160,80,0.2)';
+  el.style.border     = type === 'error' ? '1px solid rgba(192,57,43,0.4)' : '1px solid rgba(40,160,80,0.4)';
+  el.style.color      = type === 'error' ? '#ff8070' : '#60d080';
+  el.innerHTML = msg;
+}
+function clearMainAuthAlert() {
+  var el = document.getElementById('mainAuthAlert');
+  if (el) { el.style.display = 'none'; el.innerHTML = ''; }
+}
+
+async function doMainLogin() {
+  var email = document.getElementById('mainLoginEmail').value.trim();
+  var pass  = document.getElementById('mainLoginPass').value;
+  if (!email || !pass) { showMainAuthAlert('Email and password are required.', 'error'); return; }
+  var btn = document.getElementById('mainLoginBtn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+  try {
+    var r = await fetch('/api/auth/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email: email, password: pass })
+    });
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Login failed');
+    localStorage.setItem('fgd_client_token', d.token);
+    localStorage.setItem('fgd_client_user', JSON.stringify(d.user));
+    _mainUser = d.user;
+    document.getElementById('mainAuthPanel').style.display = 'none';
+    updateMainAuthUI();
+    if (typeof showToast === 'function') showToast('Welcome back, ' + (d.user.name || d.user.email) + '! ✅', 'success');
+  } catch(e) {
+    showMainAuthAlert('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Sign In →';
+  }
+}
+
+async function doMainRegister() {
+  var name  = document.getElementById('mainRegName').value.trim();
+  var email = document.getElementById('mainRegEmail').value.trim();
+  var pass  = document.getElementById('mainRegPass').value;
+  if (!email || !pass) { showMainAuthAlert('Email and password are required.', 'error'); return; }
+  if (pass.length < 8) { showMainAuthAlert('Password must be at least 8 characters.', 'error'); return; }
+  var btn = document.getElementById('mainRegBtn');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+  try {
+    var r = await fetch('/api/auth/register', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ email: email, password: pass, name: name })
+    });
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Registration failed');
+    localStorage.setItem('fgd_client_token', d.token);
+    localStorage.setItem('fgd_client_user', JSON.stringify(d.user));
+    _mainUser = d.user;
+    document.getElementById('mainAuthPanel').style.display = 'none';
+    updateMainAuthUI();
+    if (typeof showToast === 'function') showToast('Account created! Welcome to FreightGuard ✅', 'success');
+  } catch(e) {
+    showMainAuthAlert('❌ ' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Create Account →';
+  }
+}
+
+function doMainLogout() {
+  _mainUser = null;
+  localStorage.removeItem('fgd_client_token');
+  localStorage.removeItem('fgd_client_user');
+  closeMainAccountMenu();
+  updateMainAuthUI();
+  if (typeof showToast === 'function') showToast('Signed out.', 'success');
+}
+
+function toggleMainAccountMenu() {
+  var menu = document.getElementById('mainAccountMenu');
+  if (!menu) return;
+  if (menu.style.display === 'block') {
+    closeMainAccountMenu();
+  } else {
+    menu.style.display = 'block';
+    setTimeout(function() { document.addEventListener('click', _mainMenuOutsideClick); }, 0);
+  }
+}
+function closeMainAccountMenu() {
+  var menu = document.getElementById('mainAccountMenu');
+  if (menu) menu.style.display = 'none';
+  document.removeEventListener('click', _mainMenuOutsideClick);
+}
+function _mainMenuOutsideClick(e) {
+  var pill = document.getElementById('mainAccountPill');
+  if (pill && !pill.contains(e.target)) closeMainAccountMenu();
+}
+</script>
+
+<script>refreshAdminUI();</script>
 </body>
 </html>
