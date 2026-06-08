@@ -377,6 +377,11 @@
           <div id="mainMenuEmail" style="font-size:12px;color:rgba(255,255,255,0.38);margin-top:2px;">—</div>
         </div>
         <div style="padding:6px;">
+          <button onclick="showMainAccountPanel();closeMainAccountMenu()"
+            style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:none;border:none;color:rgba(255,255,255,0.8);font-size:13.5px;font-weight:500;cursor:pointer;text-align:left;font-family:inherit;"
+            onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='none'">
+            <span style="font-size:15px;">👤</span> My Account
+          </button>
           <button onclick="showNavHistory();closeMainAccountMenu()"
             style="width:100%;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;background:none;border:none;color:rgba(255,255,255,0.8);font-size:13.5px;font-weight:500;cursor:pointer;text-align:left;font-family:inherit;"
             onmouseover="this.style.background='rgba(255,255,255,0.07)'" onmouseout="this.style.background='none'">
@@ -401,12 +406,13 @@
   <!-- Broker Lookup Widget -->
   <div id="brokerLookupBar" style="background:linear-gradient(90deg,#1a2942,#1e3a5f);border-bottom:1px solid var(--border);padding:12px 40px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center;">
     <span style="font-size:13px;color:var(--text-muted);white-space:nowrap;">🔍 Check a broker before you haul:</span>
-    <input id="landingBrokerMC" type="search" placeholder="Enter MC number..." 
-      autocomplete="nope" autocorrect="off" autocapitalize="off" spellcheck="false"
+    <input id="landingBrokerMC" type="text" inputmode="numeric" placeholder="Enter MC number..."
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      readonly
       style="background:#ffffff;border:1px solid var(--border);border-radius:7px;padding:7px 12px;color:#1a2942;font-size:13px;width:180px;outline:none;"
       oninput="triggerLandingBrokerCheck(this.value)"
-      data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"
-      onfocus="this.value=this.value"/>
+      onfocus="this.removeAttribute('readonly')"
+      data-lpignore="true" data-1p-ignore data-bwignore data-form-type="other"/>
     <div id="landingBrokerResult" style="font-size:13px;"></div>
   </div>
 
@@ -2995,5 +3001,118 @@ function _mainMenuOutsideClick(e) {
 </script>
 
 <script>refreshAdminUI();</script>
+
+<!-- ══ Main Site Account Panel ═══════════════════════════════════════════ -->
+<div id="mainAccountPanel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);z-index:1200;align-items:flex-start;justify-content:center;padding:60px 16px 40px;overflow-y:auto;" onclick="if(event.target===this)hideMainAccountPanel()">
+  <div style="max-width:480px;width:100%;background:#1c1c1e;border-radius:22px;border:1px solid rgba(255,255,255,0.1);box-shadow:0 32px 80px rgba(0,0,0,0.7);overflow:hidden;">
+
+    <!-- Header -->
+    <div style="padding:24px 28px 20px;border-bottom:1px solid rgba(255,255,255,0.07);display:flex;align-items:center;gap:16px;">
+      <div id="apAvatar" style="width:56px;height:56px;background:#c0392b;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;flex-shrink:0;">?</div>
+      <div style="flex:1;min-width:0;">
+        <div id="apName"  style="font-size:20px;font-weight:800;color:#fff;letter-spacing:-.3px;">—</div>
+        <div id="apEmail" style="font-size:13px;color:rgba(255,255,255,0.4);margin-top:2px;">—</div>
+      </div>
+      <button onclick="hideMainAccountPanel()" style="background:rgba(255,255,255,0.1);border:none;width:32px;height:32px;border-radius:50%;color:#fff;font-size:19px;cursor:pointer;line-height:32px;text-align:center;flex-shrink:0;">×</button>
+    </div>
+
+    <!-- Account info rows -->
+    <div style="padding:20px 28px;border-bottom:1px solid rgba(255,255,255,0.07);">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;">Account Details</div>
+
+      <div style="display:flex;flex-direction:column;gap:0;">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+          <span style="font-size:13px;color:rgba(255,255,255,0.45);">Full Name</span>
+          <span id="apDetailName" style="font-size:13px;font-weight:600;color:#fff;">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+          <span style="font-size:13px;color:rgba(255,255,255,0.45);">Email</span>
+          <span id="apDetailEmail" style="font-size:13px;font-weight:600;color:#fff;">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+          <span style="font-size:13px;color:rgba(255,255,255,0.45);">Member Since</span>
+          <span id="apDetailSince" style="font-size:13px;font-weight:600;color:#fff;">—</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;">
+          <span style="font-size:13px;color:rgba(255,255,255,0.45);">Account Type</span>
+          <span style="font-size:12px;font-weight:700;color:#fff;background:rgba(192,57,43,0.25);border:1px solid rgba(192,57,43,0.4);border-radius:6px;padding:2px 10px;">Carrier</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div style="padding:16px 28px;border-bottom:1px solid rgba(255,255,255,0.07);">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Quick Actions</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button onclick="showNavHistory();hideMainAccountPanel()"
+          style="flex:1;min-width:120px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;"
+          onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+          <span>📋</span> My Past Letters
+        </button>
+        <button onclick="window.location.href='/carrier-hub.html'"
+          style="flex:1;min-width:120px;padding:10px 14px;border-radius:10px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);color:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:7px;"
+          onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.06)'">
+          <span>🚛</span> Carrier Hub
+        </button>
+      </div>
+    </div>
+
+    <!-- Sign out / delete -->
+    <div style="padding:16px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <button onclick="doMainLogout();hideMainAccountPanel()"
+        style="padding:10px 20px;border-radius:10px;background:rgba(192,57,43,0.15);border:1px solid rgba(192,57,43,0.35);color:#ff6b6b;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;"
+        onmouseover="this.style.background='rgba(192,57,43,0.28)'" onmouseout="this.style.background='rgba(192,57,43,0.15)'">
+        🚪 Sign Out
+      </button>
+      <button onclick="confirmDeleteMainAccount()"
+        style="padding:10px 20px;border-radius:10px;background:none;border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.25);font-size:12px;font-weight:500;cursor:pointer;font-family:inherit;"
+        onmouseover="this.style.color='#ff6b6b';this.style.borderColor='rgba(192,57,43,0.4)'" onmouseout="this.style.color='rgba(255,255,255,0.25)';this.style.borderColor='rgba(255,255,255,0.08)'">
+        Delete Account
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showMainAccountPanel() {
+  var panel = document.getElementById('mainAccountPanel');
+  if (!panel || !_mainUser) return;
+  // Populate
+  var initials = (_mainUser.name || _mainUser.email || '?').substring(0,2).toUpperCase();
+  var name  = _mainUser.name  || '—';
+  var email = _mainUser.email || '—';
+  var since = _mainUser.createdAt
+    ? new Date(_mainUser.createdAt).toLocaleDateString('en-US',{year:'numeric',month:'long'})
+    : 'Member';
+  document.getElementById('apAvatar').textContent    = initials;
+  document.getElementById('apName').textContent      = name;
+  document.getElementById('apEmail').textContent     = email;
+  document.getElementById('apDetailName').textContent  = name;
+  document.getElementById('apDetailEmail').textContent = email;
+  document.getElementById('apDetailSince').textContent = since;
+  panel.style.display = 'flex';
+}
+function hideMainAccountPanel() {
+  var panel = document.getElementById('mainAccountPanel');
+  if (panel) panel.style.display = 'none';
+}
+async function confirmDeleteMainAccount() {
+  if (!confirm('Delete your account permanently? This cannot be undone.')) return;
+  var token = localStorage.getItem('fgd_client_token');
+  if (!token) return;
+  try {
+    var r = await fetch('/api/auth/account', { method: 'DELETE', headers: { 'Authorization': 'Bearer ' + token } });
+    if (r.ok) {
+      doMainLogout();
+      hideMainAccountPanel();
+      if (typeof showToast === 'function') showToast('Account deleted.', 'success');
+    } else {
+      var d = await r.json();
+      alert(d.error || 'Failed to delete account.');
+    }
+  } catch(e) { alert('Error: ' + e.message); }
+}
+</script>
+
 </body>
 </html>
