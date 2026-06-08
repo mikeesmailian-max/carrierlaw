@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FreightGuard Defense — Fight Back Against False Reports</title>
 <style>
@@ -2786,6 +2787,15 @@ function printHistoryLetter() {
           onkeydown="if(event.key==='Enter')doMainLogin()"/>
       </div>
       <button onclick="doMainLogin()" id="mainLoginBtn" style="width:100%;padding:14px;border-radius:12px;background:#c0392b;border:none;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='#a93226'" onmouseout="this.style.background='#c0392b'">Sign In →</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:18px 0 0;">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+        <span style="font-size:12px;color:rgba(255,255,255,0.3);white-space:nowrap;">or continue with</span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+      </div>
+      <button id="mainGoogleBtn" onclick="doGoogleSignIn()" style="width:100%;margin-top:12px;padding:12px;border-radius:12px;background:#fff;border:none;color:#1f1f1f;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;" onmouseover="this.style.background='#f1f1f1'" onmouseout="this.style.background='#fff'">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
       <div style="text-align:center;margin-top:14px;">
         <a href="#" onclick="switchMainTab('register');return false;" style="font-size:13px;color:rgba(255,255,255,0.4);">No account? <span style="color:#ff8070;font-weight:700;">Create one →</span></a>
       </div>
@@ -2812,6 +2822,15 @@ function printHistoryLetter() {
           onkeydown="if(event.key==='Enter')doMainRegister()"/>
       </div>
       <button onclick="doMainRegister()" id="mainRegBtn" style="width:100%;padding:14px;border-radius:12px;background:#c0392b;border:none;color:#fff;font-size:16px;font-weight:800;cursor:pointer;font-family:inherit;" onmouseover="this.style.background='#a93226'" onmouseout="this.style.background='#c0392b'">Create Account →</button>
+      <div style="display:flex;align-items:center;gap:10px;margin:18px 0 0;">
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+        <span style="font-size:12px;color:rgba(255,255,255,0.3);white-space:nowrap;">or sign up with</span>
+        <div style="flex:1;height:1px;background:rgba(255,255,255,0.1);"></div>
+      </div>
+      <button onclick="doGoogleSignIn()" style="width:100%;margin-top:12px;padding:12px;border-radius:12px;background:#fff;border:none;color:#1f1f1f;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:10px;" onmouseover="this.style.background='#f1f1f1'" onmouseout="this.style.background='#fff'">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
       <div style="text-align:center;margin-top:14px;">
         <a href="#" onclick="switchMainTab('signin');return false;" style="font-size:13px;color:rgba(255,255,255,0.4);">Have an account? <span style="color:#ff8070;font-weight:700;">Sign in →</span></a>
       </div>
@@ -2977,6 +2996,70 @@ function doMainLogout() {
   closeMainAccountMenu();
   updateMainAuthUI();
   if (typeof showToast === 'function') showToast('Signed out.', 'success');
+}
+
+// Google Sign-In
+var _googleClientId = null;
+fetch('/api/auth/google-client-id').then(function(r){return r.json();}).then(function(d){
+  _googleClientId = d.clientId || null;
+}).catch(function(){});
+
+function doGoogleSignIn() {
+  if (!_googleClientId) {
+    showMainAuthAlert('Google Sign-In is not configured yet.', 'error');
+    return;
+  }
+  if (typeof google === 'undefined' || !google.accounts) {
+    showMainAuthAlert('Google Sign-In script not loaded. Please refresh the page.', 'error');
+    return;
+  }
+  google.accounts.id.initialize({
+    client_id: _googleClientId,
+    callback: handleGoogleCredential,
+    auto_select: false,
+    cancel_on_tap_outside: true
+  });
+  google.accounts.id.prompt(function(notification) {
+    if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+      // Fallback: open popup
+      google.accounts.id.renderButton(
+        document.createElement('div'),
+        { theme: 'outline', size: 'large' }
+      );
+      // Force popup
+      var fakeDiv = document.createElement('div');
+      fakeDiv.style.display = 'none';
+      document.body.appendChild(fakeDiv);
+      google.accounts.id.renderButton(fakeDiv, {
+        type: 'standard', theme: 'outline', size: 'large', text: 'continue_with'
+      });
+      fakeDiv.querySelector('div[role=button]') && fakeDiv.querySelector('div[role=button]').click();
+    }
+  });
+}
+
+async function handleGoogleCredential(response) {
+  var btn = document.getElementById('mainGoogleBtn');
+  if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+  try {
+    var r = await fetch('/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ credential: response.credential })
+    });
+    var d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Google sign-in failed');
+    localStorage.setItem('fgd_client_token', d.token);
+    localStorage.setItem('fgd_client_user', JSON.stringify(d.user));
+    _mainUser = d.user;
+    document.getElementById('mainAuthPanel').style.display = 'none';
+    updateMainAuthUI();
+    if (typeof showToast === 'function') showToast('Welcome, ' + (d.user.name || d.user.email) + '! ✅', 'success');
+  } catch(e) {
+    showMainAuthAlert('❌ ' + e.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; }
+  }
 }
 
 function toggleMainAccountMenu() {
