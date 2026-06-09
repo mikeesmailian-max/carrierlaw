@@ -957,24 +957,70 @@ function filterFeed(term) {
 async function runSearch() {
   const term = document.getElementById('feedSearch').value.trim();
   if (!term) { loadFeed(); return; }
-  document.getElementById('feedContainer').innerHTML = '<div style="text-align:center;padding:48px;color:#7a9ab5;font-size:16px;">Searching...</div>';
+  const feedEl = document.getElementById('feedContainer');
+  feedEl.innerHTML = '<div style="text-align:center;padding:48px;color:#7a9ab5;font-size:16px;">🔍 Searching...</div>';
+
+  const isMCDOT = /^\d{5,8}$/.test(term.replace(/^(mc-?|dot-?)/i,'').trim());
+  const cleanNum = term.replace(/^(mc-?|dot-?)/i,'').trim().replace(/\D/g,'');
+
   try {
+    // 1. Fetch community reports
     const cat = document.getElementById('feedFilter').value;
     const sev = document.getElementById('severityFilter').value;
     let url = `/api/carrier-hub/reports?limit=1000&q=${encodeURIComponent(term)}`;
     if (cat) url += '&category=' + cat;
     if (sev) url += '&severity=' + sev;
-    const r = await fetch(url);
-    const d = await r.json();
-    _allReports = d.reports || [];
-    if (_allReports.length === 0) {
-      document.getElementById('feedContainer').innerHTML = '<div style="text-align:center;padding:48px;color:#7a9ab5;font-size:16px;">No results found for <strong>' + term + '</strong></div>';
-    } else {
-      renderFeed(_allReports);
-    }
+    const rpt = await fetch(url);
+    const rptData = await rpt.json();
+    _allReports = rptData.reports || [];
     document.getElementById('feedLoadMore').style.display = 'none';
+
+    // 2. If looks like MC/DOT — fetch FMCSA info and show at top
+    let fmcsaCard = '';
+    if (isMCDOT && cleanNum.length >= 5) {
+      try {
+        const fr = await fetch('/api/fmcsa-lookup?mc=' + cleanNum);
+        const fd = await fr.json();
+        if (fd.legalName) {
+          const statusColor = fd.status === 'Active' ? '#27ae60' : '#e74c3c';
+          fmcsaCard = `<div style="background:#fff;border:2px solid #1e3a5f;border-radius:14px;padding:20px 24px;margin-bottom:20px;box-shadow:0 4px 16px rgba(30,58,95,0.1);">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <span style="font-size:22px;">🏢</span>
+              <div>
+                <div style="font-size:18px;font-weight:800;color:#1a2942;">${fd.legalName}</div>
+                ${fd.dbaName ? `<div style="font-size:13px;color:#7a9ab5;">DBA: ${fd.dbaName}</div>` : ''}
+              </div>
+              <span style="margin-left:auto;background:${statusColor}20;color:${statusColor};border:1px solid ${statusColor}55;border-radius:20px;padding:4px 14px;font-size:13px;font-weight:700;">${fd.status||'Unknown'}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;font-size:14px;color:#4a6580;">
+              ${fd.dotNumber ? `<div><span style="color:#1e3a5f;font-weight:700;">DOT:</span> ${fd.dotNumber}</div>` : ''}
+              ${cleanNum ? `<div><span style="color:#1e3a5f;font-weight:700;">MC:</span> ${cleanNum}</div>` : ''}
+              ${fd.address ? `<div><span style="color:#1e3a5f;font-weight:700;">Address:</span> ${fd.address}</div>` : ''}
+              ${fd.phone ? `<div><span style="color:#1e3a5f;font-weight:700;">Phone:</span> ${fd.phone}</div>` : ''}
+            </div>
+            <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+              <button onclick="showTab('broker-check');document.getElementById('bc_mc').value='${cleanNum}';brokerSafeCheck('${cleanNum}')" class="btn btn-navy" style="font-size:13px;padding:7px 16px;">🔍 Full Risk Check</button>
+              <button onclick="showTab('report');document.getElementById('rpt_brokerMC').value='${cleanNum}';document.getElementById('rpt_brokerName').value='${fd.legalName}'" class="btn btn-red" style="font-size:13px;padding:7px 16px;">🚨 Report This Broker</button>
+            </div>
+          </div>`;
+        }
+      } catch(e) { /* FMCSA lookup failed, continue */ }
+    }
+
+    // 3. Render
+    if (_allReports.length === 0 && !fmcsaCard) {
+      feedEl.innerHTML = `<div style="text-align:center;padding:48px;color:#7a9ab5;font-size:16px;">No results found for <strong>${term}</strong></div>`;
+    } else {
+      const header = fmcsaCard ? `<div id="fmcsa-info-card">${fmcsaCard}</div>` : '';
+      if (_allReports.length === 0) {
+        feedEl.innerHTML = header + `<div style="text-align:center;padding:32px;color:#7a9ab5;font-size:15px;">No community reports filed for MC-${cleanNum} yet.</div>`;
+      } else {
+        feedEl.innerHTML = header;
+        renderFeed(_allReports);
+      }
+    }
   } catch(e) {
-    document.getElementById('feedContainer').innerHTML = '<div style="padding:20px;color:#f07060;">Search error: ' + e.message + '</div>';
+    feedEl.innerHTML = '<div style="padding:20px;color:#f07060;">Search error: ' + e.message + '</div>';
   }
 }
 
