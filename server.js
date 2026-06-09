@@ -2804,11 +2804,20 @@ View: ${process.env.SITE_URL||'https://freightguarddefense.com'}/carrier-hub.htm
 
 // Get broker reports (public feed)
 app.get('/api/carrier-hub/reports', async (req, res) => {
-  const { brokerMC, category, severity, limit = 50, offset = 0 } = req.query;
+  const { brokerMC, category, severity, q, limit = 50, offset = 0 } = req.query;
   let reports = loadCarrierReports();
   if (brokerMC) reports = reports.filter(r => r.brokerMC === brokerMC.replace(/\D/g,''));
   if (category) reports = reports.filter(r => r.categories?.includes(category));
   if (severity) reports = reports.filter(r => r.severity === severity);
+  if (q) {
+    const t = q.toLowerCase();
+    reports = reports.filter(r =>
+      (r.brokerName||'').toLowerCase().includes(t) ||
+      (r.brokerMC||'').includes(t) ||
+      (r.description||'').toLowerCase().includes(t) ||
+      (r.categories||[]).join(' ').includes(t)
+    );
+  }
   reports.sort((a,b) => b.createdAt > a.createdAt ? 1 : -1);
   const total = reports.length;
   reports = reports.slice(Number(offset), Number(offset)+Number(limit));
