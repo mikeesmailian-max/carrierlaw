@@ -2805,23 +2805,64 @@ View: ${process.env.SITE_URL||'https://freightguarddefense.com'}/carrier-hub.htm
 // Get broker reports (public feed)
 app.get('/api/carrier-hub/reports', async (req, res) => {
   const { brokerMC, category, severity, q, limit = 50, offset = 0 } = req.query;
-  let reports = loadCarrierReports();
-  if (brokerMC) reports = reports.filter(r => r.brokerMC === brokerMC.replace(/\D/g,''));
-  if (category) reports = reports.filter(r => r.categories?.includes(category));
-  if (severity) reports = reports.filter(r => r.severity === severity);
-  if (q) {
-    const t = q.toLowerCase();
-    reports = reports.filter(r =>
-      (r.brokerName||'').toLowerCase().includes(t) ||
-      (r.brokerMC||'').includes(t) ||
-      (r.description||'').toLowerCase().includes(t) ||
-      (r.categories||[]).join(' ').includes(t)
-    );
+  let reports;
+
+  if (pgPool) {
+    // Build parameterised query from PostgreSQL
+    const conditions = [];
+    const params = [];
+    if (brokerMC) { params.push(brokerMC.replace(/\D/g,'')); conditions.push(`broker_mc = $${params.length}`); }
+    if (category)  { params.push(category);  conditions.push(`$${params.length} = ANY(categories)`); }
+    if (severity)  { params.push(severity);  conditions.push(`severity = $${params.length}`); }
+    if (q) {
+      params.push('%' + q.toLowerCase() + '%');
+      const i = params.length;
+      conditions.push(`(LOWER(broker_name) LIKE $${i} OR broker_mc LIKE $${i} OR LOWER(description) LIKE $${i} OR LOWER(ARRAY_TO_STRING(categories,' ')) LIKE $${i})`);
+    }
+    const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
+    const result = await pgPool.query(
+      `SELECT id, broker_mc, broker_name, broker_address, reporter_mc, reporter_name,
+              reporter_email, incident_date, categories, description, amount_owed,
+              load_number, severity, verified, upvotes, created_at
+       FROM carrier_broker_reports ${where} ORDER BY created_at DESC`,
+      params
+    ).catch(() => null);
+
+    if (result) {
+      reports = result.rows.map(r => ({
+        id: r.id, brokerMC: r.broker_mc, brokerName: r.broker_name,
+        brokerAddress: r.broker_address, reporterMC: r.reporter_mc,
+        reporterName: r.reporter_name, reporterEmail: r.reporter_email,
+        incidentDate: r.incident_date, categories: r.categories || [],
+        description: r.description, amountOwed: r.amount_owed,
+        loadNumber: r.load_number, severity: r.severity,
+        verified: r.verified, upvotes: r.upvotes || 0,
+        createdAt: r.created_at
+      }));
+    }
   }
-  reports.sort((a,b) => b.createdAt > a.createdAt ? 1 : -1);
+
+  if (!reports) {
+    // Fallback to JSON file
+    reports = loadCarrierReports();
+    if (brokerMC) reports = reports.filter(r => r.brokerMC === brokerMC.replace(/\D/g,''));
+    if (category) reports = reports.filter(r => r.categories?.includes(category));
+    if (severity) reports = reports.filter(r => r.severity === severity);
+    if (q) {
+      const t = q.toLowerCase();
+      reports = reports.filter(r =>
+        (r.brokerName||'').toLowerCase().includes(t) ||
+        (r.brokerMC||'').includes(t) ||
+        (r.description||'').toLowerCase().includes(t) ||
+        (r.categories||[]).join(' ').includes(t)
+      );
+    }
+    reports.sort((a,b) => b.createdAt > a.createdAt ? 1 : -1);
+  }
+
   const total = reports.length;
-  reports = reports.slice(Number(offset), Number(offset)+Number(limit));
-  res.json({ reports, total, hasMore: total > Number(offset)+Number(limit) });
+  const page  = reports.slice(Number(offset), Number(offset)+Number(limit));
+  res.json({ reports: page, total, hasMore: total > Number(offset)+Number(limit) });
 });
 
 // Get broker reputation summary
