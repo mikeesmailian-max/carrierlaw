@@ -115,7 +115,11 @@ try {
 
 const app    = express();
 const PORT   = process.env.PORT || 3000;
-const stripe = process.env.STRIPE_SECRET_KEY ? Stripe(process.env.STRIPE_SECRET_KEY) : null;
+// Load startup config from file (for env vars not set in process.env)
+const _startupConfigFile = path.join(__dirname, 'data', 'config.json');
+const _startupConfig = (() => { try { return JSON.parse(fs.readFileSync(_startupConfigFile, 'utf8')); } catch { return {}; } })();
+const _initStripeKey = process.env.STRIPE_SECRET_KEY || _startupConfig.STRIPE_SECRET_KEY || '';
+let stripe = _initStripeKey ? Stripe(_initStripeKey) : null;
 
 app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
@@ -154,7 +158,7 @@ app.get('/health', (req, res) => {
     status: 'ok',
     uptime: Math.floor(process.uptime()),
     anthropic:  !!process.env.ANTHROPIC_API_KEY,
-    stripe:     !!process.env.STRIPE_SECRET_KEY,
+    stripe:     !!stripe,
     resend:     !!resendClient,
     smtp:       !!process.env.SMTP_USER,
     googleMaps: !!process.env.GOOGLE_MAPS_API_KEY,
@@ -3776,6 +3780,10 @@ app.put('/api/admin/config', requireAdmin, async (req, res) => {
   // Re-init Anthropic client if key updated
   if (updates.ANTHROPIC_API_KEY) {
     anthropic._client = new Anthropic({ apiKey: updates.ANTHROPIC_API_KEY });
+  }
+  // Re-init Stripe if key updated
+  if (updates.STRIPE_SECRET_KEY) {
+    stripe = Stripe(updates.STRIPE_SECRET_KEY);
   }
   res.json({ success: true, updated: Object.keys(updates) });
 });
