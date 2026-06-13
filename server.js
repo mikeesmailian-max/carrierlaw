@@ -4165,7 +4165,24 @@ app.post('/api/admin/send-weekly-report', requireAdmin, async (req, res) => {
 
 
 // ── START ─────────────────────────────────────────────────────
-const server = app.listen(PORT, () => {
+// Load runtime config from PostgreSQL before accepting requests
+async function startServer() {
+  if (pgPool) {
+    try {
+      const r = await pgPool.query("SELECT key, value FROM app_config");
+      for (const { key, value } of r.rows) {
+        if (!process.env[key] && value) process.env[key] = value;
+      }
+      if (!stripe && process.env.STRIPE_SECRET_KEY) {
+        stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+        console.log('  💳  Stripe key loaded from DB config');
+      }
+    } catch(e) {
+      console.warn('  ⚠️  Could not load config from PG:', e.message);
+    }
+  }
+
+  const server = app.listen(PORT, () => {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════╗');
   console.log('║        FreightGuard Defense  —  Server Ready          ║');
@@ -4183,6 +4200,9 @@ const server = app.listen(PORT, () => {
     console.error('  ⚠️   WARNING: ANTHROPIC_API_KEY is not set. Letter generation will fail until you add it to .env');
   }
 });
+} // end startServer
+
+startServer().catch(e => console.error('Startup error:', e));
 
 // ── GLOBAL ERROR HANDLER ──────────────────────────────────────
 // Catches any unhandled Express errors — always returns JSON (never empty)
